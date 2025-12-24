@@ -1,11 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
     margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    font-family: 'Fredoka', -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
         "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
         sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -19,57 +20,115 @@ code {
 
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
+        /* Light Mode - Pastel & Cute */
+        --background: 165 35% 97%;
+        --foreground: 222 30% 15%;
+        
         --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
+        --card-foreground: 222 30% 15%;
+        
         --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
+        --popover-foreground: 222 30% 15%;
+        
+        /* Pastel Mint Primary */
+        --primary: 165 45% 75%;
+        --primary-foreground: 222 30% 15%;
+        --primary-glow: 165 50% 85%;
+        
+        /* Cotton Candy Pink Accent */
+        --secondary: 340 60% 88%;
+        --secondary-foreground: 222 30% 15%;
+        
+        /* Lavender Mist */
+        --accent: 270 50% 88%;
+        --accent-foreground: 222 30% 15%;
+        
+        /* Peach Blush */
+        --muted: 25 70% 90%;
+        --muted-foreground: 222 20% 40%;
+        
+        --destructive: 0 70% 70%;
         --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
+        
+        /* Sage Outline */
+        --border: 165 30% 82%;
+        --input: 165 30% 82%;
+        --ring: 165 45% 75%;
+        
+        /* Custom Tokens */
+        --success: 145 60% 65%;
+        --warning: 45 90% 70%;
+        
+        /* Gradients */
+        --gradient-primary: linear-gradient(135deg, hsl(165 45% 75%), hsl(270 50% 88%));
+        --gradient-accent: linear-gradient(135deg, hsl(340 60% 88%), hsl(270 50% 88%));
+        --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(165 35% 97%));
+        
+        /* Shadows */
+        --shadow-sm: 0 2px 8px -2px hsl(222 30% 15% / 0.08);
+        --shadow-md: 0 4px 16px -4px hsl(222 30% 15% / 0.1);
+        --shadow-lg: 0 10px 30px -10px hsl(222 30% 15% / 0.15);
+        --shadow-glow: 0 0 20px hsl(165 45% 75% / 0.3);
+        
+        /* Animations */
+        --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-bounce: 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        
+        --radius: 1rem;
     }
+    
     .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
+        /* Dark Mode - Professional like Emergent */
+        --background: 222 47% 11%;
+        --foreground: 210 40% 98%;
+        
+        --card: 222 40% 15%;
+        --card-foreground: 210 40% 98%;
+        
+        --popover: 222 40% 15%;
+        --popover-foreground: 210 40% 98%;
+        
+        /* Professional Blue Primary */
+        --primary: 217 70% 58%;
+        --primary-foreground: 210 40% 98%;
+        --primary-glow: 217 70% 65%;
+        
+        /* Deep Purple Secondary */
+        --secondary: 263 60% 55%;
+        --secondary-foreground: 210 40% 98%;
+        
+        /* Teal Accent */
+        --accent: 187 70% 52%;
+        --accent-foreground: 210 40% 98%;
+        
+        --muted: 222 30% 20%;
+        --muted-foreground: 215 20% 65%;
+        
+        --destructive: 0 70% 60%;
+        --destructive-foreground: 210 40% 98%;
+        
+        --border: 222 30% 25%;
+        --input: 222 30% 25%;
+        --ring: 217 70% 58%;
+        
+        /* Custom Tokens */
+        --success: 145 60% 50%;
+        --warning: 45 90% 60%;
+        
+        /* Gradients */
+        --gradient-primary: linear-gradient(135deg, hsl(217 70% 58%), hsl(263 60% 55%));
+        --gradient-accent: linear-gradient(135deg, hsl(263 60% 55%), hsl(187 70% 52%));
+        --gradient-card: linear-gradient(180deg, hsl(222 40% 15%), hsl(222 47% 11%));
+        
+        /* Shadows */
+        --shadow-sm: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
+        --shadow-md: 0 4px 16px -4px hsl(0 0% 0% / 0.4);
+        --shadow-lg: 0 10px 30px -10px hsl(0 0% 0% / 0.5);
+        --shadow-glow: 0 0 30px hsl(217 70% 58% / 0.4);
+        
+        /* Animations - same as light */
+        --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-bounce: 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
     }
 }
 
@@ -79,6 +138,25 @@ code {
     }
     body {
         @apply bg-background text-foreground;
+        transition: background-color var(--transition-smooth), color var(--transition-smooth);
+    }
+    
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        @apply bg-muted/30;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        @apply bg-primary/50 rounded-full;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        @apply bg-primary;
     }
 }
 
@@ -112,4 +190,91 @@ code {
         border-top-color: inherit;
         border-bottom-color: inherit;
     }
+}
+
+/* Custom Animations */
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes sparkle {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.1);
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-float {
+    animation: float 3s ease-in-out infinite;
+}
+
+.animate-sparkle {
+    animation: sparkle 2s ease-in-out infinite;
+}
+
+.animate-slideInUp {
+    animation: slideInUp 0.4s ease-out;
+}
+
+/* Glass morphism effect */
+.glass {
+    background: hsl(var(--card) / 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border) / 0.5);
+}
+
+/* Gradient text */
+.gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Note Card Styles */
+.note-card {
+    transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
+}
+
+.note-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Character Card Glow */
+.character-glow {
+    box-shadow: var(--shadow-glow);
+}
+
+/* Smooth transitions for interactive elements */
+button, input, textarea, select {
+    transition: background-color var(--transition-smooth),
+                border-color var(--transition-smooth),
+                color var(--transition-smooth),
+                transform var(--transition-smooth);
+}
+
+button:active {
+    transform: scale(0.97);
 }
