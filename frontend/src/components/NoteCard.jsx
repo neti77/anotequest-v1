@@ -362,8 +362,9 @@ export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onI
 
           {/* Resize Handle */}
           <div
-            className="absolute bottom-1 right-1 w-6 h-6 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+            className="absolute bottom-1 right-1 w-8 h-8 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center touch-none"
             onMouseDown={handleResizeStart}
+            onTouchStart={handleResizeStart}
             style={{ 
               background: 'hsl(var(--primary))',
               borderRadius: '0 0 4px 0',
