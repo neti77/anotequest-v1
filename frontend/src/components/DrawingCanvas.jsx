@@ -113,8 +113,8 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
       />
 
       {/* Draggable Drawing Controls */}
-      <Draggable handle=".drag-handle" bounds="parent">
-        <div className="fixed bottom-24 right-8 z-50">
+      <Draggable handle=".drag-handle" bounds="parent" nodeRef={toolbarRef}>
+        <div ref={toolbarRef} className="fixed bottom-24 right-8 z-50">
           <Card className="bg-card/95 backdrop-blur-md border-2 border-border shadow-xl p-3 w-56">
             {/* Drag Handle */}
             <div className="drag-handle flex items-center justify-between mb-3 cursor-move pb-2 border-b border-border">
