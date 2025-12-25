@@ -1,6 +1,6 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import Draggable from 'react-draggable';
-import { ArrowRight, ArrowDown, ArrowLeft, ArrowUp, Circle, Square, Star, Heart, RotateCw, Trash2 } from 'lucide-react';
+import { ArrowRight, ArrowDown, ArrowLeft, ArrowUp, Circle, Square, Star, Heart, RotateCw, Trash2, Maximize2 } from 'lucide-react';
 import { Button } from './ui/button';
 
 const STICKER_ICONS = {
