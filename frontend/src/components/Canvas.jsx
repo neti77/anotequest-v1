@@ -30,6 +30,7 @@ export const Canvas = ({
   const [drawPreview, setDrawPreview] = useState(null);
   const [canvasSize, setCanvasSize] = useState({ width: 3000, height: 2000 });
   const [drawings, setDrawings] = useState([]);
+  const [stickerColor, setStickerColor] = useState('#3b82f6');
   const fileInputRef = useRef(null);
 
   // Load drawings from localStorage
