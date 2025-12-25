@@ -7,17 +7,14 @@ import { Card } from './ui/card';
 
 export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
   const canvasRef = useRef(null);
-  const containerRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [isPanning, setIsPanning] = useState(false);
   const [color, setColor] = useState('#3b82f6');
   const [brushSize, setBrushSize] = useState(3);
   const [currentPath, setCurrentPath] = useState([]);
   const [isEraser, setIsEraser] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [scrollPosition, setScrollPosition] = useState({ x: 0, y: 0 });
   const toolbarRef = useRef(null);
+  const lastTouchTime = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
