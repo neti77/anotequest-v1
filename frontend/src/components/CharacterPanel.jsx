@@ -1,13 +1,28 @@
 import React from 'react';
-import { Lock, Sparkles, TrendingUp } from 'lucide-react';
+import { Lock, Sparkles, TrendingUp, Lock as LockClosed, Unlock } from 'lucide-react';
 import { Card } from './ui/card';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
+import { toast } from 'sonner';
 
-export const CharacterPanel = ({ characters }) => {
+export const CharacterPanel = ({ characters, updateCharacter }) => {
   const unlockedCharacters = characters.filter(c => c.unlocked);
   const lockedCharacters = characters.filter(c => !c.unlocked);
+
+  const handleCageToggle = (character) => {
+    updateCharacter(character.id, { caged: !character.caged });
+    toast.success(character.caged ? `${character.name} released!` : `${character.name} caged`);
+  };
+
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const remainingMins = minutes % 60;
+    return `${hours}h ${remainingMins}m`;
+  };
 
   return (
     <div className="p-4">
@@ -27,7 +42,14 @@ export const CharacterPanel = ({ characters }) => {
           {unlockedCharacters.map(char => (
             <Card key={char.id} className="p-4 bg-gradient-to-br from-card to-primary/5 border-primary/30 character-glow animate-slideInUp">
               <div className="flex items-start gap-3">
-                <div className="text-4xl animate-float">{char.emoji}</div>
+                <div className="text-4xl animate-float relative">
+                  {char.emoji}
+                  {char.caged && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded">
+                      <LockClosed className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="font-semibold text-sm truncate">{char.name}</h3>
@@ -36,6 +58,7 @@ export const CharacterPanel = ({ characters }) => {
                       Lv {char.level}
                     </Badge>
                   </div>
+                  <p className="text-xs text-muted-foreground mb-2 capitalize">{char.type}</p>
                   <div className="space-y-2">
                     <div>
                       <div className="flex justify-between text-xs text-muted-foreground mb-1">
@@ -44,9 +67,24 @@ export const CharacterPanel = ({ characters }) => {
                       </div>
                       <Progress value={(char.xp % 150) / 150 * 100} className="h-1.5" />
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Keep writing to level up {char.name}!
-                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-7 text-xs"
+                      onClick={() => handleCageToggle(char)}
+                    >
+                      {char.caged ? (
+                        <>
+                          <Unlock className="h-3 w-3 mr-1" />
+                          Release
+                        </>
+                      ) : (
+                        <>
+                          <LockClosed className="h-3 w-3 mr-1" />
+                          Cage
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -65,10 +103,11 @@ export const CharacterPanel = ({ characters }) => {
                   </div>
                   <div className="space-y-1 text-xs text-muted-foreground">
                     <p className="flex items-center gap-1">
-                      <span className="font-medium">Unlock at:</span>
+                      <span className="font-medium">Unlock requirements:</span>
                     </p>
                     <p>• {char.requirement.notes} notes</p>
                     <p>• {char.requirement.words} words</p>
+                    <p>• {formatTime(char.requirement.time)} time spent</p>
                   </div>
                 </div>
               </div>

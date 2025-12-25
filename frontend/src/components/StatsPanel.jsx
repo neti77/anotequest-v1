@@ -1,10 +1,12 @@
 import React from 'react';
-import { TrendingUp, FileText, Type, Zap, Calendar, Target } from 'lucide-react';
+import { TrendingUp, FileText, Type, Zap, Calendar, Target, Swords, Clock, Crown } from 'lucide-react';
 import { Card } from './ui/card';
 import { Progress } from './ui/progress';
 import { ScrollArea } from './ui/scroll-area';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 
-export const StatsPanel = ({ stats, notes }) => {
+export const StatsPanel = ({ stats, notes, isPremium }) => {
   const nextLevelXP = stats.level * 100;
   const currentLevelXP = stats.xp - ((stats.level - 1) * 100);
   const progressPercent = (currentLevelXP / 100) * 100;
@@ -16,6 +18,15 @@ export const StatsPanel = ({ stats, notes }) => {
   const avgWordsPerNote = stats.totalNotes > 0
     ? Math.round(stats.totalWords / stats.totalNotes)
     : 0;
+
+  const formatTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  };
+
+  const winRate = stats.battles > 0 ? Math.round((stats.wins / stats.battles) * 100) : 0;
 
   const statCards = [
     {
@@ -55,6 +66,12 @@ export const StatsPanel = ({ stats, notes }) => {
           <Target className="h-5 w-5 text-accent" />
           Your Stats
         </h2>
+        {isPremium && (
+          <Badge className="gap-1 bg-gradient-to-r from-amber-500 to-orange-500">
+            <Crown className="h-3 w-3" />
+            Pro
+          </Badge>
+        )}
       </div>
 
       <ScrollArea className="h-[calc(100%-3rem)]">
@@ -73,6 +90,32 @@ export const StatsPanel = ({ stats, notes }) => {
               </div>
             </div>
           </Card>
+
+          {/* Time & Battles */}
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="p-3">
+              <div className="flex flex-col gap-2">
+                <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
+                  <Clock className="h-4 w-4 text-warning" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Time Spent</p>
+                  <p className="text-lg font-bold">{formatTime(stats.timeSpent)}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3">
+              <div className="flex flex-col gap-2">
+                <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center">
+                  <Swords className="h-4 w-4 text-destructive" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Battles</p>
+                  <p className="text-lg font-bold">{stats.wins}/{stats.battles}</p>
+                </div>
+              </div>
+            </Card>
+          </div>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 gap-3">
@@ -100,6 +143,10 @@ export const StatsPanel = ({ stats, notes }) => {
                 <span className="font-medium">{avgWordsPerNote}</span>
               </div>
               <div className="flex justify-between">
+                <span className="text-muted-foreground">Battle win rate</span>
+                <span className="font-medium">{winRate}%</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-muted-foreground">XP per note</span>
                 <span className="font-medium text-primary">10 XP</span>
               </div>
@@ -110,23 +157,18 @@ export const StatsPanel = ({ stats, notes }) => {
             </div>
           </Card>
 
-          {/* Recent Activity */}
-          {recentNotes.length > 0 && (
-            <Card className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold">Recent Notes</h3>
-              </div>
+          {/* File Limit */}
+          {!isPremium && (
+            <Card className="p-4 bg-warning/10 border-warning/30">
+              <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Free Tier Limit
+              </h3>
               <div className="space-y-2">
-                {recentNotes.map(note => {
-                  const wordCount = note.content.trim().split(/\s+/).filter(w => w.length > 0).length;
-                  return (
-                    <div key={note.id} className="text-xs p-2 rounded bg-muted/30 hover:bg-muted/50 transition-colors">
-                      <p className="font-medium truncate mb-1">{note.title}</p>
-                      <p className="text-muted-foreground">{wordCount} words</p>
-                    </div>
-                  );
-                })}
+                <Progress value={(stats.totalNotes / 100) * 100} className="h-2" />
+                <p className="text-xs text-muted-foreground">
+                  {stats.totalNotes}/100 notes used. Battle to earn more or upgrade to premium!
+                </p>
               </div>
             </Card>
           )}
@@ -141,9 +183,9 @@ export const StatsPanel = ({ stats, notes }) => {
               {stats.totalNotes < 10
                 ? `Write ${10 - stats.totalNotes} more notes to unlock your first character!`
                 : stats.totalNotes < 25
-                ? `Write ${25 - stats.totalNotes} more notes to unlock your second character!`
+                ? `Write ${25 - stats.totalNotes} more notes to unlock Knight Notarius!`
                 : stats.totalNotes < 50
-                ? `Write ${50 - stats.totalNotes} more notes to unlock your third character!`
+                ? `Write ${50 - stats.totalNotes} more notes to unlock Inky the Dragon!`
                 : 'Keep writing to level up your characters!'}
             </p>
           </Card>
