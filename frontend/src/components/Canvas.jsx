@@ -308,6 +308,7 @@ export const Canvas = ({
             canvasRef={canvasRef}
           />
         ))}
+        </div>
       </div>
     </div>
   );
