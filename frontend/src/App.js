@@ -358,6 +358,9 @@ function App() {
               updateCharacter={updateCharacter}
               folders={folders}
               isPremium={isPremium}
+              selectedTool={selectedStickerTool}
+              setSelectedTool={setSelectedStickerTool}
+              stickerColor={stickerColor}
             />
           </div>
           
