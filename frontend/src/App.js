@@ -375,6 +375,7 @@ function App() {
         </div>
 
         {showWelcome && <WelcomeModal onClose={handleWelcomeClose} />}
+        {showNameInput && <NameInputModal onComplete={(name) => { setUserName(name); setShowNameInput(false); }} />}
         {showBattle && (
           <BattleModal 
             onClose={() => setShowBattle(false)}
