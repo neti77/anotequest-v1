@@ -254,6 +254,13 @@ export const Canvas = ({
           <Plus className="h-6 w-6" />
         </Button>
 
+        {/* Drawing Canvas Layer */}
+        <DrawingCanvas 
+          canvasSize={canvasSize}
+          drawings={drawings}
+          setDrawings={setDrawings}
+        />
+
         {/* Drawing Preview */}
         {isDrawing && drawPreview && selectedTool && (
           <div
