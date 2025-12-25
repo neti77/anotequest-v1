@@ -5,7 +5,6 @@ import { Badge } from './ui/badge';
 import NoteCard from './NoteCard';
 import StickerItem from './StickerItem';
 import CharacterRoamer from './CharacterRoamer';
-import StickerToolbar from './StickerToolbar';
 import DrawingCanvas from './DrawingCanvas';
 import { toast } from 'sonner';
 
