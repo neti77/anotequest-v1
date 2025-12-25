@@ -26,16 +26,55 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders, onImageUpload 
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeStart, setResizeStart] = useState(null);
   const nodeRef = useRef(null);
   const fileInputRef = useRef(null);
 
   const colorScheme = NOTE_COLORS.find(c => c.name === note.color) || NOTE_COLORS[0];
+  const noteSize = note.size || { width: 320, height: 280 };
 
   const handleDragStop = (e, data) => {
     updateNote(note.id, {
       position: { x: data.x, y: data.y }
     });
   };
+
+  const handleResizeStart = (e) => {
+    e.stopPropagation();
+    setIsResizing(true);
+    setResizeStart({ x: e.clientX, y: e.clientY, width: noteSize.width, height: noteSize.height });
+  };
+
+  const handleResizeMove = (e) => {
+    if (!isResizing || !resizeStart) return;
+    
+    const deltaX = e.clientX - resizeStart.x;
+    const deltaY = e.clientY - resizeStart.y;
+    
+    const newWidth = Math.max(250, resizeStart.width + deltaX);
+    const newHeight = Math.max(200, resizeStart.height + deltaY);
+    
+    updateNote(note.id, {
+      size: { width: newWidth, height: newHeight }
+    });
+  };
+
+  const handleResizeEnd = () => {
+    setIsResizing(false);
+    setResizeStart(null);
+  };
+
+  React.useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', handleResizeMove);
+      window.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        window.removeEventListener('mousemove', handleResizeMove);
+        window.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [isResizing, resizeStart]);
 
   const handleSave = () => {
     updateNote(note.id, { title, content });
