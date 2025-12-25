@@ -39,14 +39,21 @@ export const StickerItem = React.memo(({ sticker, updateSticker, deleteSticker }
     e.preventDefault();
     setIsResizing(true);
     
-    const startX = e.clientX;
-    const startY = e.clientY;
+    // Support both mouse and touch events
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    const startX = clientX;
+    const startY = clientY;
     const startWidth = size.width;
     const startHeight = size.height;
 
-    const handleMouseMove = (moveEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const deltaY = moveEvent.clientY - startY;
+    const handleMove = (moveEvent) => {
+      const moveClientX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
+      const moveClientY = moveEvent.touches ? moveEvent.touches[0].clientY : moveEvent.clientY;
+      
+      const deltaX = moveClientX - startX;
+      const deltaY = moveClientY - startY;
       
       const newWidth = Math.max(30, startWidth + deltaX);
       const newHeight = Math.max(30, startHeight + deltaY);
@@ -56,14 +63,18 @@ export const StickerItem = React.memo(({ sticker, updateSticker, deleteSticker }
       });
     };
 
-    const handleMouseUp = () => {
+    const handleEnd = () => {
       setIsResizing(false);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove);
+      document.removeEventListener('touchend', handleEnd);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove, { passive: false });
+    document.addEventListener('touchend', handleEnd);
   }, [sticker.id, size, updateSticker]);
 
   return (
