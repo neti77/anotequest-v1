@@ -46,7 +46,7 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders, onImageUpload 
     setResizeStart({ x: e.clientX, y: e.clientY, width: noteSize.width, height: noteSize.height });
   };
 
-  const handleResizeMove = (e) => {
+  const handleResizeMove = useCallback((e) => {
     if (!isResizing || !resizeStart) return;
     
     const deltaX = e.clientX - resizeStart.x;
@@ -58,14 +58,14 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders, onImageUpload 
     updateNote(note.id, {
       size: { width: newWidth, height: newHeight }
     });
-  };
+  }, [isResizing, resizeStart, updateNote, note.id]);
 
-  const handleResizeEnd = () => {
+  const handleResizeEnd = useCallback(() => {
     setIsResizing(false);
     setResizeStart(null);
-  };
+  }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isResizing) {
       window.addEventListener('mousemove', handleResizeMove);
       window.addEventListener('mouseup', handleResizeEnd);
@@ -74,7 +74,7 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders, onImageUpload 
         window.removeEventListener('mouseup', handleResizeEnd);
       };
     }
-  }, [isResizing, resizeStart]);
+  }, [isResizing, handleResizeMove, handleResizeEnd]);
 
   const handleSave = () => {
     updateNote(note.id, { title, content });
