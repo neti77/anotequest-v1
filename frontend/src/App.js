@@ -281,16 +281,28 @@ function App() {
   }, []);
 
   const handleBattleWin = useCallback((reward) => {
+    const newWins = stats.wins + 1;
     setStats(prev => ({
       ...prev,
       battles: prev.battles + 1,
-      wins: prev.wins + 1
+      wins: newWins
     }));
     
-    if (reward.notes) {
-      reward.notes.forEach(note => addNote(note));
+    // Check for dragon unlock at 100 wins
+    if (newWins === 100) {
+      // Unlock dragon character
+      setCharacters(prev => {
+        const dragonChar = prev.find(c => c.type === 'dragon' || c.type === 'dragon_lord');
+        if (dragonChar && !dragonChar.unlocked) {
+          setTimeout(() => setUnlockedCharacter({ ...dragonChar, unlocked: true }), 500);
+          return prev.map(c => 
+            c.id === dragonChar.id ? { ...c, unlocked: true, level: 1, xp: 0, position: { x: Math.random() * 200 + 100, y: Math.random() * 200 + 100 }, caged: false } : c
+          );
+        }
+        return prev;
+      });
     }
-  }, [addNote]);
+  }, [stats.wins]);
 
   const handleBattleLose = useCallback(() => {
     setStats(prev => ({
