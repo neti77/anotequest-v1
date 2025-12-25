@@ -288,7 +288,19 @@ export const Canvas = ({
           </div>
         )}
 
-        {/* Render Stickers (behind notes) */}
+        {/* Render Notes (below stickers) */}
+        {notes.map(note => (
+          <NoteCard
+            key={note.id}
+            note={note}
+            updateNote={updateNote}
+            deleteNote={deleteNote}
+            folders={folders}
+            onImageUpload={(e) => handleImageUpload(e, note.id)}
+          />
+        ))}
+
+        {/* Render Stickers (above notes) */}
         {console.log('Rendering stickers:', stickers.length)}
         {stickers.map((sticker, index) => {
           console.log('Rendering sticker', index, sticker);
@@ -301,18 +313,6 @@ export const Canvas = ({
             />
           );
         })}
-
-        {/* Render Notes */}
-        {notes.map(note => (
-          <NoteCard
-            key={note.id}
-            note={note}
-            updateNote={updateNote}
-            deleteNote={deleteNote}
-            folders={folders}
-            onImageUpload={(e) => handleImageUpload(e, note.id)}
-          />
-        ))}
 
         {/* Render Roaming Characters */}
         {characters.map(character => (
