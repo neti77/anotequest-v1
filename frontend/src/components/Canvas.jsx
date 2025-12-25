@@ -121,7 +121,8 @@ export const Canvas = ({
         type: selectedTool,
         position: { x: drawStart.x, y: drawStart.y },
         size: { width: Math.abs(width), height: Math.abs(height) },
-        rotation: 0
+        rotation: 0,
+        color: stickerColor
       });
       toast.success('Sticker added!');
     }
