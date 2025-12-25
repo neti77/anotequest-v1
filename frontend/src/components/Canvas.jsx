@@ -180,6 +180,9 @@ export const Canvas = ({
         ref={canvasRef}
         className={`w-full h-full overflow-auto relative bg-gradient-to-br from-background via-primary/5 to-accent/5 ${selectedTool ? 'cursor-crosshair' : ''}`}
         onClick={handleCanvasClick}
+        onMouseDown={handleCanvasMouseDown}
+        onMouseMove={handleCanvasMouseMove}
+        onMouseUp={handleCanvasMouseUp}
         style={{
           backgroundImage: `
             radial-gradient(circle at 2px 2px, hsl(var(--border)) 1px, transparent 0)
@@ -195,6 +198,20 @@ export const Canvas = ({
         >
           <Plus className="h-6 w-6" />
         </Button>
+
+        {/* Drawing Preview */}
+        {isDrawing && drawPreview && selectedTool && (
+          <div
+            className="absolute pointer-events-none border-2 border-primary border-dashed bg-primary/10 rounded"
+            style={{
+              left: drawPreview.x,
+              top: drawPreview.y,
+              width: Math.abs(drawPreview.width),
+              height: Math.abs(drawPreview.height),
+              transform: `translate(${drawPreview.width < 0 ? drawPreview.width : 0}px, ${drawPreview.height < 0 ? drawPreview.height : 0}px)`
+            }}
+          />
+        )}
 
         {/* Empty State */}
         {notes.length === 0 && (
