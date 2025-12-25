@@ -24,25 +24,74 @@ export const Canvas = ({
 }) => {
   const canvasRef = useRef(null);
   const [selectedTool, setSelectedTool] = useState(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [drawStart, setDrawStart] = useState(null);
+  const [drawPreview, setDrawPreview] = useState(null);
   const fileInputRef = useRef(null);
 
-  const handleCanvasClick = (e) => {
-    if (e.target === canvasRef.current && selectedTool) {
+  const handleCanvasMouseDown = (e) => {
+    if (e.target === canvasRef.current && selectedTool && selectedTool !== 'note') {
       const rect = canvasRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left + canvasRef.current.scrollLeft;
       const y = e.clientY - rect.top + canvasRef.current.scrollTop;
       
-      if (selectedTool === 'note') {
-        handleAddNote({ x, y });
-      } else {
-        // Add sticker
-        addSticker({
-          type: selectedTool,
-          position: { x, y },
-          rotation: 0
-        });
-        toast.success('Sticker added!');
-      }
+      setIsDrawing(true);
+      setDrawStart({ x, y });
+      setDrawPreview({ x, y, width: 0, height: 0 });
+    }
+  };
+
+  const handleCanvasMouseMove = (e) => {
+    if (!isDrawing || !drawStart || !selectedTool) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const currentX = e.clientX - rect.left + canvasRef.current.scrollLeft;
+    const currentY = e.clientY - rect.top + canvasRef.current.scrollTop;
+    
+    const width = currentX - drawStart.x;
+    const height = currentY - drawStart.y;
+    
+    setDrawPreview({
+      x: drawStart.x,
+      y: drawStart.y,
+      width,
+      height
+    });
+  };
+
+  const handleCanvasMouseUp = (e) => {
+    if (!isDrawing || !drawStart || !selectedTool) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const endX = e.clientX - rect.left + canvasRef.current.scrollLeft;
+    const endY = e.clientY - rect.top + canvasRef.current.scrollTop;
+    
+    const width = endX - drawStart.x;
+    const height = endY - drawStart.y;
+    
+    // Minimum size threshold
+    if (Math.abs(width) > 20 || Math.abs(height) > 20) {
+      addSticker({
+        type: selectedTool,
+        position: { x: drawStart.x, y: drawStart.y },
+        size: { width: Math.abs(width), height: Math.abs(height) },
+        rotation: 0
+      });
+      toast.success('Sticker added!');
+    }
+    
+    setIsDrawing(false);
+    setDrawStart(null);
+    setDrawPreview(null);
+    setSelectedTool(null);
+  };
+
+  const handleCanvasClick = (e) => {
+    if (e.target === canvasRef.current && selectedTool === 'note') {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left + canvasRef.current.scrollLeft;
+      const y = e.clientY - rect.top + canvasRef.current.scrollTop;
+      handleAddNote({ x, y });
       setSelectedTool(null);
     }
   };
