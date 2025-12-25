@@ -208,7 +208,7 @@ export const Sidebar = ({ folders, notes, activeFolder, setActiveFolder, addFold
                   <StickerIcon className="h-4 w-4" />
                   Sticker Tools
                 </h2>
-                <p className="text-xs text-muted-foreground mb-3">Select a sticker, then click and drag on canvas to place it</p>
+                <p className="text-xs text-muted-foreground mb-3">Select a sticker, then click on canvas to place it</p>
               </div>
 
               {/* Sticker Types */}
