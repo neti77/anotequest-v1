@@ -68,37 +68,6 @@ export const Canvas = ({
     });
   }, [notes, stickers]);
 
-  // Handle canvas click - for placing stickers and notes with single click
-  const handleCanvasClick = (e) => {
-    // Only handle clicks directly on canvas area, not on notes/stickers
-    const canvasArea = e.target.closest('.canvas-area');
-    const isCanvasClick = e.target === canvasRef.current || 
-                          (canvasArea && !e.target.closest('.note-card') && !e.target.closest('.sticker-item'));
-    
-    if (!isCanvasClick || !selectedTool) return;
-    
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left + canvasRef.current.scrollLeft;
-    const y = e.clientY - rect.top + canvasRef.current.scrollTop;
-    
-    if (selectedTool === 'note') {
-      handleAddNote({ x, y });
-    } else {
-      // Place sticker with default size (can be resized later)
-      const defaultSize = 60;
-      addSticker({
-        type: selectedTool,
-        position: { x: x - defaultSize / 2, y: y - defaultSize / 2 }, // Center on click
-        size: { width: defaultSize, height: defaultSize },
-        rotation: 0,
-        color: stickerColor
-      });
-      toast.success('Sticker added!');
-    }
-    
-    setSelectedTool(null);
-  };
-
   const handleAddNote = (position = null) => {
     const pos = position || { 
       x: Math.random() * 500 + 100, 
