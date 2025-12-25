@@ -223,7 +223,7 @@ export const Canvas = ({
       >
         {/* Expanding canvas container */}
         <div 
-          className="relative min-w-full min-h-full"
+          className="canvas-area relative min-w-full min-h-full"
           style={{
             width: `${canvasSize.width}px`,
             height: `${canvasSize.height}px`
@@ -233,7 +233,7 @@ export const Canvas = ({
         <Button
           onClick={() => handleAddNote()}
           size="lg"
-          className="fixed bottom-8 right-8 rounded-full w-14 h-14 shadow-glow hover:scale-110 transition-transform z-10 bg-gradient-to-br from-primary to-accent"
+          className="fixed bottom-8 right-8 rounded-full w-14 h-14 shadow-glow hover:scale-110 transition-transform z-10 bg-gradient-to-br from-primary to-accent md:bottom-8 md:right-8 bottom-4 right-4"
         >
           <Plus className="h-6 w-6" />
         </Button>
