@@ -12,6 +12,7 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
   const [brushSize, setBrushSize] = useState(3);
   const [currentPath, setCurrentPath] = useState([]);
   const [isEraser, setIsEraser] = useState(false);
+  const toolbarRef = useRef(null);
   const dragHandleRef = useRef(null);
 
   useEffect(() => {
