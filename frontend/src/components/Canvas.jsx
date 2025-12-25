@@ -29,7 +29,21 @@ export const Canvas = ({
   const [drawStart, setDrawStart] = useState(null);
   const [drawPreview, setDrawPreview] = useState(null);
   const [canvasSize, setCanvasSize] = useState({ width: 3000, height: 2000 });
+  const [drawings, setDrawings] = useState([]);
   const fileInputRef = useRef(null);
+
+  // Load drawings from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('anotequest_drawings');
+    if (saved) {
+      setDrawings(JSON.parse(saved));
+    }
+  }, []);
+
+  // Save drawings
+  useEffect(() => {
+    localStorage.setItem('anotequest_drawings', JSON.stringify(drawings));
+  }, [drawings]);
 
   // Calculate canvas size based on content
   useEffect(() => {
