@@ -219,6 +219,14 @@ export const Canvas = ({
           backgroundSize: '32px 32px'
         }}
       >
+        {/* Expanding canvas container */}
+        <div 
+          className="relative min-w-full min-h-full"
+          style={{
+            width: `${canvasSize.width}px`,
+            height: `${canvasSize.height}px`
+          }}
+        >
         {/* Floating Add Button */}
         <Button
           onClick={() => handleAddNote()}
