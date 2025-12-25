@@ -68,7 +68,7 @@ export const StickerItem = ({ sticker, updateSticker, deleteSticker }) => {
         window.removeEventListener('mouseup', handleResizeEnd);
       };
     }
-  }, [isResizing, resizeStart]);
+  }, [isResizing, handleResizeMove, handleResizeEnd]);
 
   const isArrow = sticker.type.includes('arrow');
 
