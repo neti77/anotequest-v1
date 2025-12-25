@@ -280,14 +280,18 @@ export const Canvas = ({
         )}
 
         {/* Render Stickers (behind notes) */}
-        {stickers.map(sticker => (
-          <StickerItem
-            key={sticker.id}
-            sticker={sticker}
-            updateSticker={updateSticker}
-            deleteSticker={deleteSticker}
-          />
-        ))}
+        {console.log('Rendering stickers:', stickers.length)}
+        {stickers.map((sticker, index) => {
+          console.log('Rendering sticker', index, sticker);
+          return (
+            <StickerItem
+              key={sticker.id}
+              sticker={sticker}
+              updateSticker={updateSticker}
+              deleteSticker={deleteSticker}
+            />
+          );
+        })}
 
         {/* Render Notes */}
         {notes.map(note => (
