@@ -20,10 +20,7 @@ export const Canvas = ({
   deleteSticker,
   updateCharacter,
   folders,
-  isPremium,
-  selectedTool,
-  setSelectedTool,
-  stickerColor
+  isPremium
 }) => {
   const canvasRef = useRef(null);
   const [canvasSize, setCanvasSize] = useState({ width: 3000, height: 2000 });
