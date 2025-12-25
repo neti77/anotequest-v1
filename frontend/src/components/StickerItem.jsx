@@ -40,7 +40,7 @@ export const StickerItem = ({ sticker, updateSticker, deleteSticker }) => {
     setResizeStart({ x: e.clientX, y: e.clientY, width: size.width, height: size.height });
   };
 
-  const handleResizeMove = (e) => {
+  const handleResizeMove = useCallback((e) => {
     if (!isResizing || !resizeStart) return;
     
     const deltaX = e.clientX - resizeStart.x;
@@ -52,12 +52,12 @@ export const StickerItem = ({ sticker, updateSticker, deleteSticker }) => {
     updateSticker(sticker.id, {
       size: { width: newWidth, height: newHeight }
     });
-  };
+  }, [isResizing, resizeStart, updateSticker, sticker.id]);
 
-  const handleResizeEnd = () => {
+  const handleResizeEnd = useCallback(() => {
     setIsResizing(false);
     setResizeStart(null);
-  };
+  }, []);
 
   useEffect(() => {
     if (isResizing) {
