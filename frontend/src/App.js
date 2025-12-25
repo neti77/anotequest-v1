@@ -335,6 +335,10 @@ function App() {
               setActiveFolder={setActiveFolder}
               addFolder={addFolder}
               deleteFolder={deleteFolder}
+              selectedTool={null}
+              setSelectedTool={() => {}}
+              stickerColor={'#3b82f6'}
+              setStickerColor={() => {}}
             />
           )}
           
