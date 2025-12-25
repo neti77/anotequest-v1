@@ -204,6 +204,8 @@ export const Canvas = ({
       <StickerToolbar 
         selectedTool={selectedTool}
         setSelectedTool={setSelectedTool}
+        stickerColor={stickerColor}
+        setStickerColor={setStickerColor}
         onAddImage={() => fileInputRef.current?.click()}
       />
 
