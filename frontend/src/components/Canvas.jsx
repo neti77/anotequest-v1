@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 
 export const Canvas = ({ 
   notes, 
+  totalNoteCount,
   stickers,
   characters,
   addNote, 
