@@ -27,7 +27,36 @@ export const Canvas = ({
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawStart, setDrawStart] = useState(null);
   const [drawPreview, setDrawPreview] = useState(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 3000, height: 2000 });
   const fileInputRef = useRef(null);
+
+  // Calculate canvas size based on content
+  useEffect(() => {
+    const padding = 500;
+    let maxX = 1500;
+    let maxY = 1000;
+
+    // Check all notes
+    notes.forEach(note => {
+      const noteRight = note.position.x + (note.size?.width || 320);
+      const noteBottom = note.position.y + (note.size?.height || 200);
+      maxX = Math.max(maxX, noteRight);
+      maxY = Math.max(maxY, noteBottom);
+    });
+
+    // Check all stickers
+    stickers.forEach(sticker => {
+      const stickerRight = sticker.position.x + (sticker.size?.width || 100);
+      const stickerBottom = sticker.position.y + (sticker.size?.height || 100);
+      maxX = Math.max(maxX, stickerRight);
+      maxY = Math.max(maxY, stickerBottom);
+    });
+
+    setCanvasSize({
+      width: Math.max(3000, maxX + padding),
+      height: Math.max(2000, maxY + padding)
+    });
+  }, [notes, stickers]);
 
   const handleCanvasMouseDown = (e) => {
     if (e.target === canvasRef.current && selectedTool && selectedTool !== 'note') {
