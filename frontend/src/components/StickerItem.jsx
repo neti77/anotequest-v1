@@ -14,7 +14,7 @@ const STICKER_ICONS = {
   'heart': Heart,
 };
 
-export const StickerItem = ({ sticker, updateSticker, deleteSticker }) => {
+export const StickerItem = React.memo(({ sticker, updateSticker, deleteSticker }) => {
   const nodeRef = useRef(null);
   const Icon = STICKER_ICONS[sticker.type] || Circle;
   const [isResizing, setIsResizing] = useState(false);
