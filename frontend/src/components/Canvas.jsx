@@ -116,12 +116,14 @@ export const Canvas = ({
   };
 
   const handleCanvasClick = (e) => {
-    if (e.target === canvasRef.current && selectedTool === 'note') {
-      const rect = canvasRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left + canvasRef.current.scrollLeft;
-      const y = e.clientY - rect.top + canvasRef.current.scrollTop;
-      handleAddNote({ x, y });
-      setSelectedTool(null);
+    if (e.target === canvasRef.current || e.target.closest('.canvas-area')) {
+      if (selectedTool === 'note') {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left + canvasRef.current.scrollLeft;
+        const y = e.clientY - rect.top + canvasRef.current.scrollTop;
+        handleAddNote({ x, y });
+        setSelectedTool(null);
+      }
     }
   };
 
