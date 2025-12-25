@@ -274,6 +274,17 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders, onImageUpload 
               </Button>
             )}
           </div>
+
+          {/* Resize Handle */}
+          <div
+            className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize opacity-0 hover:opacity-100 transition-opacity group-hover:opacity-50"
+            onMouseDown={handleResizeStart}
+            style={{ 
+              background: 'linear-gradient(135deg, transparent 50%, hsl(var(--primary)) 50%)',
+            }}
+          >
+            <Maximize2 className="h-3 w-3 absolute bottom-0 right-0 text-primary" />
+          </div>
         </Card>
       </div>
     </Draggable>
