@@ -17,6 +17,9 @@ const STICKER_ICONS = {
 export const StickerItem = ({ sticker, updateSticker, deleteSticker }) => {
   const nodeRef = useRef(null);
   const Icon = STICKER_ICONS[sticker.type] || Circle;
+  
+  // Default size if not specified
+  const size = sticker.size || { width: 48, height: 48 };
 
   const handleDragStop = (e, data) => {
     updateSticker(sticker.id, {
@@ -30,6 +33,12 @@ export const StickerItem = ({ sticker, updateSticker, deleteSticker }) => {
     });
   };
 
+  // For arrows, calculate length-based scaling
+  const isArrow = sticker.type.includes('arrow');
+  const scaleFactor = isArrow 
+    ? Math.max(size.width, size.height) / 48 
+    : Math.min(size.width, size.height) / 48;
+
   return (
     <Draggable
       nodeRef={nodeRef}
@@ -41,14 +50,23 @@ export const StickerItem = ({ sticker, updateSticker, deleteSticker }) => {
         ref={nodeRef}
         className="absolute cursor-move group"
         style={{
-          transform: `rotate(${sticker.rotation}deg)`
+          transform: `rotate(${sticker.rotation}deg)`,
+          width: isArrow ? Math.max(size.width, 48) : size.width,
+          height: isArrow ? Math.max(size.height, 48) : size.height
         }}
       >
-        <div className="relative">
-          <Icon className="h-12 w-12 text-primary/60 hover:text-primary transition-colors" strokeWidth={2.5} />
+        <div className="relative w-full h-full flex items-center justify-center">
+          <Icon 
+            className="text-primary/70 hover:text-primary transition-colors" 
+            strokeWidth={2.5}
+            style={{
+              width: isArrow ? '100%' : `${Math.max(24, scaleFactor * 48)}px`,
+              height: isArrow ? '100%' : `${Math.max(24, scaleFactor * 48)}px`
+            }}
+          />
           
           {/* Controls */}
-          <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+          <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10">
             <Button
               variant="secondary"
               size="icon"
