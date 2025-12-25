@@ -1,21 +1,29 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import Draggable from 'react-draggable';
-import { Eraser, Pen, Move } from 'lucide-react';
+import { Eraser, Pen, Move, Minus, Plus } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
 import { Card } from './ui/card';
 
-export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
+export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan }) => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
   const [color, setColor] = useState('#3b82f6');
   const [brushSize, setBrushSize] = useState(3);
   const [currentPath, setCurrentPath] = useState([]);
   const [isEraser, setIsEraser] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const toolbarRef = useRef(null);
-  const lastTouchTime = useRef(0);
+  
+  // Touch tracking for multi-touch
+  const touchStateRef = useRef({
+    touchCount: 0,
+    lastPanPosition: null,
+    initialPinchDistance: null
+  });
 
+  // Redraw canvas when drawings change
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -49,35 +57,144 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
     ctx.globalCompositeOperation = 'source-over';
   }, [drawings]);
 
-  const getPosition = (e) => {
-    const rect = canvasRef.current.getBoundingClientRect();
+  const getPosition = useCallback((touch) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
     
-    // Handle both mouse and touch events
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const rect = canvas.getBoundingClientRect();
+    const scrollContainer = canvas.closest('.overflow-auto');
+    const scrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
+    const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
     
     return {
-      x: clientX - rect.left,
-      y: clientY - rect.top
+      x: touch.clientX - rect.left + scrollLeft,
+      y: touch.clientY - rect.top + scrollTop
     };
-  };
+  }, []);
 
-  const startDrawing = (e) => {
+  // Mouse event handlers (unchanged for desktop)
+  const handleMouseDown = (e) => {
     e.preventDefault();
     setIsDrawing(true);
-    const pos = getPosition(e);
+    const rect = canvasRef.current.getBoundingClientRect();
+    const pos = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
     setCurrentPath([pos]);
   };
 
-  const draw = (e) => {
+  const handleMouseMove = (e) => {
     if (!isDrawing) return;
     e.preventDefault();
 
-    const pos = getPosition(e);
+    const rect = canvasRef.current.getBoundingClientRect();
+    const pos = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+    
     const newPath = [...currentPath, pos];
     setCurrentPath(newPath);
+    drawStroke(pos);
+  };
 
-    const ctx = canvasRef.current.getContext('2d');
+  const handleMouseUp = () => {
+    finishDrawing();
+  };
+
+  // Touch event handlers - key fix for iPad
+  const handleTouchStart = useCallback((e) => {
+    const touchCount = e.touches.length;
+    touchStateRef.current.touchCount = touchCount;
+    
+    if (touchCount === 1) {
+      // Single finger = draw
+      e.preventDefault();
+      setIsPanning(false);
+      setIsDrawing(true);
+      const pos = getPosition(e.touches[0]);
+      setCurrentPath([pos]);
+    } else if (touchCount === 2) {
+      // Two fingers = pan
+      e.preventDefault();
+      setIsDrawing(false);
+      setIsPanning(true);
+      
+      // Calculate center point between two fingers for panning
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      touchStateRef.current.lastPanPosition = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2
+      };
+    }
+  }, [getPosition]);
+
+  const handleTouchMove = useCallback((e) => {
+    const touchCount = e.touches.length;
+    
+    if (touchCount === 1 && isDrawing && !isPanning) {
+      // Single finger drawing
+      e.preventDefault();
+      const pos = getPosition(e.touches[0]);
+      setCurrentPath(prev => [...prev, pos]);
+      drawStroke(pos);
+    } else if (touchCount === 2 && isPanning) {
+      // Two finger panning
+      e.preventDefault();
+      
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const currentCenter = {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2
+      };
+      
+      if (touchStateRef.current.lastPanPosition) {
+        const deltaX = touchStateRef.current.lastPanPosition.x - currentCenter.x;
+        const deltaY = touchStateRef.current.lastPanPosition.y - currentCenter.y;
+        
+        // Find the scroll container and scroll it
+        const scrollContainer = canvasRef.current?.closest('.overflow-auto');
+        if (scrollContainer) {
+          scrollContainer.scrollLeft += deltaX;
+          scrollContainer.scrollTop += deltaY;
+        }
+        
+        // Also notify parent if callback provided
+        if (onPan) {
+          onPan(deltaX, deltaY);
+        }
+      }
+      
+      touchStateRef.current.lastPanPosition = currentCenter;
+    }
+  }, [isDrawing, isPanning, getPosition, onPan]);
+
+  const handleTouchEnd = useCallback((e) => {
+    const remainingTouches = e.touches.length;
+    
+    if (remainingTouches === 0) {
+      // All fingers lifted
+      if (isDrawing && currentPath.length > 1) {
+        setDrawings(prev => [...prev, { path: currentPath, color, brushSize, isEraser }]);
+      }
+      setIsDrawing(false);
+      setIsPanning(false);
+      setCurrentPath([]);
+      touchStateRef.current.touchCount = 0;
+      touchStateRef.current.lastPanPosition = null;
+    } else if (remainingTouches === 1 && isPanning) {
+      // Transitioned from pan to potential draw - reset state
+      setIsPanning(false);
+      touchStateRef.current.lastPanPosition = null;
+    }
+  }, [isDrawing, isPanning, currentPath, color, brushSize, isEraser, setDrawings]);
+
+  const drawStroke = (pos) => {
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx || currentPath.length === 0) return;
     
     if (isEraser) {
       ctx.globalCompositeOperation = 'destination-out';
@@ -99,13 +216,27 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
     ctx.stroke();
   };
 
-  const stopDrawing = () => {
+  const finishDrawing = () => {
     if (isDrawing && currentPath.length > 1) {
-      setDrawings([...drawings, { path: currentPath, color, brushSize, isEraser }]);
+      setDrawings(prev => [...prev, { path: currentPath, color, brushSize, isEraser }]);
     }
     setIsDrawing(false);
     setCurrentPath([]);
   };
+
+  // Handle minimize button - separate handler to prevent drag interference
+  const handleMinimizeClick = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsMinimized(prev => !prev);
+  }, []);
+
+  // Handle minimize button touch - for iPad
+  const handleMinimizeTouch = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsMinimized(prev => !prev);
+  }, []);
 
   return (
     <>
@@ -115,41 +246,40 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
         height={canvasSize.height}
         className="absolute inset-0 pointer-events-auto"
         style={{ zIndex: 5, touchAction: 'none' }}
-        onMouseDown={startDrawing}
-        onMouseMove={draw}
-        onMouseUp={stopDrawing}
-        onMouseLeave={stopDrawing}
-        onTouchStart={startDrawing}
-        onTouchMove={draw}
-        onTouchEnd={stopDrawing}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       />
 
       {/* Draggable Drawing Controls */}
       <Draggable handle=".drag-handle" bounds="parent" nodeRef={toolbarRef}>
         <div ref={toolbarRef} className="fixed bottom-20 right-4 md:bottom-24 md:right-8 z-50">
           <Card className="bg-card/95 backdrop-blur-md border-2 border-border shadow-xl transition-all">
-            {/* Drag Handle */}
-            <div className="drag-handle flex items-center justify-between p-2 md:p-3 cursor-move border-b border-border">
-              <div className="flex items-center gap-2">
+            {/* Header with Drag Handle and Minimize Button */}
+            <div className="flex items-center justify-between p-2 md:p-3 border-b border-border">
+              {/* Drag Handle - only this part is draggable */}
+              <div className="drag-handle flex items-center gap-2 cursor-move flex-1">
                 <Move className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
                 <span className="text-xs md:text-sm font-semibold">Drawing</span>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => setIsMinimized(!isMinimized)}
+              {/* Minimize Button - outside drag handle to prevent interference */}
+              <button
+                type="button"
+                className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-accent active:bg-accent/80 transition-colors touch-manipulation"
+                onClick={handleMinimizeClick}
+                onTouchEnd={handleMinimizeTouch}
+                style={{ touchAction: 'manipulation' }}
               >
                 {isMinimized ? (
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                  </svg>
+                  <Plus className="h-4 w-4" />
                 ) : (
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <Minus className="h-4 w-4" />
                 )}
-              </Button>
+              </button>
             </div>
             
             {!isMinimized && (
