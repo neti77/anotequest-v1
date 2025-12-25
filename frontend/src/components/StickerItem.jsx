@@ -17,8 +17,9 @@ const STICKER_ICONS = {
 export const StickerItem = ({ sticker, updateSticker, deleteSticker }) => {
   const nodeRef = useRef(null);
   const Icon = STICKER_ICONS[sticker.type] || Circle;
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeStart, setResizeStart] = useState(null);
   
-  // Default size if not specified
   const size = sticker.size || { width: 48, height: 48 };
 
   const handleDragStop = (e, data) => {
@@ -33,11 +34,43 @@ export const StickerItem = ({ sticker, updateSticker, deleteSticker }) => {
     });
   };
 
-  // For arrows, calculate length-based scaling
+  const handleResizeStart = (e) => {
+    e.stopPropagation();
+    setIsResizing(true);
+    setResizeStart({ x: e.clientX, y: e.clientY, width: size.width, height: size.height });
+  };
+
+  const handleResizeMove = (e) => {
+    if (!isResizing || !resizeStart) return;
+    
+    const deltaX = e.clientX - resizeStart.x;
+    const deltaY = e.clientY - resizeStart.y;
+    
+    const newWidth = Math.max(30, resizeStart.width + deltaX);
+    const newHeight = Math.max(30, resizeStart.height + deltaY);
+    
+    updateSticker(sticker.id, {
+      size: { width: newWidth, height: newHeight }
+    });
+  };
+
+  const handleResizeEnd = () => {
+    setIsResizing(false);
+    setResizeStart(null);
+  };
+
+  React.useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', handleResizeMove);
+      window.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        window.removeEventListener('mousemove', handleResizeMove);
+        window.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [isResizing, resizeStart]);
+
   const isArrow = sticker.type.includes('arrow');
-  const scaleFactor = isArrow 
-    ? Math.max(size.width, size.height) / 48 
-    : Math.min(size.width, size.height) / 48;
 
   return (
     <Draggable
@@ -45,14 +78,15 @@ export const StickerItem = ({ sticker, updateSticker, deleteSticker }) => {
       position={sticker.position}
       onStop={handleDragStop}
       bounds="parent"
+      disabled={isResizing}
     >
       <div
         ref={nodeRef}
         className="absolute cursor-move group"
         style={{
           transform: `rotate(${sticker.rotation}deg)`,
-          width: isArrow ? Math.max(size.width, 48) : size.width,
-          height: isArrow ? Math.max(size.height, 48) : size.height
+          width: size.width,
+          height: size.height
         }}
       >
         <div className="relative w-full h-full flex items-center justify-center">
@@ -60,8 +94,8 @@ export const StickerItem = ({ sticker, updateSticker, deleteSticker }) => {
             className="text-primary/70 hover:text-primary transition-colors" 
             strokeWidth={2.5}
             style={{
-              width: isArrow ? '100%' : `${Math.max(24, scaleFactor * 48)}px`,
-              height: isArrow ? '100%' : `${Math.max(24, scaleFactor * 48)}px`
+              width: '100%',
+              height: '100%'
             }}
           />
           
@@ -84,6 +118,15 @@ export const StickerItem = ({ sticker, updateSticker, deleteSticker }) => {
               <Trash2 className="h-3 w-3" />
             </Button>
           </div>
+
+          {/* Resize Handle */}
+          <div
+            className="absolute bottom-0 right-0 w-3 h-3 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity"
+            onMouseDown={handleResizeStart}
+            style={{ 
+              background: 'linear-gradient(135deg, transparent 50%, hsl(var(--primary)) 50%)',
+            }}
+          />
         </div>
       </div>
     </Draggable>
