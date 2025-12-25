@@ -86,7 +86,8 @@ export const StickerItem = React.memo(({ sticker, updateSticker, deleteSticker }
         style={{
           transform: `rotate(${sticker.rotation}deg)`,
           width: size.width,
-          height: size.height
+          height: size.height,
+          zIndex: 20
         }}
       >
         <div className="relative w-full h-full flex items-center justify-center">
