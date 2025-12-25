@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: anotequest-backend
+    env: python
+    region: oregon
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn server:app --host 0.0.0.0 --port $PORT
+    path: backend
+
+  - type: static
+    name: anotequest-frontend
+    env: node
+    region: oregon
+    branch: main
+    buildCommand: cd frontend && yarn && yarn build
+    publishPath: frontend/build
