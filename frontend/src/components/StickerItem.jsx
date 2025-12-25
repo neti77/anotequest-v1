@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Draggable from 'react-draggable';
 import { ArrowRight, ArrowDown, ArrowLeft, ArrowUp, Circle, Square, Star, Heart, RotateCw, Trash2, Maximize2 } from 'lucide-react';
 import { Button } from './ui/button';
@@ -18,9 +18,9 @@ export const StickerItem = React.memo(({ sticker, updateSticker, deleteSticker }
   const nodeRef = useRef(null);
   const Icon = STICKER_ICONS[sticker.type] || Circle;
   const [isResizing, setIsResizing] = useState(false);
-  const [resizeStart, setResizeStart] = useState(null);
   
   const size = sticker.size || { width: 48, height: 48 };
+  const color = sticker.color || '#3b82f6';
 
   const handleDragStop = (e, data) => {
     updateSticker(sticker.id, {
@@ -34,43 +34,37 @@ export const StickerItem = React.memo(({ sticker, updateSticker, deleteSticker }
     });
   };
 
-  const handleResizeStart = (e) => {
+  const handleResizeStart = useCallback((e) => {
     e.stopPropagation();
+    e.preventDefault();
     setIsResizing(true);
-    setResizeStart({ x: e.clientX, y: e.clientY, width: size.width, height: size.height });
-  };
-
-  const handleResizeMove = useCallback((e) => {
-    if (!isResizing || !resizeStart) return;
     
-    const deltaX = e.clientX - resizeStart.x;
-    const deltaY = e.clientY - resizeStart.y;
-    
-    const newWidth = Math.max(30, resizeStart.width + deltaX);
-    const newHeight = Math.max(30, resizeStart.height + deltaY);
-    
-    updateSticker(sticker.id, {
-      size: { width: newWidth, height: newHeight }
-    });
-  }, [isResizing, resizeStart, updateSticker, sticker.id]);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = size.width;
+    const startHeight = size.height;
 
-  const handleResizeEnd = useCallback(() => {
-    setIsResizing(false);
-    setResizeStart(null);
-  }, []);
+    const handleMouseMove = (moveEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
+      
+      const newWidth = Math.max(30, startWidth + deltaX);
+      const newHeight = Math.max(30, startHeight + deltaY);
+      
+      updateSticker(sticker.id, {
+        size: { width: newWidth, height: newHeight }
+      });
+    };
 
-  useEffect(() => {
-    if (isResizing) {
-      window.addEventListener('mousemove', handleResizeMove);
-      window.addEventListener('mouseup', handleResizeEnd);
-      return () => {
-        window.removeEventListener('mousemove', handleResizeMove);
-        window.removeEventListener('mouseup', handleResizeEnd);
-      };
-    }
-  }, [isResizing, handleResizeMove, handleResizeEnd]);
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
 
-  const isArrow = sticker.type.includes('arrow');
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [sticker.id, size, updateSticker]);
 
   return (
     <Draggable
@@ -92,11 +86,12 @@ export const StickerItem = React.memo(({ sticker, updateSticker, deleteSticker }
       >
         <div className="relative w-full h-full flex items-center justify-center">
           <Icon 
-            className="text-primary/70 hover:text-primary transition-colors" 
+            className="transition-colors" 
             strokeWidth={2.5}
             style={{
               width: '100%',
-              height: '100%'
+              height: '100%',
+              color: color
             }}
           />
           
@@ -122,12 +117,14 @@ export const StickerItem = React.memo(({ sticker, updateSticker, deleteSticker }
 
           {/* Resize Handle */}
           <div
-            className="absolute bottom-0 right-0 w-3 h-3 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center"
             onMouseDown={handleResizeStart}
             style={{ 
-              background: 'linear-gradient(135deg, transparent 50%, hsl(var(--primary)) 50%)',
+              background: color,
             }}
-          />
+          >
+            <Maximize2 className="h-3 w-3 text-white" />
+          </div>
         </div>
       </div>
     </Draggable>

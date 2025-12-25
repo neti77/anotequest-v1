@@ -1,7 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Eraser, Pen } from 'lucide-react';
+import Draggable from 'react-draggable';
+import { Eraser, Pen, Move } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
+import { Card } from './ui/card';
 
 export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
   const canvasRef = useRef(null);
@@ -9,6 +11,8 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
   const [color, setColor] = useState('#3b82f6');
   const [brushSize, setBrushSize] = useState(3);
   const [currentPath, setCurrentPath] = useState([]);
+  const [isEraser, setIsEraser] = useState(false);
+  const dragHandleRef = useRef(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -19,6 +23,12 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
 
     // Redraw all paths
     drawings.forEach(drawing => {
+      if (drawing.isEraser) {
+        ctx.globalCompositeOperation = 'destination-out';
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      
       ctx.strokeStyle = drawing.color;
       ctx.lineWidth = drawing.brushSize;
       ctx.lineCap = 'round';
@@ -34,6 +44,9 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
       });
       ctx.stroke();
     });
+    
+    // Reset composite operation
+    ctx.globalCompositeOperation = 'source-over';
   }, [drawings]);
 
   const startDrawing = (e) => {
@@ -55,8 +68,17 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
     setCurrentPath(newPath);
 
     const ctx = canvasRef.current.getContext('2d');
-    ctx.strokeStyle = color;
-    ctx.lineWidth = brushSize;
+    
+    if (isEraser) {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.strokeStyle = 'rgba(0,0,0,1)';
+      ctx.lineWidth = brushSize * 2; // Eraser is larger
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = brushSize;
+    }
+    
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
@@ -69,16 +91,10 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
 
   const stopDrawing = () => {
     if (isDrawing && currentPath.length > 1) {
-      setDrawings([...drawings, { path: currentPath, color, brushSize }]);
+      setDrawings([...drawings, { path: currentPath, color, brushSize, isEraser }]);
     }
     setIsDrawing(false);
     setCurrentPath([]);
-  };
-
-  const clearDrawing = () => {
-    setDrawings([]);
-    const ctx = canvasRef.current.getContext('2d');
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
   };
 
   return (
@@ -95,46 +111,91 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
         onMouseLeave={stopDrawing}
       />
 
-      {/* Drawing Controls */}
-      <div className="fixed bottom-24 right-8 z-50 flex flex-col gap-2 bg-card/90 backdrop-blur-md border border-border rounded-lg p-3 shadow-lg">
-        <div className="flex items-center gap-2">
-          <Pen className="h-4 w-4" />
-          <span className="text-xs font-medium">Draw</span>
-        </div>
-        
-        <div className="flex gap-2">
-          {['#3b82f6', '#ef4444', '#22c55e', '#eab308', '#8b5cf6', '#000000'].map(c => (
-            <button
-              key={c}
-              className={`w-6 h-6 rounded-full border-2 ${color === c ? 'border-primary' : 'border-transparent'}`}
-              style={{ background: c }}
-              onClick={() => setColor(c)}
-            />
-          ))}
-        </div>
+      {/* Draggable Drawing Controls */}
+      <Draggable handle=".drag-handle" bounds="parent">
+        <div className="fixed bottom-24 right-8 z-50">
+          <Card className="bg-card/95 backdrop-blur-md border-2 border-border shadow-xl p-3 w-56">
+            {/* Drag Handle */}
+            <div className="drag-handle flex items-center justify-between mb-3 cursor-move pb-2 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Move className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold">Drawing Tools</span>
+              </div>
+            </div>
+            
+            {/* Tool Selection */}
+            <div className="flex gap-2 mb-3">
+              <Button
+                variant={!isEraser ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setIsEraser(false)}
+                className="flex-1"
+              >
+                <Pen className="h-4 w-4 mr-1" />
+                Pen
+              </Button>
+              <Button
+                variant={isEraser ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setIsEraser(true)}
+                className="flex-1"
+              >
+                <Eraser className="h-4 w-4 mr-1" />
+                Eraser
+              </Button>
+            </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs">Size:</span>
-          <Slider
-            value={[brushSize]}
-            onValueChange={(v) => setBrushSize(v[0])}
-            min={1}
-            max={10}
-            step={1}
-            className="w-20"
-          />
-        </div>
+            {/* Color Picker */}
+            {!isEraser && (
+              <div className="mb-3">
+                <span className="text-xs font-medium mb-2 block">Color:</span>
+                <div className="grid grid-cols-6 gap-2">
+                  {[
+                    { color: '#3b82f6', name: 'Blue' },
+                    { color: '#ef4444', name: 'Red' },
+                    { color: '#22c55e', name: 'Green' },
+                    { color: '#eab308', name: 'Yellow' },
+                    { color: '#8b5cf6', name: 'Purple' },
+                    { color: '#f97316', name: 'Orange' },
+                    { color: '#ec4899', name: 'Pink' },
+                    { color: '#14b8a6', name: 'Teal' },
+                    { color: '#000000', name: 'Black' },
+                    { color: '#ffffff', name: 'White' },
+                    { color: '#6b7280', name: 'Gray' },
+                    { color: '#a855f7', name: 'Violet' },
+                  ].map(c => (
+                    <button
+                      key={c.color}
+                      className={`w-8 h-8 rounded-md border-2 transition-all hover:scale-110 ${
+                        color === c.color ? 'border-primary ring-2 ring-primary/50' : 'border-border'
+                      }`}
+                      style={{ background: c.color }}
+                      onClick={() => setColor(c.color)}
+                      title={c.name}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={clearDrawing}
-          className="w-full"
-        >
-          <Eraser className="h-3 w-3 mr-1" />
-          Clear
-        </Button>
-      </div>
+            {/* Brush Size */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium">{isEraser ? 'Eraser' : 'Brush'} Size:</span>
+                <span className="text-xs text-muted-foreground">{isEraser ? brushSize * 2 : brushSize}px</span>
+              </div>
+              <Slider
+                value={[brushSize]}
+                onValueChange={(v) => setBrushSize(v[0])}
+                min={1}
+                max={10}
+                step={1}
+                className="w-full"
+              />
+            </div>
+          </Card>
+        </div>
+      </Draggable>
     </>
   );
 };
