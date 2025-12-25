@@ -9,6 +9,7 @@ import StatsPanel from './components/StatsPanel';
 import WelcomeModal from './components/WelcomeModal';
 import BattleModal from './components/BattleModal';
 import CharacterUnlockModal from './components/CharacterUnlockModal';
+import NameInputModal from './components/NameInputModal';
 import { Sparkles } from 'lucide-react';
 
 function App() {
