@@ -26,9 +26,11 @@ const STICKER_COLORS = [
 ];
 
 export const StickerToolbar = ({ selectedTool, setSelectedTool, stickerColor, setStickerColor }) => {
+  const nodeRef = React.useRef(null);
+  
   return (
-    <Draggable handle=".drag-handle" bounds="parent">
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+    <Draggable handle=".drag-handle" bounds="parent" nodeRef={nodeRef}>
+      <div ref={nodeRef} className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
         <Card className="p-3 bg-card/95 backdrop-blur-md shadow-xl border-2 border-border">
           {/* Drag Handle */}
           <div className="drag-handle flex items-center gap-2 mb-3 cursor-move pb-2 border-b border-border">
