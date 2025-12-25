@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Moon, Sun, PanelLeftClose, PanelRightClose, Sparkles, Swords, Crown } from 'lucide-react';
+import { Moon, Sun, PanelLeftClose, PanelRightClose, BookOpen, Swords, Crown } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
