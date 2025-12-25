@@ -179,9 +179,6 @@ export const Canvas = ({
         ref={canvasRef}
         className={`w-full h-full overflow-auto relative bg-gradient-to-br from-background via-primary/5 to-accent/5 ${selectedTool ? 'cursor-crosshair' : ''}`}
         onClick={handleCanvasClick}
-        onMouseDown={handleCanvasMouseDown}
-        onMouseMove={handleCanvasMouseMove}
-        onMouseUp={handleCanvasMouseUp}
         style={{
           backgroundImage: `
             radial-gradient(circle at 2px 2px, hsl(var(--border)) 1px, transparent 0)
