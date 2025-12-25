@@ -113,13 +113,16 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders, onImageUpload 
       position={note.position}
       onStop={handleDragStop}
       bounds="parent"
+      disabled={isResizing}
     >
       <div
         ref={nodeRef}
         className="absolute cursor-move"
-        style={{ width: '320px' }}
+        style={{ width: `${noteSize.width}px` }}
       >
-        <Card className={`note-card shadow-md ${colorScheme.bg} ${colorScheme.border} border-2 overflow-hidden`}>
+        <Card className={`note-card shadow-md ${colorScheme.bg} ${colorScheme.border} border-2 overflow-hidden relative`}
+          style={{ height: `${noteSize.height}px` }}
+        >
           {/* Header */}
           <div className="drag-handle px-4 py-3 bg-card/50 backdrop-blur-sm flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-border">
             <div className="flex items-center gap-2 flex-1 min-w-0">
