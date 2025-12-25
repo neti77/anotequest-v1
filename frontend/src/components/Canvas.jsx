@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Plus, Upload, Image as ImageIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
