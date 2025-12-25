@@ -347,10 +347,6 @@ function App() {
               setActiveFolder={setActiveFolder}
               addFolder={addFolder}
               deleteFolder={deleteFolder}
-              selectedTool={selectedStickerTool}
-              setSelectedTool={setSelectedStickerTool}
-              stickerColor={stickerColor}
-              setStickerColor={setStickerColor}
             />
           )}
           
@@ -368,9 +364,6 @@ function App() {
               updateCharacter={updateCharacter}
               folders={folders}
               isPremium={isPremium}
-              selectedTool={selectedStickerTool}
-              setSelectedTool={setSelectedStickerTool}
-              stickerColor={stickerColor}
             />
           </div>
           
