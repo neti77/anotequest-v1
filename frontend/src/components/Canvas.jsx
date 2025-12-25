@@ -26,9 +26,6 @@ export const Canvas = ({
   stickerColor
 }) => {
   const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [drawStart, setDrawStart] = useState(null);
-  const [drawPreview, setDrawPreview] = useState(null);
   const [canvasSize, setCanvasSize] = useState({ width: 3000, height: 2000 });
   const [drawings, setDrawings] = useState([]);
   const fileInputRef = useRef(null);
