@@ -255,24 +255,24 @@ export const Canvas = ({
         {/* Empty State */}
         {notes.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-center animate-slideInUp">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center animate-float">
-                <Plus className="h-12 w-12 text-primary" />
+            <div className="text-center animate-slideInUp pointer-events-auto">
+              <div className="w-32 h-32 mx-auto mb-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center animate-float shadow-lg">
+                <Plus className="h-16 w-16 text-primary" />
               </div>
-              <h2 className="text-2xl font-bold mb-2 gradient-text">Start Your Quest!</h2>
-              <p className="text-muted-foreground mb-6">Click the + button or use the toolbar to create notes and stickers</p>
-              <div className="flex gap-4 justify-center text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-success"></div>
-                  <span>Drag notes & stickers</span>
+              <h2 className="text-3xl font-bold mb-3 gradient-text">Welcome to AnoteQuest!</h2>
+              <p className="text-muted-foreground mb-8 text-lg">Click the + button to create your first note and start your journey</p>
+              <div className="flex gap-6 justify-center text-sm">
+                <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-card/50 backdrop-blur-sm border border-border">
+                  <div className="w-3 h-3 rounded-full bg-success"></div>
+                  <span className="font-medium">Drag notes anywhere</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-warning"></div>
-                  <span>Battle for rewards</span>
+                <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-card/50 backdrop-blur-sm border border-border">
+                  <div className="w-3 h-3 rounded-full bg-warning"></div>
+                  <span className="font-medium">Battle for rewards</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-destructive"></div>
-                  <span>Unlock characters</span>
+                <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-card/50 backdrop-blur-sm border border-border">
+                  <div className="w-3 h-3 rounded-full bg-destructive"></div>
+                  <span className="font-medium">Unlock characters</span>
                 </div>
               </div>
             </div>
