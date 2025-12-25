@@ -114,16 +114,19 @@ function App() {
 
   const checkCharacterUnlocks = (totalNotes, totalWords, xp, timeSpent) => {
     const characterTypes = [
-      { id: 1, name: 'Scribe the Wizard', requirement: { notes: 10, words: 100, time: 0 }, emoji: '🧙', type: 'wizard', unlocked: false },
-      { id: 2, name: 'Knight Notarius', requirement: { notes: 25, words: 500, time: 300 }, emoji: '⚔️', type: 'soldier', unlocked: false },
-      { id: 3, name: 'Inky the Dragon', requirement: { notes: 50, words: 1000, time: 600 }, emoji: '🐉', type: 'dragon', unlocked: false },
-      { id: 4, name: 'Sage the Owl', requirement: { notes: 75, words: 1500, time: 900 }, emoji: '🦉', type: 'sage', unlocked: false },
-      { id: 5, name: 'Phoenix Wordsmith', requirement: { notes: 100, words: 2500, time: 1800 }, emoji: '🔥', type: 'phoenix', unlocked: false },
-      { id: 6, name: 'Warrior Scribbles', requirement: { notes: 150, words: 3500, time: 2700 }, emoji: '🛡️', type: 'warrior', unlocked: false },
-      { id: 7, name: 'Dragon Lord Quill', requirement: { notes: 200, words: 5000, time: 3600 }, emoji: '🐲', type: 'dragon_lord', unlocked: false },
+      { id: 1, name: 'Scribe the Wizard', requirement: { notes: 5, words: 50, time: 0 }, emoji: '🧙', type: 'wizard', unlocked: false },
+      { id: 2, name: 'Knight Notarius', requirement: { notes: 15, words: 200, time: 60 }, emoji: '⚔️', type: 'soldier', unlocked: false },
+      { id: 3, name: 'Inky the Dragon', requirement: { notes: 30, words: 500, time: 180 }, emoji: '🐉', type: 'dragon', unlocked: false },
+      { id: 4, name: 'Sage the Owl', requirement: { notes: 50, words: 1000, time: 300 }, emoji: '🦉', type: 'sage', unlocked: false },
+      { id: 5, name: 'Phoenix Wordsmith', requirement: { notes: 75, words: 1500, time: 600 }, emoji: '🔥', type: 'phoenix', unlocked: false },
+      { id: 6, name: 'Warrior Scribbles', requirement: { notes: 100, words: 2500, time: 900 }, emoji: '🛡️', type: 'warrior', unlocked: false },
+      { id: 7, name: 'Dragon Lord Quill', requirement: { notes: 150, words: 4000, time: 1800 }, emoji: '🐲', type: 'dragon_lord', unlocked: false },
     ];
 
     setCharacters(prev => {
+      let hasNewUnlock = false;
+      let newlyUnlocked = null;
+      
       const updated = characterTypes.map(char => {
         const existing = prev.find(c => c.id === char.id);
         const shouldUnlock = 
@@ -131,18 +134,27 @@ function App() {
           totalWords >= char.requirement.words &&
           timeSpent >= char.requirement.time;
         
-        if (!existing && shouldUnlock) {
-          setUnlockedCharacter({ ...char, unlocked: true, level: 1, xp: 0, position: { x: Math.random() * 200 + 100, y: Math.random() * 200 + 100 }, caged: false });
-          return { ...char, unlocked: true, level: 1, xp: 0, position: { x: Math.random() * 200 + 100, y: Math.random() * 200 + 100 }, caged: false };
+        // Only unlock if not already unlocked
+        if (!existing?.unlocked && shouldUnlock) {
+          hasNewUnlock = true;
+          newlyUnlocked = { ...char, unlocked: true, level: 1, xp: 0, position: { x: Math.random() * 200 + 100, y: Math.random() * 200 + 100 }, caged: false };
+          console.log('Unlocking character:', char.name, 'Stats:', { totalNotes, totalWords, timeSpent });
+          return newlyUnlocked;
         }
         
-        if (existing && existing.unlocked) {
+        if (existing?.unlocked) {
           const charLevel = Math.floor(xp / (char.id * 150)) + 1;
           return { ...existing, level: charLevel, xp };
         }
         
         return existing || char;
       });
+      
+      // Show unlock modal for newly unlocked character
+      if (hasNewUnlock && newlyUnlocked) {
+        setTimeout(() => setUnlockedCharacter(newlyUnlocked), 500);
+      }
+      
       return updated;
     });
   };
