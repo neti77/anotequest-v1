@@ -116,85 +116,105 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
       {/* Draggable Drawing Controls */}
       <Draggable handle=".drag-handle" bounds="parent" nodeRef={toolbarRef}>
         <div ref={toolbarRef} className="fixed bottom-24 right-8 z-50">
-          <Card className="bg-card/95 backdrop-blur-md border-2 border-border shadow-xl p-3 w-56">
+          <Card className="bg-card/95 backdrop-blur-md border-2 border-border shadow-xl transition-all">
             {/* Drag Handle */}
-            <div className="drag-handle flex items-center justify-between mb-3 cursor-move pb-2 border-b border-border">
+            <div className="drag-handle flex items-center justify-between p-3 cursor-move border-b border-border">
               <div className="flex items-center gap-2">
                 <Move className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-semibold">Drawing Tools</span>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => setIsMinimized(!isMinimized)}
+              >
+                {isMinimized ? (
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                ) : (
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </Button>
             </div>
             
-            {/* Tool Selection */}
-            <div className="flex gap-2 mb-3">
-              <Button
-                variant={!isEraser ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setIsEraser(false)}
-                className="flex-1"
-              >
-                <Pen className="h-4 w-4 mr-1" />
-                Pen
-              </Button>
-              <Button
-                variant={isEraser ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setIsEraser(true)}
-                className="flex-1"
-              >
-                <Eraser className="h-4 w-4 mr-1" />
-                Eraser
-              </Button>
-            </div>
+            {!isMinimized && (
+              <div className="p-3 w-56">
+                {/* Tool Selection */}
+                <div className="flex gap-2 mb-3">
+                  <Button
+                    variant={!isEraser ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setIsEraser(false)}
+                    className="flex-1"
+                  >
+                    <Pen className="h-4 w-4 mr-1" />
+                    Pen
+                  </Button>
+                  <Button
+                    variant={isEraser ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setIsEraser(true)}
+                    className="flex-1"
+                  >
+                    <Eraser className="h-4 w-4 mr-1" />
+                    Eraser
+                  </Button>
+                </div>
 
-            {/* Color Picker */}
-            {!isEraser && (
-              <div className="mb-3">
-                <span className="text-xs font-medium mb-2 block">Color:</span>
-                <div className="grid grid-cols-6 gap-2">
-                  {[
-                    { color: '#3b82f6', name: 'Blue' },
-                    { color: '#ef4444', name: 'Red' },
-                    { color: '#22c55e', name: 'Green' },
-                    { color: '#eab308', name: 'Yellow' },
-                    { color: '#8b5cf6', name: 'Purple' },
-                    { color: '#f97316', name: 'Orange' },
-                    { color: '#ec4899', name: 'Pink' },
-                    { color: '#14b8a6', name: 'Teal' },
-                    { color: '#000000', name: 'Black' },
-                    { color: '#ffffff', name: 'White' },
-                    { color: '#6b7280', name: 'Gray' },
-                    { color: '#a855f7', name: 'Violet' },
-                  ].map(c => (
-                    <button
-                      key={c.color}
-                      className={`w-8 h-8 rounded-md border-2 transition-all hover:scale-110 ${
-                        color === c.color ? 'border-primary ring-2 ring-primary/50' : 'border-border'
-                      }`}
-                      style={{ background: c.color }}
-                      onClick={() => setColor(c.color)}
-                      title={c.name}
-                    />
-                  ))}
+                {/* Color Picker */}
+                {!isEraser && (
+                  <div className="mb-3">
+                    <span className="text-xs font-medium mb-2 block">Color:</span>
+                    <div className="grid grid-cols-6 gap-2">
+                      {[
+                        { color: '#3b82f6', name: 'Blue' },
+                        { color: '#ef4444', name: 'Red' },
+                        { color: '#22c55e', name: 'Green' },
+                        { color: '#eab308', name: 'Yellow' },
+                        { color: '#8b5cf6', name: 'Purple' },
+                        { color: '#f97316', name: 'Orange' },
+                        { color: '#ec4899', name: 'Pink' },
+                        { color: '#14b8a6', name: 'Teal' },
+                        { color: '#000000', name: 'Black' },
+                        { color: '#ffffff', name: 'White' },
+                        { color: '#6b7280', name: 'Gray' },
+                        { color: '#a855f7', name: 'Violet' },
+                      ].map(c => (
+                        <button
+                          key={c.color}
+                          className={`w-8 h-8 rounded-md border-2 transition-all hover:scale-110 ${
+                            color === c.color ? 'border-primary ring-2 ring-primary/50' : 'border-border'
+                          }`}
+                          style={{ background: c.color }}
+                          onClick={() => setColor(c.color)}
+                          title={c.name}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Brush Size */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium">{isEraser ? 'Eraser' : 'Brush'} Size:</span>
+                    <span className="text-xs text-muted-foreground">{isEraser ? brushSize * 2 : brushSize}px</span>
+                  </div>
+                  <Slider
+                    value={[brushSize]}
+                    onValueChange={(v) => setBrushSize(v[0])}
+                    min={1}
+                    max={10}
+                    step={1}
+                    className="w-full"
+                  />
                 </div>
               </div>
             )}
-
-            {/* Brush Size */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium">{isEraser ? 'Eraser' : 'Brush'} Size:</span>
-                <span className="text-xs text-muted-foreground">{isEraser ? brushSize * 2 : brushSize}px</span>
-              </div>
-              <Slider
-                value={[brushSize]}
-                onValueChange={(v) => setBrushSize(v[0])}
-                min={1}
-                max={10}
-                step={1}
-                className="w-full"
-              />
-            </div>
           </Card>
         </div>
       </Draggable>
