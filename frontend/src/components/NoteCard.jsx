@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import Draggable from 'react-draggable';
-import { Trash2, GripVertical, FolderOpen, Palette, Check, Image as ImageIcon, X } from 'lucide-react';
+import { Trash2, GripVertical, FolderOpen, Palette, Check, Image as ImageIcon, X, Maximize2 } from 'lucide-react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
