@@ -35,8 +35,6 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [characterPanelOpen, setCharacterPanelOpen] = useState(true);
   const [isPremium, setIsPremium] = useState(false);
-  const [selectedStickerTool, setSelectedStickerTool] = useState(null);
-  const [stickerColor, setStickerColor] = useState('#3b82f6');
   const timeIntervalRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
