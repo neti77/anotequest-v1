@@ -59,7 +59,7 @@ export const StickerItem = ({ sticker, updateSticker, deleteSticker }) => {
     setResizeStart(null);
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isResizing) {
       window.addEventListener('mousemove', handleResizeMove);
       window.addEventListener('mouseup', handleResizeEnd);
