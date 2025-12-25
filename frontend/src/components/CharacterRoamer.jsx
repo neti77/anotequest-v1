@@ -1,11 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Lock, Unlock } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Lock } from 'lucide-react';
 import { Button } from './ui/button';
+
+const CHARACTER_MESSAGES = [
+  "Keep writing! 📝",
+  "You're doing great! ⭐",
+  "Words are power! 💪",
+  "Note-taking champion! 🏆",
+  "Knowledge is treasure! 💎",
+  "Write more, learn more! 📚",
+  "Your notes look amazing! ✨",
+  "Battle ready! ⚔️",
+  "Level up time! 🎮",
+  "Epic progress! 🚀",
+  "Brilliant ideas! 💡",
+  "Organize everything! 📋",
+  "Connection matters! 🔗",
+  "Keep the streak! 🔥",
+  "Master note-taker! 👑",
+];
 
 export const CharacterRoamer = ({ character, updateCharacter, canvasRef }) => {
   const [position, setPosition] = useState(character.position || { x: 100, y: 100 });
   const [direction, setDirection] = useState({ x: 1, y: 1 });
+  const [message, setMessage] = useState(null);
+  const [showMessage, setShowMessage] = useState(false);
 
   useEffect(() => {
     if (!canvasRef.current) return;
