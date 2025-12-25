@@ -108,7 +108,7 @@ export const WelcomeModal = ({ onClose }) => {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">•</span>
-                <span><strong>First Character:</strong> Unlocks at 10 notes + 100 words</span>
+                <span><strong>First Character:</strong> Unlocks at 5 notes + 50 words</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-warning mt-0.5">•</span>
