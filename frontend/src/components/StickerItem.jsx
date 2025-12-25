@@ -131,6 +131,6 @@ export const StickerItem = React.memo(({ sticker, updateSticker, deleteSticker }
       </div>
     </Draggable>
   );
-};
+});
 
 export default StickerItem;
