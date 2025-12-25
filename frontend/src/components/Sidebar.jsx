@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { FolderPlus, Folder, Trash2, StickyNote, ChevronDown, ChevronRight } from 'lucide-react';
+import { FolderPlus, Folder, Trash2, StickyNote, ChevronDown, ChevronRight, Image } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ScrollArea } from './ui/scroll-area';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import {
   AlertDialog,
   AlertDialogAction,
