@@ -353,6 +353,7 @@ function App() {
           <div className="flex-1 relative overflow-hidden">
             <Canvas
               notes={filteredNotes}
+              totalNoteCount={notes.length}
               stickers={stickers}
               characters={characters.filter(c => c.unlocked && !c.caged)}
               addNote={addNote}
