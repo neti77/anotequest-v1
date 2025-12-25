@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import Draggable from 'react-draggable';
-import { Trash2, GripVertical, FolderOpen, Link as LinkIcon, Palette, Check } from 'lucide-react';
+import { Trash2, GripVertical, FolderOpen, Palette, Check, Image as ImageIcon, X } from 'lucide-react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -22,11 +22,12 @@ const NOTE_COLORS = [
   { name: 'peach', bg: 'bg-muted/50', border: 'border-muted-foreground' },
 ];
 
-export const NoteCard = ({ note, updateNote, deleteNote, folders }) => {
+export const NoteCard = ({ note, updateNote, deleteNote, folders, onImageUpload }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const nodeRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const colorScheme = NOTE_COLORS.find(c => c.name === note.color) || NOTE_COLORS[0];
 
@@ -57,6 +58,13 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders }) => {
     toast.success('Moved to folder!');
   };
 
+  const handleRemoveImage = (imageId) => {
+    updateNote(note.id, {
+      images: note.images.filter(img => img.id !== imageId)
+    });
+    toast.success('Image removed');
+  };
+
   const wordCount = content.trim().split(/\s+/).filter(w => w.length > 0).length;
 
   return (
@@ -75,8 +83,8 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders }) => {
         <Card className={`note-card shadow-md ${colorScheme.bg} ${colorScheme.border} border-2 overflow-hidden`}>
           {/* Header */}
           <div className="drag-handle px-4 py-3 bg-card/50 backdrop-blur-sm flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-border">
-            <div className="flex items-center gap-2">
-              <GripVertical className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               {isEditing ? (
                 <Input
                   value={title}
@@ -86,10 +94,30 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders }) => {
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
-                <h3 className="font-semibold text-sm truncate max-w-[150px]">{title}</h3>
+                <h3 className="font-semibold text-sm truncate">{title}</h3>
               )}
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Image Upload */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+              >
+                <ImageIcon className="h-4 w-4" />
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={onImageUpload}
+              />
+
               {/* Color Picker */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -147,6 +175,29 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders }) => {
               </Button>
             </div>
           </div>
+
+          {/* Images */}
+          {note.images && note.images.length > 0 && (
+            <div className="p-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+              {note.images.map(image => (
+                <div key={image.id} className="relative group">
+                  <img 
+                    src={image.data} 
+                    alt="Note attachment" 
+                    className="w-full rounded border border-border"
+                  />
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleRemoveImage(image.id)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Content */}
           <div className="p-4" onClick={(e) => e.stopPropagation()}>
