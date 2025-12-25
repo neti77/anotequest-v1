@@ -128,7 +128,7 @@ export const Canvas = ({
       {!isPremium && (
         <div className="absolute top-4 right-4 z-10">
           <Badge variant="outline" className="bg-card/80 backdrop-blur-sm">
-            {notes.length}/100 notes
+            {totalNoteCount}/100 notes
           </Badge>
         </div>
       )}
