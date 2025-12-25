@@ -27,7 +27,6 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders, onImageUpload 
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [isResizing, setIsResizing] = useState(false);
-  const [resizeStart, setResizeStart] = useState(null);
   const nodeRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -40,41 +39,37 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders, onImageUpload 
     });
   };
 
-  const handleResizeStart = (e) => {
+  const handleResizeStart = useCallback((e) => {
     e.stopPropagation();
+    e.preventDefault();
     setIsResizing(true);
-    setResizeStart({ x: e.clientX, y: e.clientY, width: noteSize.width, height: noteSize.height });
-  };
-
-  const handleResizeMove = useCallback((e) => {
-    if (!isResizing || !resizeStart) return;
     
-    const deltaX = e.clientX - resizeStart.x;
-    const deltaY = e.clientY - resizeStart.y;
-    
-    const newWidth = Math.max(250, resizeStart.width + deltaX);
-    const newHeight = Math.max(200, resizeStart.height + deltaY);
-    
-    updateNote(note.id, {
-      size: { width: newWidth, height: newHeight }
-    });
-  }, [isResizing, resizeStart, updateNote, note.id]);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = noteSize.width;
+    const startHeight = noteSize.height;
 
-  const handleResizeEnd = useCallback(() => {
-    setIsResizing(false);
-    setResizeStart(null);
-  }, []);
+    const handleMouseMove = (moveEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
+      
+      const newWidth = Math.max(250, startWidth + deltaX);
+      const newHeight = Math.max(200, startHeight + deltaY);
+      
+      updateNote(note.id, {
+        size: { width: newWidth, height: newHeight }
+      });
+    };
 
-  useEffect(() => {
-    if (isResizing) {
-      window.addEventListener('mousemove', handleResizeMove);
-      window.addEventListener('mouseup', handleResizeEnd);
-      return () => {
-        window.removeEventListener('mousemove', handleResizeMove);
-        window.removeEventListener('mouseup', handleResizeEnd);
-      };
-    }
-  }, [isResizing, handleResizeMove, handleResizeEnd]);
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [note.id, noteSize, updateNote]);
 
   const handleSave = () => {
     updateNote(note.id, { title, content });
@@ -117,14 +112,15 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders, onImageUpload 
     >
       <div
         ref={nodeRef}
-        className="absolute cursor-move"
+        className="absolute"
         style={{ width: `${noteSize.width}px` }}
       >
-        <Card className={`note-card shadow-md ${colorScheme.bg} ${colorScheme.border} border-2 overflow-hidden relative`}
-          style={{ height: `${noteSize.height}px` }}
+        <Card 
+          className={`note-card group shadow-md ${colorScheme.bg} ${colorScheme.border} border-2 overflow-hidden relative`}
+          style={{ height: `${noteSize.height}px`, display: 'flex', flexDirection: 'column' }}
         >
           {/* Header */}
-          <div className="drag-handle px-4 py-3 bg-card/50 backdrop-blur-sm flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-border">
+          <div className="drag-handle px-4 py-3 bg-card/50 backdrop-blur-sm flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-border flex-shrink-0">
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               {isEditing ? (
@@ -218,51 +214,54 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders, onImageUpload 
             </div>
           </div>
 
-          {/* Images */}
-          {note.images && note.images.length > 0 && (
-            <div className="p-2 space-y-2" onClick={(e) => e.stopPropagation()}>
-              {note.images.map(image => (
-                <div key={image.id} className="relative group">
-                  <img 
-                    src={image.data} 
-                    alt="Note attachment" 
-                    className="w-full rounded border border-border"
-                  />
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => handleRemoveImage(image.id)}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Content */}
-          <div className="p-4" onClick={(e) => e.stopPropagation()}>
-            {isEditing ? (
-              <Textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Start writing your note..."
-                className="min-h-[120px] resize-none"
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : (
-              <div
-                className="min-h-[120px] text-sm whitespace-pre-wrap cursor-text"
-                onClick={() => setIsEditing(true)}
-              >
-                {content || <span className="text-muted-foreground italic">Click to start writing...</span>}
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Images */}
+            {note.images && note.images.length > 0 && (
+              <div className="p-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+                {note.images.map(image => (
+                  <div key={image.id} className="relative group/image">
+                    <img 
+                      src={image.data} 
+                      alt="Note attachment" 
+                      className="w-full rounded border border-border"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover/image:opacity-100 transition-opacity"
+                      onClick={() => handleRemoveImage(image.id)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             )}
+
+            {/* Content */}
+            <div className="p-4" onClick={(e) => e.stopPropagation()}>
+              {isEditing ? (
+                <Textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Start writing your note..."
+                  className="min-h-[100px] resize-none"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <div
+                  className="min-h-[100px] text-sm whitespace-pre-wrap cursor-text"
+                  onClick={() => setIsEditing(true)}
+                >
+                  {content || <span className="text-muted-foreground italic">Click to start writing...</span>}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-2 bg-card/30 backdrop-blur-sm flex items-center justify-between text-xs text-muted-foreground border-t border-border">
+          <div className="px-4 py-2 bg-card/30 backdrop-blur-sm flex items-center justify-between text-xs text-muted-foreground border-t border-border flex-shrink-0">
             <span>{wordCount} words</span>
             {isEditing && (
               <Button
@@ -277,13 +276,14 @@ export const NoteCard = ({ note, updateNote, deleteNote, folders, onImageUpload 
 
           {/* Resize Handle */}
           <div
-            className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize opacity-0 hover:opacity-100 transition-opacity group-hover:opacity-50"
+            className="absolute bottom-1 right-1 w-6 h-6 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
             onMouseDown={handleResizeStart}
             style={{ 
-              background: 'linear-gradient(135deg, transparent 50%, hsl(var(--primary)) 50%)',
+              background: 'hsl(var(--primary))',
+              borderRadius: '0 0 4px 0'
             }}
           >
-            <Maximize2 className="h-3 w-3 absolute bottom-0 right-0 text-primary" />
+            <Maximize2 className="h-4 w-4 text-primary-foreground" />
           </div>
         </Card>
       </div>
