@@ -65,6 +65,21 @@ export const CharacterRoamer = ({ character, updateCharacter, canvasRef }) => {
     updateCharacter(character.id, { position });
   }, [position]);
 
+  // Random message display
+  useEffect(() => {
+    const messageInterval = setInterval(() => {
+      const randomMessage = CHARACTER_MESSAGES[Math.floor(Math.random() * CHARACTER_MESSAGES.length)];
+      setMessage(randomMessage);
+      setShowMessage(true);
+
+      setTimeout(() => {
+        setShowMessage(false);
+      }, 3000);
+    }, 15000 + Math.random() * 15000); // Random between 15-30 seconds
+
+    return () => clearInterval(messageInterval);
+  }, []);
+
   const handleCageToggle = () => {
     updateCharacter(character.id, { caged: !character.caged });
   };
