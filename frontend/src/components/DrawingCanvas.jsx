@@ -14,7 +14,6 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
   const [isEraser, setIsEraser] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const toolbarRef = useRef(null);
-  const dragHandleRef = useRef(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -23,7 +22,6 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Redraw all paths
     drawings.forEach(drawing => {
       if (drawing.isEraser) {
         ctx.globalCompositeOperation = 'destination-out';
@@ -47,26 +45,35 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
       ctx.stroke();
     });
     
-    // Reset composite operation
     ctx.globalCompositeOperation = 'source-over';
   }, [drawings]);
 
-  const startDrawing = (e) => {
-    setIsDrawing(true);
+  const getPosition = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setCurrentPath([{ x, y }]);
+    
+    // Handle both mouse and touch events
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  };
+
+  const startDrawing = (e) => {
+    e.preventDefault();
+    setIsDrawing(true);
+    const pos = getPosition(e);
+    setCurrentPath([pos]);
   };
 
   const draw = (e) => {
     if (!isDrawing) return;
+    e.preventDefault();
 
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    const newPath = [...currentPath, { x, y }];
+    const pos = getPosition(e);
+    const newPath = [...currentPath, pos];
     setCurrentPath(newPath);
 
     const ctx = canvasRef.current.getContext('2d');
@@ -74,7 +81,7 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
     if (isEraser) {
       ctx.globalCompositeOperation = 'destination-out';
       ctx.strokeStyle = 'rgba(0,0,0,1)';
-      ctx.lineWidth = brushSize * 2; // Eraser is larger
+      ctx.lineWidth = brushSize * 2;
     } else {
       ctx.globalCompositeOperation = 'source-over';
       ctx.strokeStyle = color;
@@ -87,7 +94,7 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
     ctx.beginPath();
     const prevPoint = currentPath[currentPath.length - 1];
     ctx.moveTo(prevPoint.x, prevPoint.y);
-    ctx.lineTo(x, y);
+    ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
   };
 
@@ -106,22 +113,25 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
         width={canvasSize.width}
         height={canvasSize.height}
         className="absolute inset-0 pointer-events-auto"
-        style={{ zIndex: 5 }}
+        style={{ zIndex: 5, touchAction: 'none' }}
         onMouseDown={startDrawing}
         onMouseMove={draw}
         onMouseUp={stopDrawing}
         onMouseLeave={stopDrawing}
+        onTouchStart={startDrawing}
+        onTouchMove={draw}
+        onTouchEnd={stopDrawing}
       />
 
       {/* Draggable Drawing Controls */}
       <Draggable handle=".drag-handle" bounds="parent" nodeRef={toolbarRef}>
-        <div ref={toolbarRef} className="fixed bottom-24 right-8 z-50">
+        <div ref={toolbarRef} className="fixed bottom-20 right-4 md:bottom-24 md:right-8 z-50">
           <Card className="bg-card/95 backdrop-blur-md border-2 border-border shadow-xl transition-all">
             {/* Drag Handle */}
-            <div className="drag-handle flex items-center justify-between p-3 cursor-move border-b border-border">
+            <div className="drag-handle flex items-center justify-between p-2 md:p-3 cursor-move border-b border-border">
               <div className="flex items-center gap-2">
-                <Move className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold">Drawing Tools</span>
+                <Move className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
+                <span className="text-xs md:text-sm font-semibold">Drawing</span>
               </div>
               <Button
                 variant="ghost"
@@ -142,25 +152,25 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
             </div>
             
             {!isMinimized && (
-              <div className="p-3 w-56">
+              <div className="p-2 md:p-3 w-48 md:w-56">
                 {/* Tool Selection */}
                 <div className="flex gap-2 mb-3">
                   <Button
                     variant={!isEraser ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setIsEraser(false)}
-                    className="flex-1"
+                    className="flex-1 text-xs"
                   >
-                    <Pen className="h-4 w-4 mr-1" />
+                    <Pen className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                     Pen
                   </Button>
                   <Button
                     variant={isEraser ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setIsEraser(true)}
-                    className="flex-1"
+                    className="flex-1 text-xs"
                   >
-                    <Eraser className="h-4 w-4 mr-1" />
+                    <Eraser className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                     Eraser
                   </Button>
                 </div>
@@ -169,7 +179,7 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
                 {!isEraser && (
                   <div className="mb-3">
                     <span className="text-xs font-medium mb-2 block">Color:</span>
-                    <div className="grid grid-cols-6 gap-2">
+                    <div className="grid grid-cols-6 gap-1.5">
                       {[
                         { color: '#3b82f6', name: 'Blue' },
                         { color: '#ef4444', name: 'Red' },
@@ -186,7 +196,7 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings }) => {
                       ].map(c => (
                         <button
                           key={c.color}
-                          className={`w-8 h-8 rounded-md border-2 transition-all hover:scale-110 ${
+                          className={`w-6 h-6 md:w-8 md:h-8 rounded-md border-2 transition-all active:scale-95 ${
                             color === c.color ? 'border-primary ring-2 ring-primary/50' : 'border-border'
                           }`}
                           style={{ background: c.color }}
