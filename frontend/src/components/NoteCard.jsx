@@ -22,7 +22,7 @@ const NOTE_COLORS = [
   { name: 'peach', bg: 'bg-muted/50', border: 'border-muted-foreground' },
 ];
 
-export const NoteCard = ({ note, updateNote, deleteNote, folders, onImageUpload }) => {
+export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onImageUpload }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
