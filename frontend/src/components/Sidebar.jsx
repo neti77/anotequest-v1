@@ -154,7 +154,7 @@ export const Sidebar = ({ folders, notes, activeFolder, setActiveFolder, addFold
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Folder?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This will remove the folder but keep all notes. Notes in this folder will be moved to "All Notes".
+                                This will remove the folder but keep all notes. Notes in this folder will be moved to &quot;All Notes&quot;.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
