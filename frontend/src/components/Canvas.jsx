@@ -59,7 +59,8 @@ export const Canvas = ({
   }, [notes, stickers]);
 
   const handleCanvasMouseDown = (e) => {
-    if (e.target === canvasRef.current && selectedTool && selectedTool !== 'note') {
+    const canvasArea = e.target.closest('.canvas-area');
+    if ((e.target === canvasRef.current || canvasArea) && selectedTool && selectedTool !== 'note') {
       const rect = canvasRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left + canvasRef.current.scrollLeft;
       const y = e.clientY - rect.top + canvasRef.current.scrollTop;
