@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FolderPlus, Folder, Trash2, StickyNote, ChevronDown, ChevronRight, Image } from 'lucide-react';
+import { FolderPlus, Folder, Trash2, StickyNote, Image, Sticker as StickerIcon, ArrowRight, ArrowDown, ArrowLeft, ArrowUp, Circle, Square, Star, Heart } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ScrollArea } from './ui/scroll-area';
@@ -19,7 +19,27 @@ import {
 } from './ui/alert-dialog';
 import { toast } from 'sonner';
 
-export const Sidebar = ({ folders, notes, activeFolder, setActiveFolder, addFolder, deleteFolder }) => {
+const STICKER_TYPES = [
+  { type: 'arrow-right', icon: ArrowRight, label: 'Arrow Right' },
+  { type: 'arrow-down', icon: ArrowDown, label: 'Arrow Down' },
+  { type: 'arrow-left', icon: ArrowLeft, label: 'Arrow Left' },
+  { type: 'arrow-up', icon: ArrowUp, label: 'Arrow Up' },
+  { type: 'circle', icon: Circle, label: 'Circle' },
+  { type: 'square', icon: Square, label: 'Square' },
+  { type: 'star', icon: Star, label: 'Star' },
+  { type: 'heart', icon: Heart, label: 'Heart' },
+];
+
+const STICKER_COLORS = [
+  { color: '#3b82f6', name: 'Blue' },
+  { color: '#ef4444', name: 'Red' },
+  { color: '#22c55e', name: 'Green' },
+  { color: '#eab308', name: 'Yellow' },
+  { color: '#8b5cf6', name: 'Purple' },
+  { color: '#f97316', name: 'Orange' },
+];
+
+export const Sidebar = ({ folders, notes, activeFolder, setActiveFolder, addFolder, deleteFolder, selectedTool, setSelectedTool, stickerColor, setStickerColor }) => {
   const [newFolderName, setNewFolderName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
@@ -44,7 +64,6 @@ export const Sidebar = ({ folders, notes, activeFolder, setActiveFolder, addFold
     return notes.filter(note => note.folderId === folderId).length;
   };
 
-  // Get all images from notes
   const allImages = notes.reduce((acc, note) => {
     if (note.images && note.images.length > 0) {
       note.images.forEach(img => {
@@ -58,8 +77,9 @@ export const Sidebar = ({ folders, notes, activeFolder, setActiveFolder, addFold
     <div className="w-64 md:w-64 w-full border-r border-border bg-card/50 backdrop-blur-sm flex flex-col">
       <Tabs defaultValue="folders" className="flex-1 flex flex-col">
         <div className="p-4 border-b border-border flex-shrink-0">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="folders">Folders</TabsTrigger>
+            <TabsTrigger value="stickers">Stickers</TabsTrigger>
             <TabsTrigger value="images">Images</TabsTrigger>
           </TabsList>
         </div>
@@ -97,7 +117,6 @@ export const Sidebar = ({ folders, notes, activeFolder, setActiveFolder, addFold
 
           <ScrollArea className="flex-1">
             <div className="p-2">
-              {/* All Notes */}
               <Card
                 className={`mb-2 p-3 cursor-pointer transition-all hover:shadow-md ${
                   activeFolder === null
@@ -117,7 +136,6 @@ export const Sidebar = ({ folders, notes, activeFolder, setActiveFolder, addFold
                 </div>
               </Card>
 
-              {/* Folder List */}
               {folders.map(folder => {
                 const noteCount = getFolderNoteCount(folder.id);
                 return (
@@ -154,7 +172,7 @@ export const Sidebar = ({ folders, notes, activeFolder, setActiveFolder, addFold
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Folder?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This will remove the folder but keep all notes. Notes in this folder will be moved to &quot;All Notes&quot;.
+                                This will remove the folder but keep all notes.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -182,6 +200,58 @@ export const Sidebar = ({ folders, notes, activeFolder, setActiveFolder, addFold
           </ScrollArea>
         </TabsContent>
 
+        <TabsContent value="stickers" className="flex-1 overflow-hidden mt-0">
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-4">
+              <div>
+                <h2 className="font-semibold text-sm font-display mb-3 flex items-center gap-2">
+                  <StickerIcon className="h-4 w-4" />
+                  Sticker Tools
+                </h2>
+                <p className="text-xs text-muted-foreground mb-3">Select a sticker, then click and drag on canvas to place it</p>
+              </div>
+
+              {/* Sticker Types */}
+              <div>
+                <span className="text-xs font-medium mb-2 block">Type:</span>
+                <div className="grid grid-cols-4 gap-2">
+                  {STICKER_TYPES.map(({ type, icon: Icon, label }) => (
+                    <Button
+                      key={type}
+                      variant={selectedTool === type ? 'default' : 'outline'}
+                      size="icon"
+                      className="h-12 w-12"
+                      onClick={() => setSelectedTool(selectedTool === type ? null : type)}
+                      title={label}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Color Picker */}
+              <div>
+                <span className="text-xs font-medium mb-2 block">Color:</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {STICKER_COLORS.map(({ color, name }) => (
+                    <button
+                      key={color}
+                      className={`h-10 rounded-md border-2 transition-all hover:scale-105 ${
+                        stickerColor === color ? 'border-primary ring-2 ring-primary/50' : 'border-border'
+                      }`}
+                      style={{ background: color }}
+                      onClick={() => setStickerColor(color)}
+                    >
+                      <span className="text-xs text-white drop-shadow-md font-medium">{name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
         <TabsContent value="images" className="flex-1 overflow-hidden mt-0">
           <ScrollArea className="h-full">
             <div className="p-4">
@@ -200,7 +270,6 @@ export const Sidebar = ({ folders, notes, activeFolder, setActiveFolder, addFold
                         alt={`From ${image.noteTitle}`}
                         className="w-full h-full object-cover rounded border border-border hover:border-primary transition-colors cursor-pointer"
                         onClick={() => {
-                          // Could add image preview modal here
                           toast.info(`From note: ${image.noteTitle}`);
                         }}
                       />
