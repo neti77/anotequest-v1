@@ -22,6 +22,45 @@ const NOTE_COLORS = [
   { name: 'peach', bg: 'bg-muted/50', border: 'border-muted-foreground' },
 ];
 
+// Image compression utility
+const compressImage = (file, maxWidth = 800, maxHeight = 800, quality = 0.7) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressedDataUrl);
+      };
+      img.onerror = reject;
+    };
+    reader.onerror = reject;
+  });
+};
+
 export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onImageUpload }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(note.title);
@@ -99,6 +138,42 @@ export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onI
     toast.success('Image removed');
   };
 
+  const handleImageUploadLocal = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image must be less than 10MB');
+      return;
+    }
+
+    try {
+      toast.info('Compressing image...');
+      const compressedImage = await compressImage(file, 800, 800, 0.7);
+      
+      // Check if compressed image is still too large
+      if (compressedImage.length > 500000) { // ~500KB
+        toast.warning('Image is large. Further compressing...');
+        const furtherCompressed = await compressImage(file, 600, 600, 0.5);
+        
+        const newImage = { id: Date.now(), data: furtherCompressed };
+        updateNote(note.id, {
+          images: [...(note.images || []), newImage]
+        });
+      } else {
+        const newImage = { id: Date.now(), data: compressedImage };
+        updateNote(note.id, {
+          images: [...(note.images || []), newImage]
+        });
+      }
+      
+      toast.success('Image added!');
+    } catch (error) {
+      console.error('Image compression error:', error);
+      toast.error('Failed to add image. It may be too large.');
+    }
+  };
+
   const wordCount = content.trim().split(/\s+/).filter(w => w.length > 0).length;
 
   return (
@@ -113,7 +188,7 @@ export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onI
       <div
         ref={nodeRef}
         className="absolute"
-        style={{ width: `${noteSize.width}px` }}
+        style={{ width: `${noteSize.width}px`, zIndex: 10 }}
       >
         <Card 
           className={`note-card group shadow-md ${colorScheme.bg} ${colorScheme.border} border-2 overflow-hidden relative`}
@@ -153,7 +228,7 @@ export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onI
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={onImageUpload}
+                onChange={handleImageUploadLocal}
               />
 
               {/* Color Picker */}
@@ -280,7 +355,8 @@ export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onI
             onMouseDown={handleResizeStart}
             style={{ 
               background: 'hsl(var(--primary))',
-              borderRadius: '0 0 4px 0'
+              borderRadius: '0 0 4px 0',
+              zIndex: 100
             }}
           >
             <Maximize2 className="h-4 w-4 text-primary-foreground" />
