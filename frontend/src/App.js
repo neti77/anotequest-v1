@@ -29,6 +29,8 @@ function App() {
     wins: 0
   });
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showNameInput, setShowNameInput] = useState(false);
+  const [userName, setUserName] = useState('Adventurer');
   const [showBattle, setShowBattle] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [characterPanelOpen, setCharacterPanelOpen] = useState(true);
