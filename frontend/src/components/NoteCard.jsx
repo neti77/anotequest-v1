@@ -289,6 +289,6 @@ export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onI
       </div>
     </Draggable>
   );
-};
+});
 
 export default NoteCard;
