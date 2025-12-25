@@ -261,20 +261,6 @@ export const Canvas = ({
           setDrawings={setDrawings}
         />
 
-        {/* Drawing Preview */}
-        {isDrawing && drawPreview && selectedTool && (
-          <div
-            className="absolute pointer-events-none border-2 border-primary border-dashed bg-primary/10 rounded"
-            style={{
-              left: drawPreview.x,
-              top: drawPreview.y,
-              width: Math.abs(drawPreview.width),
-              height: Math.abs(drawPreview.height),
-              transform: `translate(${drawPreview.width < 0 ? drawPreview.width : 0}px, ${drawPreview.height < 0 ? drawPreview.height : 0}px)`
-            }}
-          />
-        )}
-
         {/* Empty State */}
         {notes.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
