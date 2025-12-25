@@ -199,15 +199,6 @@ export const Canvas = ({
 
   return (
     <div className="relative w-full h-full">
-      {/* Toolbar */}
-      <StickerToolbar 
-        selectedTool={selectedTool}
-        setSelectedTool={setSelectedTool}
-        stickerColor={stickerColor}
-        setStickerColor={setStickerColor}
-        onAddImage={() => fileInputRef.current?.click()}
-      />
-
       {/* File Limit Badge */}
       {!isPremium && (
         <div className="absolute top-4 right-4 z-10">
