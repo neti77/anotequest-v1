@@ -101,6 +101,25 @@ export const CharacterRoamer = ({ character, updateCharacter, canvasRef }) => {
       }}
     >
       <div className="relative group">
+        {/* Speech Bubble */}
+        <AnimatePresence>
+          {showMessage && message && (
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.8 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              className="absolute -top-16 left-1/2 -translate-x-1/2 whitespace-nowrap z-30"
+            >
+              <div className="bg-card border-2 border-primary rounded-lg px-3 py-2 shadow-lg relative">
+                <p className="text-xs font-medium">{message}</p>
+                {/* Speech bubble arrow */}
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-primary" />
+                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-3 border-r-3 border-t-3 border-transparent border-t-card" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="text-5xl animate-float cursor-pointer" title={character.name}>
           {character.emoji}
         </div>
