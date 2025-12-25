@@ -49,6 +49,7 @@ function App() {
       const savedStats = localStorage.getItem('anotequest_stats');
       const savedPremium = localStorage.getItem('anotequest_premium');
       const hasVisited = localStorage.getItem('anotequest_visited');
+      const savedUserName = localStorage.getItem('anotequest_username');
 
       if (savedNotes) {
         const parsed = JSON.parse(savedNotes);
@@ -64,9 +65,14 @@ function App() {
       if (savedCharacters) setCharacters(JSON.parse(savedCharacters));
       if (savedStats) setStats(JSON.parse(savedStats));
       if (savedPremium) setIsPremium(JSON.parse(savedPremium));
+      if (savedUserName) setUserName(savedUserName);
       
       if (!hasVisited) {
         setShowWelcome(true);
+      }
+      
+      if (!savedUserName) {
+        setShowNameInput(true);
       }
       
       setIsLoaded(true);
