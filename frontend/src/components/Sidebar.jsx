@@ -44,123 +44,183 @@ export const Sidebar = ({ folders, notes, activeFolder, setActiveFolder, addFold
     return notes.filter(note => note.folderId === folderId).length;
   };
 
+  // Get all images from notes
+  const allImages = notes.reduce((acc, note) => {
+    if (note.images && note.images.length > 0) {
+      note.images.forEach(img => {
+        acc.push({ ...img, noteId: note.id, noteTitle: note.title });
+      });
+    }
+    return acc;
+  }, []);
+
   return (
-    <div className="w-64 border-r border-border bg-card/50 backdrop-blur-sm flex flex-col">
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-sm font-display">Organization</h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsAdding(!isAdding)}
-            className="h-8 w-8"
-          >
-            <FolderPlus className="h-4 w-4" />
-          </Button>
+    <div className="w-64 md:w-64 w-full border-r border-border bg-card/50 backdrop-blur-sm flex flex-col">
+      <Tabs defaultValue="folders" className="flex-1 flex flex-col">
+        <div className="p-4 border-b border-border flex-shrink-0">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="folders">Folders</TabsTrigger>
+            <TabsTrigger value="images">Images</TabsTrigger>
+          </TabsList>
         </div>
 
-        {isAdding && (
-          <div className="flex gap-2 animate-slideInUp">
-            <Input
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="Folder name"
-              className="h-8 text-sm"
-              onKeyPress={(e) => e.key === 'Enter' && handleAddFolder()}
-              autoFocus
-            />
-            <Button size="sm" onClick={handleAddFolder} className="h-8">
-              Add
-            </Button>
-          </div>
-        )}
-      </div>
-
-      <ScrollArea className="flex-1">
-        <div className="p-2">
-          {/* All Notes */}
-          <Card
-            className={`mb-2 p-3 cursor-pointer transition-all hover:shadow-md ${
-              activeFolder === null
-                ? 'bg-primary/20 border-primary shadow-sm'
-                : 'bg-card hover:bg-muted/50'
-            }`}
-            onClick={() => setActiveFolder(null)}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <StickyNote className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">All Notes</span>
-              </div>
-              <Badge variant="secondary" className="text-xs">
-                {notes.length}
-              </Badge>
+        <TabsContent value="folders" className="flex-1 overflow-hidden mt-0">
+          <div className="p-4 border-b border-border">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-sm font-display">Organization</h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsAdding(!isAdding)}
+                className="h-8 w-8"
+              >
+                <FolderPlus className="h-4 w-4" />
+              </Button>
             </div>
-          </Card>
 
-          {/* Folder List */}
-          {folders.map(folder => {
-            const noteCount = getFolderNoteCount(folder.id);
-            return (
+            {isAdding && (
+              <div className="flex gap-2 animate-slideInUp">
+                <Input
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="Folder name"
+                  className="h-8 text-sm"
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddFolder()}
+                  autoFocus
+                />
+                <Button size="sm" onClick={handleAddFolder} className="h-8">
+                  Add
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <ScrollArea className="flex-1">
+            <div className="p-2">
+              {/* All Notes */}
               <Card
-                key={folder.id}
-                className={`mb-2 p-3 cursor-pointer transition-all hover:shadow-md group ${
-                  activeFolder === folder.id
+                className={`mb-2 p-3 cursor-pointer transition-all hover:shadow-md ${
+                  activeFolder === null
                     ? 'bg-primary/20 border-primary shadow-sm'
                     : 'bg-card hover:bg-muted/50'
                 }`}
-                onClick={() => setActiveFolder(folder.id)}
+                onClick={() => setActiveFolder(null)}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Folder className="h-4 w-4 text-accent flex-shrink-0" />
-                    <span className="text-sm font-medium truncate">{folder.name}</span>
-                  </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {noteCount}
-                    </Badge>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Folder?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will remove the folder but keep all notes. Notes in this folder will be moved to "All Notes".
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteFolder(folder.id)}>
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <StickyNote className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">All Notes</span>
                   </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {notes.length}
+                  </Badge>
                 </div>
               </Card>
-            );
-          })}
 
-          {folders.length === 0 && !isAdding && (
-            <div className="text-center py-8 text-sm text-muted-foreground">
-              <Folder className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No folders yet</p>
-              <p className="text-xs mt-1">Click + to create one</p>
+              {/* Folder List */}
+              {folders.map(folder => {
+                const noteCount = getFolderNoteCount(folder.id);
+                return (
+                  <Card
+                    key={folder.id}
+                    className={`mb-2 p-3 cursor-pointer transition-all hover:shadow-md group ${
+                      activeFolder === folder.id
+                        ? 'bg-primary/20 border-primary shadow-sm'
+                        : 'bg-card hover:bg-muted/50'
+                    }`}
+                    onClick={() => setActiveFolder(folder.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <Folder className="h-4 w-4 text-accent flex-shrink-0" />
+                        <span className="text-sm font-medium truncate">{folder.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {noteCount}
+                        </Badge>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Folder?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will remove the folder but keep all notes. Notes in this folder will be moved to "All Notes".
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteFolder(folder.id)}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+
+              {folders.length === 0 && !isAdding && (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  <Folder className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No folders yet</p>
+                  <p className="text-xs mt-1">Click + to create one</p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </ScrollArea>
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="images" className="flex-1 overflow-hidden mt-0">
+          <ScrollArea className="h-full">
+            <div className="p-4">
+              <h2 className="font-semibold text-sm font-display mb-4 flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                Image Gallery
+                <Badge variant="secondary" className="text-xs">{allImages.length}</Badge>
+              </h2>
+
+              {allImages.length > 0 ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {allImages.map((image, index) => (
+                    <div key={`${image.noteId}-${image.id}`} className="relative group aspect-square">
+                      <img
+                        src={image.data}
+                        alt={`From ${image.noteTitle}`}
+                        className="w-full h-full object-cover rounded border border-border hover:border-primary transition-colors cursor-pointer"
+                        onClick={() => {
+                          // Could add image preview modal here
+                          toast.info(`From note: ${image.noteTitle}`);
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center">
+                        <p className="text-white text-xs px-2 text-center truncate w-full">{image.noteTitle}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-sm text-muted-foreground">
+                  <Image className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>No images yet</p>
+                  <p className="text-xs mt-1">Add images to your notes</p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
