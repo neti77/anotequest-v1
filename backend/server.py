@@ -26,6 +26,13 @@ if not mongo_url or not db_name:
 client = AsyncIOMotorClient(mongo_url)
 db = client[db_name]
 
+@api_router.get("/health")
+async def health():
+    return {
+        "mongo_url_set": bool(os.getenv("MONGO_URL")),
+        "db_name_set": bool(os.getenv("DB_NAME")),
+    }
+
 
 # Create the main app without a prefix
 app = FastAPI()
