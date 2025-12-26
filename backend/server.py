@@ -37,17 +37,6 @@ async def health():
 # Create the main app without a prefix
 app = FastAPI()
 
-@app.get("/", response_class=HTMLResponse)
-def home():
-    return """
-    <html>
-        <head><title>AnoteQuest</title></head>
-        <body>
-            <h1>AnoteQuest API is live 🚀</h1>
-            <p>Go to <a href="/docs">/docs</a> for API documentation.</p>
-        </body>
-    </html>
-    """
 
 
 # Create a router with the /api prefix
