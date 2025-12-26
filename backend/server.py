@@ -37,6 +37,10 @@ async def health():
 # Create the main app without a prefix
 app = FastAPI()
 
+@app.get("/")
+def read_root():
+    return {"message": "Hello from Vercel FastAPI!"}
+
 
 
 # Create a router with the /api prefix
