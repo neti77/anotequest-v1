@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List
 import uuid
 from datetime import datetime, timezone
+from fastapi.responses import HTMLResponse
+
 
 
 ROOT_DIR = Path(__file__).parent
@@ -21,6 +23,19 @@ db = client[os.environ['DB_NAME']]
 
 # Create the main app without a prefix
 app = FastAPI()
+
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return """
+    <html>
+        <head><title>AnoteQuest</title></head>
+        <body>
+            <h1>AnoteQuest API is live 🚀</h1>
+            <p>Go to <a href="/docs">/docs</a> for API documentation.</p>
+        </body>
+    </html>
+    """
+
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
