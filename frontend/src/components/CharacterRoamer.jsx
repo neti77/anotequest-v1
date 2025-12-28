@@ -3,29 +3,31 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Lock } from 'lucide-react';
 import { Button } from './ui/button';
 
-const CHARACTER_MESSAGES = [
-  "Keep writing! 📝",
-  "You're doing great! ⭐",
-  "Words are power! 💪",
-  "Note-taking champion! 🏆",
-  "Knowledge is treasure! 💎",
-  "Write more, learn more! 📚",
-  "Your notes look amazing! ✨",
-  "Battle ready! ⚔️",
-  "Level up time! 🎮",
-  "Epic progress! 🚀",
-  "Brilliant ideas! 💡",
-  "Organize everything! 📋",
-  "Connection matters! 🔗",
-  "Keep the streak! 🔥",
-  "Master note-taker! 👑",
+const getCharacterMessages = (userName) => [
+  `Keep writing, ${userName}! 📝`,
+  `You're doing great, ${userName}! ⭐`,
+  `Words are power, ${userName}! 💪`,
+  `${userName}, you're a champion! 🏆`,
+  `Knowledge is your treasure, ${userName}! 💎`,
+  `Write more, learn more, ${userName}! 📚`,
+  `Your notes look amazing, ${userName}! ✨`,
+  `${userName}, battle ready! ⚔️`,
+  `Level up time, ${userName}! 🎮`,
+  `Epic progress, ${userName}! 🚀`,
+  `Brilliant ideas, ${userName}! 💡`,
+  `Keep organizing, ${userName}! 📋`,
+  `${userName}, keep the streak! 🔥`,
+  `You're a master note-taker, ${userName}! 👑`,
+  `${userName}, you inspire me! 🌟`,
 ];
 
-export const CharacterRoamer = ({ character, updateCharacter, canvasRef }) => {
+export const CharacterRoamer = ({ character, updateCharacter, canvasRef, userName = 'Adventurer' }) => {
   const [position, setPosition] = useState(character.position || { x: 100, y: 100 });
   const [direction, setDirection] = useState({ x: 1, y: 1 });
   const [message, setMessage] = useState(null);
   const [showMessage, setShowMessage] = useState(false);
+
+  const CHARACTER_MESSAGES = getCharacterMessages(userName);
 
   useEffect(() => {
     if (!canvasRef.current) return;
