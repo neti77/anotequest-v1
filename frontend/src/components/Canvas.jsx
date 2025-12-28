@@ -4,6 +4,9 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import NoteCard from './NoteCard';
 import StickerItem from './StickerItem';
+import ImageItem from './ImageItem';
+import TableItem from './TableItem';
+import TodoItem from './TodoItem';
 import CharacterRoamer from './CharacterRoamer';
 import DrawingCanvas from './DrawingCanvas';
 import { toast } from 'sonner';
@@ -12,6 +15,9 @@ export const Canvas = ({
   notes, 
   totalNoteCount,
   stickers,
+  images = [],
+  tables = [],
+  todos = [],
   characters,
   addNote, 
   updateNote, 
@@ -19,6 +25,12 @@ export const Canvas = ({
   addSticker,
   updateSticker,
   deleteSticker,
+  updateImage,
+  deleteImage,
+  updateTable,
+  deleteTable,
+  updateTodo,
+  deleteTodo,
   updateCharacter,
   folders,
   isPremium,
