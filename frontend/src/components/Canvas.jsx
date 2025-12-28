@@ -241,6 +241,7 @@ export const Canvas = ({
             character={character}
             updateCharacter={updateCharacter}
             canvasRef={canvasRef}
+            userName={userName}
           />
         ))}
         </div>
