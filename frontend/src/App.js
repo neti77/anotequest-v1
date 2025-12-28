@@ -14,6 +14,9 @@ function App() {
   const [folders, setFolders] = useState([]);
   const [activeFolder, setActiveFolder] = useState(null);
   const [stickers, setStickers] = useState([]);
+  const [images, setImages] = useState([]);
+  const [tables, setTables] = useState([]);
+  const [todos, setTodos] = useState([]);
   const [characters, setCharacters] = useState([]);
   const [unlockedCharacter, setUnlockedCharacter] = useState(null);
   const [stats, setStats] = useState({
@@ -31,8 +34,14 @@ function App() {
   const [characterPanelOpen, setCharacterPanelOpen] = useState(false);
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const timeIntervalRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Undo/Redo state
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isUndoRedo = useRef(false);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -41,28 +50,25 @@ function App() {
       const savedNotes = localStorage.getItem('anotequest_notes');
       const savedFolders = localStorage.getItem('anotequest_folders');
       const savedStickers = localStorage.getItem('anotequest_stickers');
+      const savedImages = localStorage.getItem('anotequest_images');
+      const savedTables = localStorage.getItem('anotequest_tables');
+      const savedTodos = localStorage.getItem('anotequest_todos');
       const savedCharacters = localStorage.getItem('anotequest_characters');
       const savedStats = localStorage.getItem('anotequest_stats');
       const savedPremium = localStorage.getItem('anotequest_premium');
       const savedUserName = localStorage.getItem('anotequest_username');
 
-      if (savedNotes) {
-        const parsed = JSON.parse(savedNotes);
-        console.log('Loaded notes:', parsed.length);
-        setNotes(parsed);
-      }
+      if (savedNotes) setNotes(JSON.parse(savedNotes));
       if (savedFolders) setFolders(JSON.parse(savedFolders));
-      if (savedStickers) {
-        const parsed = JSON.parse(savedStickers);
-        console.log('Loaded stickers:', parsed.length);
-        setStickers(parsed);
-      }
+      if (savedStickers) setStickers(JSON.parse(savedStickers));
+      if (savedImages) setImages(JSON.parse(savedImages));
+      if (savedTables) setTables(JSON.parse(savedTables));
+      if (savedTodos) setTodos(JSON.parse(savedTodos));
       if (savedCharacters) setCharacters(JSON.parse(savedCharacters));
       if (savedStats) setStats(JSON.parse(savedStats));
       if (savedPremium) setIsPremium(JSON.parse(savedPremium));
       if (savedUserName) setUserName(savedUserName);
       
-      // Only show name input if no username saved
       if (!savedUserName) {
         setShowNameInput(true);
       }
@@ -95,10 +101,10 @@ function App() {
   // Save to localStorage
   useEffect(() => {
     if (!isLoaded) return;
-    const saveTimeout = setTimeout(() => {
+    const timeout = setTimeout(() => {
       localStorage.setItem('anotequest_notes', JSON.stringify(notes));
     }, 500);
-    return () => clearTimeout(saveTimeout);
+    return () => clearTimeout(timeout);
   }, [notes, isLoaded]);
 
   useEffect(() => {
@@ -113,6 +119,21 @@ function App() {
 
   useEffect(() => {
     if (!isLoaded) return;
+    localStorage.setItem('anotequest_images', JSON.stringify(images));
+  }, [images, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem('anotequest_tables', JSON.stringify(tables));
+  }, [tables, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem('anotequest_todos', JSON.stringify(todos));
+  }, [todos, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
     localStorage.setItem('anotequest_characters', JSON.stringify(characters));
   }, [characters, isLoaded]);
 
@@ -121,13 +142,51 @@ function App() {
     localStorage.setItem('anotequest_stats', JSON.stringify(stats));
   }, [stats, isLoaded]);
 
+  // Save history for undo/redo (simplified - just notes)
+  useEffect(() => {
+    if (!isLoaded || isUndoRedo.current) {
+      isUndoRedo.current = false;
+      return;
+    }
+    
+    const state = { notes: [...notes] };
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push(state);
+      // Keep only last 50 states
+      if (newHistory.length > 50) newHistory.shift();
+      return newHistory;
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, 49));
+  }, [notes, isLoaded]);
+
+  // Undo
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      isUndoRedo.current = true;
+      const prevState = history[historyIndex - 1];
+      setNotes(prevState.notes);
+      setHistoryIndex(prev => prev - 1);
+    }
+  }, [history, historyIndex]);
+
+  // Redo
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      isUndoRedo.current = true;
+      const nextState = history[historyIndex + 1];
+      setNotes(nextState.notes);
+      setHistoryIndex(prev => prev + 1);
+    }
+  }, [history, historyIndex]);
+
   // Calculate stats and check for unlocks
   useEffect(() => {
     if (!isLoaded) return;
     
     const totalNotes = notes.length;
     const totalWords = notes.reduce((sum, note) => {
-      const wordCount = note.content.trim().split(/\s+/).filter(w => w.length > 0).length;
+      const wordCount = note.content?.trim().split(/\s+/).filter(w => w.length > 0).length || 0;
       return sum + wordCount;
     }, 0);
 
@@ -197,7 +256,7 @@ function App() {
 
   const addNote = useCallback((note) => {
     if (!isPremium && notes.length >= 100) {
-      return { error: 'Free tier limited to 100 notes. Upgrade to premium!' };
+      return { error: 'Free tier limited to 100 notes!' };
     }
 
     const newNote = {
@@ -252,6 +311,66 @@ function App() {
     setStickers(prev => prev.filter(sticker => sticker.id !== id));
   }, []);
 
+  // Image handlers
+  const addImage = useCallback((image) => {
+    const newImage = {
+      id: Date.now() + Math.random(),
+      ...image,
+      createdAt: new Date().toISOString()
+    };
+    setImages(prev => [...prev, newImage]);
+  }, []);
+
+  const updateImage = useCallback((id, updates) => {
+    setImages(prev => prev.map(img => 
+      img.id === id ? { ...img, ...updates } : img
+    ));
+  }, []);
+
+  const deleteImage = useCallback((id) => {
+    setImages(prev => prev.filter(img => img.id !== id));
+  }, []);
+
+  // Table handlers
+  const addTable = useCallback((table) => {
+    const newTable = {
+      id: Date.now() + Math.random(),
+      ...table,
+      createdAt: new Date().toISOString()
+    };
+    setTables(prev => [...prev, newTable]);
+  }, []);
+
+  const updateTable = useCallback((id, updates) => {
+    setTables(prev => prev.map(t => 
+      t.id === id ? { ...t, ...updates } : t
+    ));
+  }, []);
+
+  const deleteTable = useCallback((id) => {
+    setTables(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  // Todo handlers
+  const addTodo = useCallback((todo) => {
+    const newTodo = {
+      id: Date.now() + Math.random(),
+      ...todo,
+      createdAt: new Date().toISOString()
+    };
+    setTodos(prev => [...prev, newTodo]);
+  }, []);
+
+  const updateTodo = useCallback((id, updates) => {
+    setTodos(prev => prev.map(t => 
+      t.id === id ? { ...t, ...updates } : t
+    ));
+  }, []);
+
+  const deleteTodo = useCallback((id) => {
+    setTodos(prev => prev.filter(t => t.id !== id));
+  }, []);
+
   const updateCharacter = useCallback((id, updates) => {
     setCharacters(prev => prev.map(char => 
       char.id === id ? { ...char, ...updates } : char
@@ -266,7 +385,6 @@ function App() {
       wins: newWins
     }));
     
-    // Unlock dragon at 100 wins
     if (newWins === 100) {
       setCharacters(prev => {
         const dragonChar = prev.find(c => c.type === 'dragon' || c.type === 'dragon_lord');
@@ -288,11 +406,22 @@ function App() {
     }));
   }, []);
 
+  // Filter notes by folder and search
   const filteredNotes = useMemo(() => {
-    return activeFolder 
+    let result = activeFolder 
       ? notes.filter(note => note.folderId === activeFolder)
       : notes;
-  }, [notes, activeFolder]);
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(note => 
+        note.title?.toLowerCase().includes(query) ||
+        note.content?.toLowerCase().includes(query)
+      );
+    }
+    
+    return result;
+  }, [notes, activeFolder, searchQuery]);
 
   if (!isLoaded) {
     return (
@@ -311,10 +440,16 @@ function App() {
           isPremium={isPremium}
           isDrawingMode={isDrawingMode}
           userName={userName}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={historyIndex > 0}
+          canRedo={historyIndex < history.length - 1}
         />
         
         <div className="flex-1 flex overflow-hidden relative">
-          {/* Floating Tool Strip (Milanote style) */}
+          {/* Floating Tool Strip */}
           <ToolStrip
             onAddNote={() => addNote()}
             onToggleDrawing={() => setIsDrawingMode(!isDrawingMode)}
@@ -327,6 +462,9 @@ function App() {
             addFolder={addFolder}
             onToggleCharacters={() => setCharacterPanelOpen(!characterPanelOpen)}
             characterPanelOpen={characterPanelOpen}
+            onAddImage={addImage}
+            onAddTable={addTable}
+            onAddTodo={addTodo}
           />
           
           {/* Main Canvas */}
@@ -335,6 +473,9 @@ function App() {
               notes={filteredNotes}
               totalNoteCount={notes.length}
               stickers={stickers}
+              images={images}
+              tables={tables}
+              todos={todos}
               characters={characters.filter(c => c.unlocked && !c.caged)}
               addNote={addNote}
               updateNote={updateNote}
@@ -342,6 +483,12 @@ function App() {
               addSticker={addSticker}
               updateSticker={updateSticker}
               deleteSticker={deleteSticker}
+              updateImage={updateImage}
+              deleteImage={deleteImage}
+              updateTable={updateTable}
+              deleteTable={deleteTable}
+              updateTodo={updateTodo}
+              deleteTodo={deleteTodo}
               updateCharacter={updateCharacter}
               folders={folders}
               isPremium={isPremium}
