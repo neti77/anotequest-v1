@@ -163,15 +163,6 @@ export const Canvas = ({
             height: `${canvasSize.height}px`
           }}
         >
-        {/* Floating Add Button - Mobile Friendly */}
-        <Button
-          onClick={() => handleAddNote()}
-          size="lg"
-          className="fixed bottom-8 right-8 rounded-full w-14 h-14 shadow-glow hover:scale-110 transition-transform z-50 bg-gradient-to-br from-primary to-accent md:w-14 md:h-14 w-12 h-12"
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
-
         {/* Drawing Canvas Layer */}
         <DrawingCanvas 
           canvasSize={canvasSize}
