@@ -223,19 +223,45 @@ export const Canvas = ({
           />
         ))}
 
-        {/* Render Stickers (above notes) */}
-        {console.log('Rendering stickers:', stickers.length)}
-        {stickers.map((sticker, index) => {
-          console.log('Rendering sticker', index, sticker);
-          return (
-            <StickerItem
-              key={sticker.id}
-              sticker={sticker}
-              updateSticker={updateSticker}
-              deleteSticker={deleteSticker}
-            />
-          );
-        })}
+        {/* Render Stickers */}
+        {stickers.map((sticker) => (
+          <StickerItem
+            key={sticker.id}
+            sticker={sticker}
+            updateSticker={updateSticker}
+            deleteSticker={deleteSticker}
+          />
+        ))}
+
+        {/* Render Images */}
+        {images.map((image) => (
+          <ImageItem
+            key={image.id}
+            image={image}
+            updateImage={updateImage}
+            deleteImage={deleteImage}
+          />
+        ))}
+
+        {/* Render Tables */}
+        {tables.map((table) => (
+          <TableItem
+            key={table.id}
+            table={table}
+            updateTable={updateTable}
+            deleteTable={deleteTable}
+          />
+        ))}
+
+        {/* Render Todos */}
+        {todos.map((todo) => (
+          <TodoItem
+            key={todo.id}
+            todo={todo}
+            updateTodo={updateTodo}
+            deleteTodo={deleteTodo}
+          />
+        ))}
 
         {/* Render Roaming Characters */}
         {characters.map(character => (
