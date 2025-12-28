@@ -172,12 +172,13 @@ export const Canvas = ({
           <Plus className="h-6 w-6" />
         </Button>
 
-        {/* Drawing Canvas Layer with Stickers */}
+        {/* Drawing Canvas Layer */}
         <DrawingCanvas 
           canvasSize={canvasSize}
           drawings={drawings}
           setDrawings={setDrawings}
-          addSticker={addSticker}
+          isActive={isDrawingMode}
+          onClose={onCloseDrawing}
         />
 
         {/* Empty State */}
