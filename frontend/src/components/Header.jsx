@@ -322,6 +322,19 @@ export const Header = ({
             <span className="hidden sm:inline">Battle</span>
           </Button>
 
+          {/* Backup/Export Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportToPDF}
+            disabled={isExporting}
+            className="gap-1.5 h-8"
+            title="Backup to PDF"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Backup</span>
+          </Button>
+
           {/* Premium Badge */}
           {isPremium && (
             <Badge className="gap-1 bg-gradient-to-r from-amber-500 to-orange-500 hidden md:flex">
