@@ -211,10 +211,12 @@ export const Header = ({
     <header className="h-14 border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
       <div className="h-full px-4 flex items-center justify-between">
         {/* Logo & Title */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-glow">
-            <BookOpen className="h-5 w-5 text-primary-foreground" />
-          </div>
+        <div className="flex items-center gap-2">
+          <img 
+            src="https://customer-assets.emergentagent.com/job_gamified-notes-1/artifacts/nduu9o31_logo.png" 
+            alt="AnoteQuest Logo"
+            className="h-10 w-10 object-contain"
+          />
           <div className="hidden sm:block">
             <h1 className="text-lg font-bold font-display gradient-text">AnoteQuest</h1>
           </div>
