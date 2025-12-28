@@ -446,6 +446,9 @@ function App() {
           onRedo={handleRedo}
           canUndo={historyIndex > 0}
           canRedo={historyIndex < history.length - 1}
+          notes={notes}
+          tables={tables}
+          todos={todos}
         />
         
         <div className="flex-1 flex overflow-hidden relative">
