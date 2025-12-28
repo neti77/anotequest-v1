@@ -4,6 +4,9 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import NoteCard from './NoteCard';
 import StickerItem from './StickerItem';
+import ImageItem from './ImageItem';
+import TableItem from './TableItem';
+import TodoItem from './TodoItem';
 import CharacterRoamer from './CharacterRoamer';
 import DrawingCanvas from './DrawingCanvas';
 import { toast } from 'sonner';
@@ -12,6 +15,9 @@ export const Canvas = ({
   notes, 
   totalNoteCount,
   stickers,
+  images = [],
+  tables = [],
+  todos = [],
   characters,
   addNote, 
   updateNote, 
@@ -19,9 +25,18 @@ export const Canvas = ({
   addSticker,
   updateSticker,
   deleteSticker,
+  updateImage,
+  deleteImage,
+  updateTable,
+  deleteTable,
+  updateTodo,
+  deleteTodo,
   updateCharacter,
   folders,
-  isPremium
+  isPremium,
+  isDrawingMode,
+  onCloseDrawing,
+  userName
 }) => {
   const canvasRef = useRef(null);
   const [canvasSize, setCanvasSize] = useState({ width: 3000, height: 2000 });
@@ -160,21 +175,13 @@ export const Canvas = ({
             height: `${canvasSize.height}px`
           }}
         >
-        {/* Floating Add Button - Mobile Friendly */}
-        <Button
-          onClick={() => handleAddNote()}
-          size="lg"
-          className="fixed bottom-8 right-8 rounded-full w-14 h-14 shadow-glow hover:scale-110 transition-transform z-50 bg-gradient-to-br from-primary to-accent md:w-14 md:h-14 w-12 h-12"
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
-
-        {/* Drawing Canvas Layer with Stickers */}
+        {/* Drawing Canvas Layer */}
         <DrawingCanvas 
           canvasSize={canvasSize}
           drawings={drawings}
           setDrawings={setDrawings}
-          addSticker={addSticker}
+          isActive={isDrawingMode}
+          onClose={onCloseDrawing}
         />
 
         {/* Empty State */}
@@ -216,19 +223,45 @@ export const Canvas = ({
           />
         ))}
 
-        {/* Render Stickers (above notes) */}
-        {console.log('Rendering stickers:', stickers.length)}
-        {stickers.map((sticker, index) => {
-          console.log('Rendering sticker', index, sticker);
-          return (
-            <StickerItem
-              key={sticker.id}
-              sticker={sticker}
-              updateSticker={updateSticker}
-              deleteSticker={deleteSticker}
-            />
-          );
-        })}
+        {/* Render Stickers */}
+        {stickers.map((sticker) => (
+          <StickerItem
+            key={sticker.id}
+            sticker={sticker}
+            updateSticker={updateSticker}
+            deleteSticker={deleteSticker}
+          />
+        ))}
+
+        {/* Render Images */}
+        {images.map((image) => (
+          <ImageItem
+            key={image.id}
+            image={image}
+            updateImage={updateImage}
+            deleteImage={deleteImage}
+          />
+        ))}
+
+        {/* Render Tables */}
+        {tables.map((table) => (
+          <TableItem
+            key={table.id}
+            table={table}
+            updateTable={updateTable}
+            deleteTable={deleteTable}
+          />
+        ))}
+
+        {/* Render Todos */}
+        {todos.map((todo) => (
+          <TodoItem
+            key={todo.id}
+            todo={todo}
+            updateTodo={updateTodo}
+            deleteTodo={deleteTodo}
+          />
+        ))}
 
         {/* Render Roaming Characters */}
         {characters.map(character => (
@@ -237,6 +270,7 @@ export const Canvas = ({
             character={character}
             updateCharacter={updateCharacter}
             canvasRef={canvasRef}
+            userName={userName}
           />
         ))}
         </div>

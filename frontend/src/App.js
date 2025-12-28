@@ -3,20 +3,20 @@ import { ThemeProvider } from 'next-themes';
 import { Toaster } from './components/ui/sonner';
 import Header from './components/Header';
 import Canvas from './components/Canvas';
-import Sidebar from './components/Sidebar';
-import CharacterPanel from './components/CharacterPanel';
-import StatsPanel from './components/StatsPanel';
-import WelcomeModal from './components/WelcomeModal';
+import ToolStrip from './components/ToolStrip';
+import CharacterPanelSlim from './components/CharacterPanelSlim';
 import BattleModal from './components/BattleModal';
 import CharacterUnlockModal from './components/CharacterUnlockModal';
 import NameInputModal from './components/NameInputModal';
-import { Sparkles } from 'lucide-react';
 
 function App() {
   const [notes, setNotes] = useState([]);
   const [folders, setFolders] = useState([]);
   const [activeFolder, setActiveFolder] = useState(null);
   const [stickers, setStickers] = useState([]);
+  const [images, setImages] = useState([]);
+  const [tables, setTables] = useState([]);
+  const [todos, setTodos] = useState([]);
   const [characters, setCharacters] = useState([]);
   const [unlockedCharacter, setUnlockedCharacter] = useState(null);
   const [stats, setStats] = useState({
@@ -28,15 +28,20 @@ function App() {
     battles: 0,
     wins: 0
   });
-  const [showWelcome, setShowWelcome] = useState(false);
   const [showNameInput, setShowNameInput] = useState(false);
   const [userName, setUserName] = useState('Adventurer');
   const [showBattle, setShowBattle] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [characterPanelOpen, setCharacterPanelOpen] = useState(true);
+  const [characterPanelOpen, setCharacterPanelOpen] = useState(false);
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const timeIntervalRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Undo/Redo state
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isUndoRedo = useRef(false);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -45,31 +50,24 @@ function App() {
       const savedNotes = localStorage.getItem('anotequest_notes');
       const savedFolders = localStorage.getItem('anotequest_folders');
       const savedStickers = localStorage.getItem('anotequest_stickers');
+      const savedImages = localStorage.getItem('anotequest_images');
+      const savedTables = localStorage.getItem('anotequest_tables');
+      const savedTodos = localStorage.getItem('anotequest_todos');
       const savedCharacters = localStorage.getItem('anotequest_characters');
       const savedStats = localStorage.getItem('anotequest_stats');
       const savedPremium = localStorage.getItem('anotequest_premium');
-      const hasVisited = localStorage.getItem('anotequest_visited');
       const savedUserName = localStorage.getItem('anotequest_username');
 
-      if (savedNotes) {
-        const parsed = JSON.parse(savedNotes);
-        console.log('Loaded notes:', parsed.length);
-        setNotes(parsed);
-      }
+      if (savedNotes) setNotes(JSON.parse(savedNotes));
       if (savedFolders) setFolders(JSON.parse(savedFolders));
-      if (savedStickers) {
-        const parsed = JSON.parse(savedStickers);
-        console.log('Loaded stickers:', parsed.length);
-        setStickers(parsed);
-      }
+      if (savedStickers) setStickers(JSON.parse(savedStickers));
+      if (savedImages) setImages(JSON.parse(savedImages));
+      if (savedTables) setTables(JSON.parse(savedTables));
+      if (savedTodos) setTodos(JSON.parse(savedTodos));
       if (savedCharacters) setCharacters(JSON.parse(savedCharacters));
       if (savedStats) setStats(JSON.parse(savedStats));
       if (savedPremium) setIsPremium(JSON.parse(savedPremium));
       if (savedUserName) setUserName(savedUserName);
-      
-      if (!hasVisited) {
-        setShowWelcome(true);
-      }
       
       if (!savedUserName) {
         setShowNameInput(true);
@@ -87,13 +85,10 @@ function App() {
     if (!isLoaded) return;
     
     timeIntervalRef.current = setInterval(() => {
-      setStats(prev => {
-        const newStats = {
-          ...prev,
-          timeSpent: prev.timeSpent + 1
-        };
-        return newStats;
-      });
+      setStats(prev => ({
+        ...prev,
+        timeSpent: prev.timeSpent + 1
+      }));
     }, 1000);
 
     return () => {
@@ -103,16 +98,13 @@ function App() {
     };
   }, [isLoaded]);
 
-  // Save to localStorage with debounce
+  // Save to localStorage
   useEffect(() => {
     if (!isLoaded) return;
-    
-    const saveTimeout = setTimeout(() => {
-      console.log('Saving notes:', notes.length);
+    const timeout = setTimeout(() => {
       localStorage.setItem('anotequest_notes', JSON.stringify(notes));
     }, 500);
-    
-    return () => clearTimeout(saveTimeout);
+    return () => clearTimeout(timeout);
   }, [notes, isLoaded]);
 
   useEffect(() => {
@@ -122,9 +114,23 @@ function App() {
 
   useEffect(() => {
     if (!isLoaded) return;
-    console.log('Saving stickers:', stickers.length);
     localStorage.setItem('anotequest_stickers', JSON.stringify(stickers));
   }, [stickers, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem('anotequest_images', JSON.stringify(images));
+  }, [images, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem('anotequest_tables', JSON.stringify(tables));
+  }, [tables, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem('anotequest_todos', JSON.stringify(todos));
+  }, [todos, isLoaded]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -136,13 +142,51 @@ function App() {
     localStorage.setItem('anotequest_stats', JSON.stringify(stats));
   }, [stats, isLoaded]);
 
+  // Save history for undo/redo (simplified - just notes)
+  useEffect(() => {
+    if (!isLoaded || isUndoRedo.current) {
+      isUndoRedo.current = false;
+      return;
+    }
+    
+    const state = { notes: [...notes] };
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push(state);
+      // Keep only last 50 states
+      if (newHistory.length > 50) newHistory.shift();
+      return newHistory;
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, 49));
+  }, [notes, isLoaded]);
+
+  // Undo
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      isUndoRedo.current = true;
+      const prevState = history[historyIndex - 1];
+      setNotes(prevState.notes);
+      setHistoryIndex(prev => prev - 1);
+    }
+  }, [history, historyIndex]);
+
+  // Redo
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      isUndoRedo.current = true;
+      const nextState = history[historyIndex + 1];
+      setNotes(nextState.notes);
+      setHistoryIndex(prev => prev + 1);
+    }
+  }, [history, historyIndex]);
+
   // Calculate stats and check for unlocks
   useEffect(() => {
     if (!isLoaded) return;
     
     const totalNotes = notes.length;
     const totalWords = notes.reduce((sum, note) => {
-      const wordCount = note.content.trim().split(/\s+/).filter(w => w.length > 0).length;
+      const wordCount = note.content?.trim().split(/\s+/).filter(w => w.length > 0).length || 0;
       return sum + wordCount;
     }, 0);
 
@@ -185,7 +229,6 @@ function App() {
         if (!existing?.unlocked && shouldUnlock) {
           hasNewUnlock = true;
           newlyUnlocked = { ...char, unlocked: true, level: 1, xp: 0, position: { x: Math.random() * 200 + 100, y: Math.random() * 200 + 100 }, caged: false };
-          console.log('Unlocking character:', char.name);
           return newlyUnlocked;
         }
         
@@ -205,26 +248,30 @@ function App() {
     });
   }, []);
 
-  const handleWelcomeClose = useCallback(() => {
-    setShowWelcome(false);
-    localStorage.setItem('anotequest_visited', 'true');
+  const handleNameSubmit = useCallback((name) => {
+    setUserName(name);
+    localStorage.setItem('anotequest_username', name);
+    setShowNameInput(false);
   }, []);
 
   const addNote = useCallback((note) => {
     if (!isPremium && notes.length >= 100) {
-      return { error: 'Free tier limited to 100 notes. Upgrade to premium or win battles for more!' };
+      return { error: 'Free tier limited to 100 notes!' };
     }
 
     const newNote = {
       id: Date.now(),
+      title: 'New Note',
+      content: '',
       ...note,
-      position: note.position || { x: 100 + (notes.length % 5) * 100, y: 100 + Math.floor(notes.length / 5) * 150 },
+      position: note?.position || { x: 100 + (notes.length % 5) * 100, y: 100 + Math.floor(notes.length / 5) * 150 },
       createdAt: new Date().toISOString(),
-      images: note.images || []
+      images: note?.images || [],
+      folderId: activeFolder || null
     };
     setNotes(prev => [...prev, newNote]);
     return { success: true, note: newNote };
-  }, [isPremium, notes.length]);
+  }, [isPremium, notes.length, activeFolder]);
 
   const updateNote = useCallback((id, updates) => {
     setNotes(prev => prev.map(note => 
@@ -236,22 +283,13 @@ function App() {
     setNotes(prev => prev.filter(note => note.id !== id));
   }, []);
 
-  const addFolder = useCallback((name, parentId = null) => {
+  const addFolder = useCallback((name) => {
     const newFolder = {
       id: Date.now(),
       name,
-      parentId,
-      createdAt: new Date().toISOString(),
-      expanded: true
+      createdAt: new Date().toISOString()
     };
     setFolders(prev => [...prev, newFolder]);
-  }, []);
-
-  const deleteFolder = useCallback((id) => {
-    setFolders(prev => prev.filter(folder => folder.id !== id));
-    setNotes(prev => prev.map(note => 
-      note.folderId === id ? { ...note, folderId: null } : note
-    ));
   }, []);
 
   const addSticker = useCallback((sticker) => {
@@ -260,7 +298,6 @@ function App() {
       ...sticker,
       createdAt: new Date().toISOString()
     };
-    console.log('Adding sticker:', newSticker);
     setStickers(prev => [...prev, newSticker]);
   }, []);
 
@@ -274,13 +311,73 @@ function App() {
     setStickers(prev => prev.filter(sticker => sticker.id !== id));
   }, []);
 
+  // Image handlers
+  const addImage = useCallback((image) => {
+    const newImage = {
+      id: Date.now() + Math.random(),
+      ...image,
+      createdAt: new Date().toISOString()
+    };
+    setImages(prev => [...prev, newImage]);
+  }, []);
+
+  const updateImage = useCallback((id, updates) => {
+    setImages(prev => prev.map(img => 
+      img.id === id ? { ...img, ...updates } : img
+    ));
+  }, []);
+
+  const deleteImage = useCallback((id) => {
+    setImages(prev => prev.filter(img => img.id !== id));
+  }, []);
+
+  // Table handlers
+  const addTable = useCallback((table) => {
+    const newTable = {
+      id: Date.now() + Math.random(),
+      ...table,
+      createdAt: new Date().toISOString()
+    };
+    setTables(prev => [...prev, newTable]);
+  }, []);
+
+  const updateTable = useCallback((id, updates) => {
+    setTables(prev => prev.map(t => 
+      t.id === id ? { ...t, ...updates } : t
+    ));
+  }, []);
+
+  const deleteTable = useCallback((id) => {
+    setTables(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  // Todo handlers
+  const addTodo = useCallback((todo) => {
+    const newTodo = {
+      id: Date.now() + Math.random(),
+      ...todo,
+      createdAt: new Date().toISOString()
+    };
+    setTodos(prev => [...prev, newTodo]);
+  }, []);
+
+  const updateTodo = useCallback((id, updates) => {
+    setTodos(prev => prev.map(t => 
+      t.id === id ? { ...t, ...updates } : t
+    ));
+  }, []);
+
+  const deleteTodo = useCallback((id) => {
+    setTodos(prev => prev.filter(t => t.id !== id));
+  }, []);
+
   const updateCharacter = useCallback((id, updates) => {
     setCharacters(prev => prev.map(char => 
       char.id === id ? { ...char, ...updates } : char
     ));
   }, []);
 
-  const handleBattleWin = useCallback((reward) => {
+  const handleBattleWin = useCallback(() => {
     const newWins = stats.wins + 1;
     setStats(prev => ({
       ...prev,
@@ -288,9 +385,7 @@ function App() {
       wins: newWins
     }));
     
-    // Check for dragon unlock at 100 wins
     if (newWins === 100) {
-      // Unlock dragon character
       setCharacters(prev => {
         const dragonChar = prev.find(c => c.type === 'dragon' || c.type === 'dragon_lord');
         if (dragonChar && !dragonChar.unlocked) {
@@ -311,11 +406,22 @@ function App() {
     }));
   }, []);
 
+  // Filter notes by folder and search
   const filteredNotes = useMemo(() => {
-    return activeFolder 
+    let result = activeFolder 
       ? notes.filter(note => note.folderId === activeFolder)
       : notes;
-  }, [notes, activeFolder]);
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(note => 
+        note.title?.toLowerCase().includes(query) ||
+        note.content?.toLowerCase().includes(query)
+      );
+    }
+    
+    return result;
+  }, [notes, activeFolder, searchQuery]);
 
   if (!isLoaded) {
     return (
@@ -330,31 +436,46 @@ function App() {
       <div className="h-screen overflow-hidden flex flex-col bg-background">
         <Header 
           stats={stats}
-          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          onToggleCharacterPanel={() => setCharacterPanelOpen(!characterPanelOpen)}
           onBattle={() => setShowBattle(true)}
-          sidebarOpen={sidebarOpen}
-          characterPanelOpen={characterPanelOpen}
           isPremium={isPremium}
+          isDrawingMode={isDrawingMode}
+          userName={userName}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={historyIndex > 0}
+          canRedo={historyIndex < history.length - 1}
         />
         
         <div className="flex-1 flex overflow-hidden relative">
-          {sidebarOpen && (
-            <Sidebar
-              folders={folders}
-              notes={notes}
-              activeFolder={activeFolder}
-              setActiveFolder={setActiveFolder}
-              addFolder={addFolder}
-              deleteFolder={deleteFolder}
-            />
-          )}
+          {/* Floating Tool Strip */}
+          <ToolStrip
+            onAddNote={() => addNote()}
+            onToggleDrawing={() => setIsDrawingMode(!isDrawingMode)}
+            isDrawing={isDrawingMode}
+            addSticker={addSticker}
+            folders={folders}
+            notes={notes}
+            activeFolder={activeFolder}
+            setActiveFolder={setActiveFolder}
+            addFolder={addFolder}
+            onToggleCharacters={() => setCharacterPanelOpen(!characterPanelOpen)}
+            characterPanelOpen={characterPanelOpen}
+            onAddImage={addImage}
+            onAddTable={addTable}
+            onAddTodo={addTodo}
+          />
           
+          {/* Main Canvas */}
           <div className="flex-1 relative overflow-hidden">
             <Canvas
               notes={filteredNotes}
               totalNoteCount={notes.length}
               stickers={stickers}
+              images={images}
+              tables={tables}
+              todos={todos}
               characters={characters.filter(c => c.unlocked && !c.caged)}
               addNote={addNote}
               updateNote={updateNote}
@@ -362,29 +483,35 @@ function App() {
               addSticker={addSticker}
               updateSticker={updateSticker}
               deleteSticker={deleteSticker}
+              updateImage={updateImage}
+              deleteImage={deleteImage}
+              updateTable={updateTable}
+              deleteTable={deleteTable}
+              updateTodo={updateTodo}
+              deleteTodo={deleteTodo}
               updateCharacter={updateCharacter}
               folders={folders}
               isPremium={isPremium}
+              isDrawingMode={isDrawingMode}
+              onCloseDrawing={() => setIsDrawingMode(false)}
+              userName={userName}
             />
           </div>
           
+          {/* Slim Character Panel */}
           {characterPanelOpen && (
-            <div className="w-80 border-l border-border bg-card/50 backdrop-blur-sm hidden lg:block">
-              <div className="h-1/2 border-b border-border overflow-y-auto">
-                <CharacterPanel 
-                  characters={characters} 
-                  updateCharacter={updateCharacter}
-                />
-              </div>
-              <div className="h-1/2 overflow-y-auto">
-                <StatsPanel stats={stats} notes={notes} isPremium={isPremium} />
-              </div>
-            </div>
+            <CharacterPanelSlim
+              characters={characters}
+              updateCharacter={updateCharacter}
+              onClose={() => setCharacterPanelOpen(false)}
+            />
           )}
         </div>
 
-        {showWelcome && <WelcomeModal onClose={handleWelcomeClose} />}
-        {showNameInput && <NameInputModal onComplete={(name) => { setUserName(name); setShowNameInput(false); }} />}
+        {/* Modals */}
+        {showNameInput && (
+          <NameInputModal onComplete={handleNameSubmit} />
+        )}
         {showBattle && (
           <BattleModal 
             onClose={() => setShowBattle(false)}

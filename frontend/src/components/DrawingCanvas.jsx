@@ -1,39 +1,26 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import Draggable from 'react-draggable';
-import { Eraser, Pen, Move, Minus, Plus, Sticker, ArrowRight, ArrowDown, ArrowLeft, ArrowUp, Circle, Square, Star, Heart } from 'lucide-react';
+import { Eraser, Pen, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
-import { Card } from './ui/card';
-import { toast } from 'sonner';
 
-const STICKER_TYPES = [
-  { type: 'arrow-right', icon: ArrowRight, label: 'Arrow' },
-  { type: 'arrow-down', icon: ArrowDown, label: 'Down' },
-  { type: 'circle', icon: Circle, label: 'Circle' },
-  { type: 'square', icon: Square, label: 'Square' },
-  { type: 'star', icon: Star, label: 'Star' },
-  { type: 'heart', icon: Heart, label: 'Heart' },
+const COLORS = [
+  '#3b82f6', '#ef4444', '#22c55e', '#eab308', '#8b5cf6', '#f97316',
+  '#ec4899', '#14b8a6', '#000000', '#6b7280', '#ffffff'
 ];
 
-export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, addSticker }) => {
+export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActive, onClose }) => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [color, setColor] = useState('#3b82f6');
   const [brushSize, setBrushSize] = useState(3);
   const [currentPath, setCurrentPath] = useState([]);
-  const [toolMode, setToolMode] = useState('pen'); // 'pen', 'eraser', 'sticker'
-  const [isMinimized, setIsMinimized] = useState(false);
-  const toolbarRef = useRef(null);
+  const [isEraser, setIsEraser] = useState(false);
   
-  // Touch tracking for multi-touch
   const touchStateRef = useRef({
     touchCount: 0,
-    lastPanPosition: null,
-    initialPinchDistance: null
+    lastPanPosition: null
   });
-
-  const isEraser = toolMode === 'eraser';
 
   // Redraw canvas when drawings change
   useEffect(() => {
@@ -84,31 +71,22 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, addSti
     };
   }, []);
 
-  // Mouse event handlers (for desktop)
+  // Mouse handlers
   const handleMouseDown = (e) => {
-    if (toolMode === 'sticker') return; // Stickers don't draw
+    if (!isActive) return;
     e.preventDefault();
     setIsDrawing(true);
     const rect = canvasRef.current.getBoundingClientRect();
-    const pos = {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    };
+    const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     setCurrentPath([pos]);
   };
 
   const handleMouseMove = (e) => {
-    if (!isDrawing || toolMode === 'sticker') return;
+    if (!isDrawing || !isActive) return;
     e.preventDefault();
-
     const rect = canvasRef.current.getBoundingClientRect();
-    const pos = {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    };
-    
-    const newPath = [...currentPath, pos];
-    setCurrentPath(newPath);
+    const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    setCurrentPath(prev => [...prev, pos]);
     drawStroke(pos);
   };
 
@@ -116,26 +94,22 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, addSti
     finishDrawing();
   };
 
-  // Touch event handlers - for iPad
+  // Touch handlers for iPad
   const handleTouchStart = useCallback((e) => {
-    if (toolMode === 'sticker') return;
-    
+    if (!isActive) return;
     const touchCount = e.touches.length;
     touchStateRef.current.touchCount = touchCount;
     
     if (touchCount === 1) {
-      // Single finger = draw
       e.preventDefault();
       setIsPanning(false);
       setIsDrawing(true);
       const pos = getPosition(e.touches[0]);
       setCurrentPath([pos]);
     } else if (touchCount === 2) {
-      // Two fingers = pan
       e.preventDefault();
       setIsDrawing(false);
       setIsPanning(true);
-      
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
       touchStateRef.current.lastPanPosition = {
@@ -143,11 +117,10 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, addSti
         y: (touch1.clientY + touch2.clientY) / 2
       };
     }
-  }, [getPosition, toolMode]);
+  }, [getPosition, isActive]);
 
   const handleTouchMove = useCallback((e) => {
-    if (toolMode === 'sticker') return;
-    
+    if (!isActive) return;
     const touchCount = e.touches.length;
     
     if (touchCount === 1 && isDrawing && !isPanning) {
@@ -157,7 +130,6 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, addSti
       drawStroke(pos);
     } else if (touchCount === 2 && isPanning) {
       e.preventDefault();
-      
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
       const currentCenter = {
@@ -168,25 +140,19 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, addSti
       if (touchStateRef.current.lastPanPosition) {
         const deltaX = touchStateRef.current.lastPanPosition.x - currentCenter.x;
         const deltaY = touchStateRef.current.lastPanPosition.y - currentCenter.y;
-        
         const scrollContainer = canvasRef.current?.closest('.overflow-auto');
         if (scrollContainer) {
           scrollContainer.scrollLeft += deltaX;
           scrollContainer.scrollTop += deltaY;
         }
-        
-        if (onPan) {
-          onPan(deltaX, deltaY);
-        }
+        if (onPan) onPan(deltaX, deltaY);
       }
-      
       touchStateRef.current.lastPanPosition = currentCenter;
     }
-  }, [isDrawing, isPanning, getPosition, onPan, toolMode]);
+  }, [isDrawing, isPanning, getPosition, onPan, isActive]);
 
   const handleTouchEnd = useCallback((e) => {
-    if (toolMode === 'sticker') return;
-    
+    if (!isActive) return;
     const remainingTouches = e.touches.length;
     
     if (remainingTouches === 0) {
@@ -202,7 +168,7 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, addSti
       setIsPanning(false);
       touchStateRef.current.lastPanPosition = null;
     }
-  }, [isDrawing, isPanning, currentPath, color, brushSize, isEraser, setDrawings, toolMode]);
+  }, [isDrawing, isPanning, currentPath, color, brushSize, isEraser, setDrawings, isActive]);
 
   const drawStroke = (pos) => {
     const ctx = canvasRef.current?.getContext('2d');
@@ -220,7 +186,6 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, addSti
     
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-
     ctx.beginPath();
     const prevPoint = currentPath[currentPath.length - 1];
     ctx.moveTo(prevPoint.x, prevPoint.y);
@@ -236,56 +201,18 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, addSti
     setCurrentPath([]);
   };
 
-  // Handle sticker placement
-  const handleAddSticker = useCallback((stickerType) => {
-    if (!addSticker) return;
-    
-    // Get scroll container to find visible area
-    const scrollContainer = canvasRef.current?.closest('.overflow-auto');
-    const scrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
-    const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
-    const viewWidth = scrollContainer ? scrollContainer.clientWidth : 800;
-    const viewHeight = scrollContainer ? scrollContainer.clientHeight : 600;
-    
-    // Place sticker in visible area with some randomness
-    const x = scrollLeft + (viewWidth / 2) + (Math.random() - 0.5) * 200;
-    const y = scrollTop + (viewHeight / 2) + (Math.random() - 0.5) * 150;
-    
-    addSticker({
-      type: stickerType,
-      position: { x: x - 30, y: y - 30 },
-      size: { width: 60, height: 60 },
-      rotation: 0,
-      color: color
-    });
-    
-    toast.success('Sticker added!');
-  }, [addSticker, color]);
-
-  // Handle minimize button
-  const handleMinimizeClick = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsMinimized(prev => !prev);
-  }, []);
-
-  const handleMinimizeTouch = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsMinimized(prev => !prev);
-  }, []);
-
   return (
     <>
       <canvas
         ref={canvasRef}
         width={canvasSize.width}
         height={canvasSize.height}
-        className="absolute inset-0 pointer-events-auto"
+        className="absolute inset-0"
         style={{ 
-          zIndex: 5, 
+          zIndex: isActive ? 15 : 5, 
           touchAction: 'none',
-          pointerEvents: toolMode === 'sticker' ? 'none' : 'auto'
+          pointerEvents: isActive ? 'auto' : 'none',
+          cursor: isActive ? 'crosshair' : 'default'
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -296,137 +223,75 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, addSti
         onTouchEnd={handleTouchEnd}
       />
 
-      {/* Draggable Drawing Controls */}
-      <Draggable handle=".drag-handle" bounds="parent" nodeRef={toolbarRef}>
-        <div ref={toolbarRef} className="fixed bottom-20 right-4 md:bottom-24 md:right-8 z-50">
-          <Card className="bg-card/95 backdrop-blur-md border-2 border-border shadow-xl transition-all">
-            {/* Header with Drag Handle and Minimize Button */}
-            <div className="flex items-center justify-between p-2 md:p-3 border-b border-border">
-              <div className="drag-handle flex items-center gap-2 cursor-move flex-1">
-                <Move className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
-                <span className="text-xs md:text-sm font-semibold">Tools</span>
-              </div>
-              <button
-                type="button"
-                className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-accent active:bg-accent/80 transition-colors touch-manipulation"
-                onClick={handleMinimizeClick}
-                onTouchEnd={handleMinimizeTouch}
-                style={{ touchAction: 'manipulation' }}
+      {/* Transparent Floating Toolbar - Only when drawing is active */}
+      {isActive && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50">
+          <div className="bg-card/80 backdrop-blur-xl rounded-full shadow-lg border border-border/50 px-4 py-2 flex items-center gap-3">
+            {/* Pen/Eraser Toggle */}
+            <div className="flex gap-1 bg-muted/50 rounded-full p-1">
+              <Button
+                variant={!isEraser ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8 rounded-full"
+                onClick={() => setIsEraser(false)}
               >
-                {isMinimized ? (
-                  <Plus className="h-4 w-4" />
-                ) : (
-                  <Minus className="h-4 w-4" />
-                )}
-              </button>
+                <Pen className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={isEraser ? 'default' : 'ghost'}
+                size="icon"
+                className="h-8 w-8 rounded-full"
+                onClick={() => setIsEraser(true)}
+              >
+                <Eraser className="h-4 w-4" />
+              </Button>
             </div>
-            
-            {!isMinimized && (
-              <div className="p-2 md:p-3 w-52 md:w-60">
-                {/* Tool Mode Selection */}
-                <div className="flex gap-1 mb-3">
-                  <Button
-                    variant={toolMode === 'pen' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setToolMode('pen')}
-                    className="flex-1 text-xs"
-                  >
-                    <Pen className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                    Pen
-                  </Button>
-                  <Button
-                    variant={toolMode === 'eraser' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setToolMode('eraser')}
-                    className="flex-1 text-xs"
-                  >
-                    <Eraser className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                    Eraser
-                  </Button>
-                  <Button
-                    variant={toolMode === 'sticker' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setToolMode('sticker')}
-                    className="flex-1 text-xs"
-                  >
-                    <Sticker className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                    Sticker
-                  </Button>
-                </div>
 
-                {/* Sticker Selection (shown when sticker mode) */}
-                {toolMode === 'sticker' && (
-                  <div className="mb-3">
-                    <span className="text-xs font-medium mb-2 block">Click to add:</span>
-                    <div className="grid grid-cols-6 gap-1">
-                      {STICKER_TYPES.map(({ type, icon: Icon, label }) => (
-                        <button
-                          key={type}
-                          className="h-8 w-8 rounded-md border border-border hover:bg-accent hover:border-primary transition-all flex items-center justify-center active:scale-95"
-                          onClick={() => handleAddSticker(type)}
-                          title={label}
-                          style={{ color: color }}
-                        >
-                          <Icon className="h-5 w-5" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+            {/* Divider */}
+            <div className="w-px h-6 bg-border" />
 
-                {/* Color Picker (always visible) */}
-                <div className="mb-3">
-                  <span className="text-xs font-medium mb-2 block">Color:</span>
-                  <div className="grid grid-cols-6 gap-1.5">
-                    {[
-                      { color: '#3b82f6', name: 'Blue' },
-                      { color: '#ef4444', name: 'Red' },
-                      { color: '#22c55e', name: 'Green' },
-                      { color: '#eab308', name: 'Yellow' },
-                      { color: '#8b5cf6', name: 'Purple' },
-                      { color: '#f97316', name: 'Orange' },
-                      { color: '#ec4899', name: 'Pink' },
-                      { color: '#14b8a6', name: 'Teal' },
-                      { color: '#000000', name: 'Black' },
-                      { color: '#ffffff', name: 'White' },
-                      { color: '#6b7280', name: 'Gray' },
-                      { color: '#a855f7', name: 'Violet' },
-                    ].map(c => (
-                      <button
-                        key={c.color}
-                        className={`w-6 h-6 md:w-7 md:h-7 rounded-md border-2 transition-all active:scale-95 ${
-                          color === c.color ? 'border-primary ring-2 ring-primary/50' : 'border-border'
-                        }`}
-                        style={{ background: c.color }}
-                        onClick={() => setColor(c.color)}
-                        title={c.name}
-                      />
-                    ))}
-                  </div>
-                </div>
+            {/* Colors */}
+            <div className="flex gap-1">
+              {COLORS.slice(0, 6).map(c => (
+                <button
+                  key={c}
+                  className={`w-6 h-6 rounded-full border-2 transition-all ${
+                    color === c ? 'border-primary scale-110' : 'border-transparent'
+                  }`}
+                  style={{ background: c }}
+                  onClick={() => setColor(c)}
+                />
+              ))}
+            </div>
 
-                {/* Brush Size (only for pen/eraser) */}
-                {toolMode !== 'sticker' && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium">{isEraser ? 'Eraser' : 'Brush'} Size:</span>
-                      <span className="text-xs text-muted-foreground">{isEraser ? brushSize * 2 : brushSize}px</span>
-                    </div>
-                    <Slider
-                      value={[brushSize]}
-                      onValueChange={(v) => setBrushSize(v[0])}
-                      min={1}
-                      max={10}
-                      step={1}
-                      className="w-full"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </Card>
+            {/* Divider */}
+            <div className="w-px h-6 bg-border" />
+
+            {/* Brush Size */}
+            <div className="flex items-center gap-2 w-24">
+              <Slider
+                value={[brushSize]}
+                onValueChange={(v) => setBrushSize(v[0])}
+                min={1}
+                max={10}
+                step={1}
+                className="w-full"
+              />
+              <span className="text-xs text-muted-foreground w-4">{brushSize}</span>
+            </div>
+
+            {/* Close Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </Draggable>
+      )}
     </>
   );
 };
