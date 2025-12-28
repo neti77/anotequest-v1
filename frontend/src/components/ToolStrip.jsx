@@ -5,11 +5,12 @@ import {
   Sticker, 
   Folder, 
   ImagePlus, 
-  Sparkles,
   ChevronLeft,
   ChevronRight,
   Plus,
-  FolderPlus
+  FolderPlus,
+  Table,
+  CheckSquare
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -17,6 +18,7 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { toast } from 'sonner';
+import imageCompression from 'browser-image-compression';
 
 const STICKER_TYPES = [
   { type: 'arrow-right', icon: '→', label: 'Arrow' },
@@ -44,7 +46,9 @@ export const ToolStrip = ({
   addFolder,
   onToggleCharacters,
   characterPanelOpen,
-  onImageUpload
+  onAddImage,
+  onAddTable,
+  onAddTodo
 }) => {
   const [expandedTool, setExpandedTool] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -88,10 +92,90 @@ export const ToolStrip = ({
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    if (file && onImageUpload) {
-      onImageUpload(file);
+    if (!file) return;
+
+    try {
+      toast.loading('Processing image...');
+      
+      // Compress the image
+      const options = {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 800,
+        useWebWorker: true
+      };
+      
+      const compressedFile = await imageCompression(file, options);
+      
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const imageData = reader.result;
+        
+        // Add image to canvas
+        if (onAddImage) {
+          onAddImage({
+            type: 'image',
+            data: imageData,
+            position: { 
+              x: 150 + Math.random() * 200, 
+              y: 100 + Math.random() * 150 
+            },
+            size: { width: 300, height: 200 }
+          });
+        }
+        
+        toast.dismiss();
+        toast.success('Image added to canvas!');
+      };
+      reader.readAsDataURL(compressedFile);
+    } catch (error) {
+      toast.dismiss();
+      toast.error('Failed to process image');
+      console.error(error);
+    }
+    
+    // Reset input
+    e.target.value = '';
+  };
+
+  const handleAddTable = () => {
+    if (onAddTable) {
+      onAddTable({
+        type: 'table',
+        position: { 
+          x: 150 + Math.random() * 200, 
+          y: 100 + Math.random() * 150 
+        },
+        size: { width: 400, height: 200 },
+        rows: 3,
+        cols: 3,
+        data: [
+          ['', '', ''],
+          ['', '', ''],
+          ['', '', '']
+        ]
+      });
+      toast.success('Table added!');
+    }
+  };
+
+  const handleAddTodo = () => {
+    if (onAddTodo) {
+      onAddTodo({
+        type: 'todo',
+        position: { 
+          x: 150 + Math.random() * 200, 
+          y: 100 + Math.random() * 150 
+        },
+        size: { width: 280, height: 200 },
+        title: 'Todo List',
+        items: [
+          { id: Date.now(), text: '', completed: false }
+        ]
+      });
+      toast.success('Todo list added!');
     }
   };
 
@@ -164,17 +248,6 @@ export const ToolStrip = ({
           <Sticker className="h-5 w-5" />
         </Button>
 
-        {/* Folders */}
-        <Button
-          variant={expandedTool === 'folders' ? 'default' : 'ghost'}
-          size="icon"
-          className="h-10 w-10 rounded-xl"
-          onClick={() => handleToolClick('folders')}
-          title="Folders"
-        >
-          <Folder className="h-5 w-5" />
-        </Button>
-
         {/* Upload Image */}
         <Button
           variant="ghost"
@@ -193,15 +266,48 @@ export const ToolStrip = ({
           onChange={handleFileChange}
         />
 
-        {/* Characters */}
+        {/* Add Table */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-xl"
+          onClick={handleAddTable}
+          title="Add Table"
+        >
+          <Table className="h-5 w-5" />
+        </Button>
+
+        {/* Add Todo List */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-xl"
+          onClick={handleAddTodo}
+          title="Add Todo List"
+        >
+          <CheckSquare className="h-5 w-5" />
+        </Button>
+
+        {/* Folders */}
+        <Button
+          variant={expandedTool === 'folders' ? 'default' : 'ghost'}
+          size="icon"
+          className="h-10 w-10 rounded-xl"
+          onClick={() => handleToolClick('folders')}
+          title="Folders"
+        >
+          <Folder className="h-5 w-5" />
+        </Button>
+
+        {/* Characters - Using emoji face */}
         <Button
           variant={characterPanelOpen ? 'default' : 'ghost'}
           size="icon"
-          className="h-10 w-10 rounded-xl"
+          className="h-10 w-10 rounded-xl text-lg"
           onClick={onToggleCharacters}
           title="Characters"
         >
-          <Sparkles className="h-5 w-5" />
+          🧙
         </Button>
       </div>
 
