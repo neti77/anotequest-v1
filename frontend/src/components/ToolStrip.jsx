@@ -49,7 +49,9 @@ export const ToolStrip = ({
   characterPanelOpen,
   onAddImage,
   onAddTable,
-  onAddTodo
+  onAddTodo,
+  isLinkMode,
+  onToggleLinkMode
 }) => {
   const [expandedTool, setExpandedTool] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
