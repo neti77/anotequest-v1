@@ -17,6 +17,7 @@ function App() {
   const [images, setImages] = useState([]);
   const [tables, setTables] = useState([]);
   const [todos, setTodos] = useState([]);
+  const [connections, setConnections] = useState([]);
   const [characters, setCharacters] = useState([]);
   const [unlockedCharacter, setUnlockedCharacter] = useState(null);
   const [stats, setStats] = useState({
@@ -35,6 +36,8 @@ function App() {
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLinkMode, setIsLinkMode] = useState(false);
+  const [connectingFrom, setConnectingFrom] = useState(null);
   const timeIntervalRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -296,10 +299,11 @@ function App() {
     const newSticker = {
       id: Date.now() + Math.random(),
       ...sticker,
+      folderId: activeFolder,
       createdAt: new Date().toISOString()
     };
     setStickers(prev => [...prev, newSticker]);
-  }, []);
+  }, [activeFolder]);
 
   const updateSticker = useCallback((id, updates) => {
     setStickers(prev => prev.map(sticker => 
@@ -316,10 +320,11 @@ function App() {
     const newImage = {
       id: Date.now() + Math.random(),
       ...image,
+      folderId: activeFolder,
       createdAt: new Date().toISOString()
     };
     setImages(prev => [...prev, newImage]);
-  }, []);
+  }, [activeFolder]);
 
   const updateImage = useCallback((id, updates) => {
     setImages(prev => prev.map(img => 
@@ -336,10 +341,11 @@ function App() {
     const newTable = {
       id: Date.now() + Math.random(),
       ...table,
+      folderId: activeFolder,
       createdAt: new Date().toISOString()
     };
     setTables(prev => [...prev, newTable]);
-  }, []);
+  }, [activeFolder]);
 
   const updateTable = useCallback((id, updates) => {
     setTables(prev => prev.map(t => 
@@ -356,10 +362,11 @@ function App() {
     const newTodo = {
       id: Date.now() + Math.random(),
       ...todo,
+      folderId: activeFolder,
       createdAt: new Date().toISOString()
     };
     setTodos(prev => [...prev, newTodo]);
-  }, []);
+  }, [activeFolder]);
 
   const updateTodo = useCallback((id, updates) => {
     setTodos(prev => prev.map(t => 
@@ -369,6 +376,20 @@ function App() {
 
   const deleteTodo = useCallback((id) => {
     setTodos(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  // Connection handlers
+  const addConnection = useCallback((connection) => {
+    const newConnection = {
+      ...connection,
+      id: Date.now() + Math.random(),
+      folderId: activeFolder
+    };
+    setConnections(prev => [...prev, newConnection]);
+  }, [activeFolder]);
+
+  const deleteConnection = useCallback((index) => {
+    setConnections(prev => prev.filter((_, i) => i !== index));
   }, []);
 
   const updateCharacter = useCallback((id, updates) => {
@@ -410,7 +431,7 @@ function App() {
   const filteredNotes = useMemo(() => {
     let result = activeFolder 
       ? notes.filter(note => note.folderId === activeFolder)
-      : notes;
+      : notes.filter(note => !note.folderId); // Root folder shows only unassigned notes
     
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -422,6 +443,37 @@ function App() {
     
     return result;
   }, [notes, activeFolder, searchQuery]);
+
+  // Filter other items by folder (each folder has its own canvas)
+  const filteredStickers = useMemo(() => {
+    return activeFolder 
+      ? stickers.filter(s => s.folderId === activeFolder)
+      : stickers.filter(s => !s.folderId);
+  }, [stickers, activeFolder]);
+
+  const filteredImages = useMemo(() => {
+    return activeFolder 
+      ? images.filter(i => i.folderId === activeFolder)
+      : images.filter(i => !i.folderId);
+  }, [images, activeFolder]);
+
+  const filteredTables = useMemo(() => {
+    return activeFolder 
+      ? tables.filter(t => t.folderId === activeFolder)
+      : tables.filter(t => !t.folderId);
+  }, [tables, activeFolder]);
+
+  const filteredTodos = useMemo(() => {
+    return activeFolder 
+      ? todos.filter(t => t.folderId === activeFolder)
+      : todos.filter(t => !t.folderId);
+  }, [todos, activeFolder]);
+
+  const filteredConnections = useMemo(() => {
+    return activeFolder 
+      ? connections.filter(c => c.folderId === activeFolder)
+      : connections.filter(c => !c.folderId);
+  }, [connections, activeFolder]);
 
   if (!isLoaded) {
     return (
@@ -468,6 +520,11 @@ function App() {
             onAddImage={addImage}
             onAddTable={addTable}
             onAddTodo={addTodo}
+            isLinkMode={isLinkMode}
+            onToggleLinkMode={() => {
+              setIsLinkMode(!isLinkMode);
+              setConnectingFrom(null);
+            }}
           />
           
           {/* Main Canvas */}
@@ -475,10 +532,11 @@ function App() {
             <Canvas
               notes={filteredNotes}
               totalNoteCount={notes.length}
-              stickers={stickers}
-              images={images}
-              tables={tables}
-              todos={todos}
+              stickers={filteredStickers}
+              images={filteredImages}
+              tables={filteredTables}
+              todos={filteredTodos}
+              connections={filteredConnections}
               characters={characters.filter(c => c.unlocked && !c.caged)}
               addNote={addNote}
               updateNote={updateNote}
@@ -486,18 +544,25 @@ function App() {
               addSticker={addSticker}
               updateSticker={updateSticker}
               deleteSticker={deleteSticker}
+              addImage={addImage}
               updateImage={updateImage}
               deleteImage={deleteImage}
               updateTable={updateTable}
               deleteTable={deleteTable}
               updateTodo={updateTodo}
               deleteTodo={deleteTodo}
+              addConnection={addConnection}
+              deleteConnection={deleteConnection}
               updateCharacter={updateCharacter}
               folders={folders}
               isPremium={isPremium}
               isDrawingMode={isDrawingMode}
               onCloseDrawing={() => setIsDrawingMode(false)}
               userName={userName}
+              activeFolder={activeFolder}
+              isLinkMode={isLinkMode}
+              connectingFrom={connectingFrom}
+              setConnectingFrom={setConnectingFrom}
             />
           </div>
           

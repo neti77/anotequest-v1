@@ -3,7 +3,7 @@ import Draggable from 'react-draggable';
 import { X, Maximize2 } from 'lucide-react';
 import { Button } from './ui/button';
 
-export const ImageItem = React.memo(({ image, updateImage, deleteImage }) => {
+export const ImageItem = React.memo(({ image, updateImage, deleteImage, onItemClick, isConnecting, isSelected }) => {
   const nodeRef = useRef(null);
   
   const handleDrag = (e, data) => {
@@ -39,6 +39,13 @@ export const ImageItem = React.memo(({ image, updateImage, deleteImage }) => {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
+  const handleConnectionClick = (e) => {
+    if (isConnecting) {
+      e.stopPropagation();
+      onItemClick?.();
+    }
+  };
+
   return (
     <Draggable
       nodeRef={nodeRef}
@@ -48,12 +55,13 @@ export const ImageItem = React.memo(({ image, updateImage, deleteImage }) => {
     >
       <div
         ref={nodeRef}
-        className="absolute group cursor-move"
+        className={`absolute group cursor-move ${isConnecting ? 'cursor-pointer hover:ring-2 hover:ring-primary' : ''} ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}
         style={{
           width: image.size?.width || 300,
           height: image.size?.height || 200,
           zIndex: 12
         }}
+        onClick={handleConnectionClick}
       >
         <div className="relative w-full h-full rounded-lg overflow-hidden shadow-lg border-2 border-border hover:border-primary transition-colors">
           <img

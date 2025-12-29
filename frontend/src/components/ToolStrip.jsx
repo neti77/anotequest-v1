@@ -10,7 +10,8 @@ import {
   Plus,
   FolderPlus,
   Table,
-  CheckSquare
+  CheckSquare,
+  Link2
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -48,7 +49,9 @@ export const ToolStrip = ({
   characterPanelOpen,
   onAddImage,
   onAddTable,
-  onAddTodo
+  onAddTodo,
+  isLinkMode,
+  onToggleLinkMode
 }) => {
   const [expandedTool, setExpandedTool] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -286,6 +289,17 @@ export const ToolStrip = ({
           title="Add Todo List"
         >
           <CheckSquare className="h-5 w-5" />
+        </Button>
+
+        {/* Link/Connect Tool */}
+        <Button
+          variant={isLinkMode ? 'default' : 'ghost'}
+          size="icon"
+          className={`h-10 w-10 rounded-xl ${isLinkMode ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+          onClick={onToggleLinkMode}
+          title="Connect items (click two items to link)"
+        >
+          <Link2 className="h-5 w-5" />
         </Button>
 
         {/* Folders */}

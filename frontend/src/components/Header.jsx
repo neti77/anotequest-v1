@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
-import { Moon, Sun, BookOpen, Swords, Crown, Pencil, Search, Undo2, Redo2, X, Download } from 'lucide-react';
+import { Moon, Sun, BookOpen, Swords, Crown, Pencil, Search, Undo2, Redo2, X, Download, FileText } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
 
@@ -197,7 +203,7 @@ export const Header = ({
       doc.save(`AnoteQuest_Backup_${userName}_${new Date().toISOString().split('T')[0]}.pdf`);
       
       toast.dismiss();
-      toast.success('PDF backup downloaded!');
+      toast.success('PDF exported!');
     } catch (error) {
       console.error('PDF export error:', error);
       toast.dismiss();
@@ -205,6 +211,78 @@ export const Header = ({
     }
 
     setIsExporting(false);
+  };
+
+  const exportToText = () => {
+    try {
+      let text = `AnoteQuest Export\n`;
+      text += `==================\n`;
+      text += `User: ${userName}\n`;
+      text += `Level: ${stats.level} | XP: ${stats.xp}\n`;
+      text += `Exported: ${new Date().toLocaleString()}\n\n`;
+
+      // Notes
+      if (notes.length > 0) {
+        text += `NOTES (${notes.length})\n`;
+        text += `${'='.repeat(50)}\n\n`;
+        
+        notes.forEach((note, index) => {
+          text += `[${index + 1}] ${note.title || 'Untitled Note'}\n`;
+          text += `${'-'.repeat(30)}\n`;
+          text += `${note.content || '(No content)'}\n\n`;
+        });
+      }
+
+      // Todos
+      if (todos.length > 0) {
+        text += `\nTODO LISTS (${todos.length})\n`;
+        text += `${'='.repeat(50)}\n\n`;
+        
+        todos.forEach((todo) => {
+          text += `${todo.title || 'Todo List'}\n`;
+          text += `${'-'.repeat(30)}\n`;
+          todo.items?.forEach(item => {
+            const checkbox = item.completed ? '[✓]' : '[ ]';
+            text += `${checkbox} ${item.text || 'Empty task'}\n`;
+          });
+          text += '\n';
+        });
+      }
+
+      // Tables
+      if (tables.length > 0) {
+        text += `\nTABLES (${tables.length})\n`;
+        text += `${'='.repeat(50)}\n\n`;
+        
+        tables.forEach((table, index) => {
+          text += `Table ${index + 1}\n`;
+          text += `${'-'.repeat(30)}\n`;
+          table.data?.forEach(row => {
+            text += `| ${row.join(' | ')} |\n`;
+          });
+          text += '\n';
+        });
+      }
+
+      text += `\n${'='.repeat(50)}\n`;
+      text += `Stats: ${stats.totalNotes} notes, ${stats.totalWords} words, ${stats.wins}/${stats.battles} battles won\n`;
+
+      // Download as txt file
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `AnoteQuest_Export_${userName}_${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Text file exported!');
+    } catch (error) {
+      console.error('Text export error:', error);
+      toast.error('Failed to export text');
+    }
   };
 
   return (
@@ -324,18 +402,30 @@ export const Header = ({
             <span className="hidden sm:inline">Battle</span>
           </Button>
 
-          {/* Backup/Export Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportToPDF}
-            disabled={isExporting}
-            className="gap-1.5 h-8"
-            title="Backup to PDF"
-          >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Backup</span>
-          </Button>
+          {/* Export Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isExporting}
+                className="gap-1.5 h-8"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Export</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportToPDF}>
+                <FileText className="h-4 w-4 mr-2" />
+                Export as PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToText}>
+                <FileText className="h-4 w-4 mr-2" />
+                Export as Text
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Premium Badge */}
           {isPremium && (

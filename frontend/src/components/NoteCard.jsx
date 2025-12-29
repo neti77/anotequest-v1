@@ -1,10 +1,16 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import Draggable from 'react-draggable';
-import { Trash2, GripVertical, FolderOpen, Palette, Check, Image as ImageIcon, X, Maximize2 } from 'lucide-react';
+import { Trash2, GripVertical, FolderOpen, Palette, Check, Image as ImageIcon, X, Maximize2, Link2, Expand } from 'lucide-react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,11 +67,21 @@ const compressImage = (file, maxWidth = 800, maxHeight = 800, quality = 0.7) => 
   });
 };
 
-export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onImageUpload }) => {
+export const NoteCard = React.memo(({ 
+  note, 
+  updateNote, 
+  deleteNote, 
+  folders, 
+  onItemClick,
+  isConnecting,
+  isSelected,
+  zoom = 1
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [isResizing, setIsResizing] = useState(false);
+  const [showReaderMode, setShowReaderMode] = useState(false);
   const nodeRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -83,7 +99,6 @@ export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onI
     e.preventDefault();
     setIsResizing(true);
     
-    // Support both mouse and touch events
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     
@@ -96,8 +111,8 @@ export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onI
       const moveClientX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
       const moveClientY = moveEvent.touches ? moveEvent.touches[0].clientY : moveEvent.clientY;
       
-      const deltaX = moveClientX - startX;
-      const deltaY = moveClientY - startY;
+      const deltaX = (moveClientX - startX) / zoom;
+      const deltaY = (moveClientY - startY) / zoom;
       
       const newWidth = Math.max(250, startWidth + deltaX);
       const newHeight = Math.max(200, startHeight + deltaY);
@@ -119,7 +134,7 @@ export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onI
     document.addEventListener('mouseup', handleEnd);
     document.addEventListener('touchmove', handleMove, { passive: false });
     document.addEventListener('touchend', handleEnd);
-  }, [note.id, noteSize, updateNote]);
+  }, [note.id, noteSize, updateNote, zoom]);
 
   const handleSave = () => {
     updateNote(note.id, { title, content });
@@ -162,11 +177,8 @@ export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onI
       toast.info('Compressing image...');
       const compressedImage = await compressImage(file, 800, 800, 0.7);
       
-      // Check if compressed image is still too large
-      if (compressedImage.length > 500000) { // ~500KB
-        toast.warning('Image is large. Further compressing...');
+      if (compressedImage.length > 500000) {
         const furtherCompressed = await compressImage(file, 600, 600, 0.5);
-        
         const newImage = { id: Date.now(), data: furtherCompressed };
         updateNote(note.id, {
           images: [...(note.images || []), newImage]
@@ -181,202 +193,264 @@ export const NoteCard = React.memo(({ note, updateNote, deleteNote, folders, onI
       toast.success('Image added!');
     } catch (error) {
       console.error('Image compression error:', error);
-      toast.error('Failed to add image. It may be too large.');
+      toast.error('Failed to add image.');
+    }
+  };
+
+  const handleConnectionClick = (e) => {
+    if (isConnecting) {
+      e.stopPropagation();
+      onItemClick?.();
     }
   };
 
   const wordCount = content.trim().split(/\s+/).filter(w => w.length > 0).length;
 
   return (
-    <Draggable
-      nodeRef={nodeRef}
-      handle=".drag-handle"
-      position={note.position}
-      onStop={handleDragStop}
-      bounds="parent"
-      disabled={isResizing}
-    >
-      <div
-        ref={nodeRef}
-        className="absolute"
-        style={{ width: `${noteSize.width}px`, zIndex: 10 }}
+    <>
+      <Draggable
+        nodeRef={nodeRef}
+        handle=".drag-handle"
+        position={note.position}
+        onStop={handleDragStop}
+        bounds="parent"
+        disabled={isResizing}
       >
-        <Card 
-          className={`note-card group shadow-md ${colorScheme.bg} ${colorScheme.border} border-2 overflow-hidden relative`}
-          style={{ height: `${noteSize.height}px`, display: 'flex', flexDirection: 'column' }}
+        <div
+          ref={nodeRef}
+          className="absolute"
+          style={{ width: `${noteSize.width}px`, zIndex: 10 }}
         >
-          {/* Header */}
-          <div className="drag-handle px-4 py-3 bg-card/50 backdrop-blur-sm flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-border flex-shrink-0">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              {isEditing ? (
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="h-7 text-sm font-semibold"
-                  autoFocus
-                  onClick={(e) => e.stopPropagation()}
+          {/* Connection Bump - REMOVED, now using toolbar link tool */}
+
+          <Card 
+            className={`note-card group shadow-md ${colorScheme.bg} ${colorScheme.border} border-2 overflow-hidden relative ${isConnecting ? 'cursor-pointer hover:ring-2 hover:ring-primary' : ''} ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+            style={{ height: `${noteSize.height}px`, display: 'flex', flexDirection: 'column' }}
+            onClick={handleConnectionClick}
+          >
+            {/* Header */}
+            <div className="drag-handle px-4 py-3 bg-card/50 backdrop-blur-sm flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-border flex-shrink-0">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                {isEditing ? (
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="h-7 text-sm font-semibold"
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <h3 className="font-semibold text-sm truncate">{title}</h3>
+                )}
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {/* Reader Mode */}
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowReaderMode(true);
+                  }}
+                  title="Open as document"
+                >
+                  <Expand className="h-4 w-4" />
+                </Button>
+
+                {/* Image Upload */}
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                >
+                  <ImageIcon className="h-4 w-4" />
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUploadLocal}
                 />
-              ) : (
-                <h3 className="font-semibold text-sm truncate">{title}</h3>
+
+                {/* Color Picker */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <Palette className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
+                    {NOTE_COLORS.map(color => (
+                      <DropdownMenuItem
+                        key={color.name}
+                        onClick={() => handleColorChange(color.name)}
+                        className="flex items-center gap-2"
+                      >
+                        <div className={`w-4 h-4 rounded ${color.bg} ${color.border} border-2`}></div>
+                        <span className="capitalize">{color.name}</span>
+                        {note.color === color.name && <Check className="h-4 w-4 ml-auto" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Folder Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                      <FolderOpen className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenuItem onClick={() => handleFolderChange(null)}>
+                      <span>No Folder</span>
+                      {!note.folderId && <Check className="h-4 w-4 ml-auto" />}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {folders.map(folder => (
+                      <DropdownMenuItem
+                        key={folder.id}
+                        onClick={() => handleFolderChange(folder.id)}
+                      >
+                        <span>{folder.name}</span>
+                        {note.folderId === folder.id && <Check className="h-4 w-4 ml-auto" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleDelete}
+                  className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Scrollable Content Area */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Images */}
+              {note.images && note.images.length > 0 && (
+                <div className="p-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+                  {note.images.map(image => (
+                    <div key={image.id} className="relative group/image">
+                      <img 
+                        src={image.data} 
+                        alt="Note attachment" 
+                        className="w-full rounded border border-border"
+                      />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover/image:opacity-100 transition-opacity"
+                        onClick={() => handleRemoveImage(image.id)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Content */}
+              <div className="p-4" onClick={(e) => e.stopPropagation()}>
+                {isEditing ? (
+                  <Textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="Start writing your note..."
+                    className="min-h-[100px] resize-none"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <div
+                    className="min-h-[100px] text-sm whitespace-pre-wrap cursor-text"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    {content || <span className="text-muted-foreground italic">Click to start writing...</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-2 bg-card/30 backdrop-blur-sm flex items-center justify-between text-xs text-muted-foreground border-t border-border flex-shrink-0">
+              <span>{wordCount} words</span>
+              {isEditing && (
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  className="h-7 text-xs"
+                >
+                  Save
+                </Button>
               )}
             </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-              {/* Image Upload */}
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-7 w-7"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  fileInputRef.current?.click();
-                }}
-              >
-                <ImageIcon className="h-4 w-4" />
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleImageUploadLocal}
-              />
 
-              {/* Color Picker */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
-                    <Palette className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
-                  {NOTE_COLORS.map(color => (
-                    <DropdownMenuItem
-                      key={color.name}
-                      onClick={() => handleColorChange(color.name)}
-                      className="flex items-center gap-2"
-                    >
-                      <div className={`w-4 h-4 rounded ${color.bg} ${color.border} border-2`}></div>
-                      <span className="capitalize">{color.name}</span>
-                      {note.color === color.name && <Check className="h-4 w-4 ml-auto" />}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Folder Menu */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
-                    <FolderOpen className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenuItem onClick={() => handleFolderChange(null)}>
-                    <span>No Folder</span>
-                    {!note.folderId && <Check className="h-4 w-4 ml-auto" />}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {folders.map(folder => (
-                    <DropdownMenuItem
-                      key={folder.id}
-                      onClick={() => handleFolderChange(folder.id)}
-                    >
-                      <span>{folder.name}</span>
-                      {note.folderId === folder.id && <Check className="h-4 w-4 ml-auto" />}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleDelete}
-                className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+            {/* Resize Handle */}
+            <div
+              className="absolute bottom-1 right-1 w-8 h-8 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center touch-none"
+              onMouseDown={handleResizeStart}
+              onTouchStart={handleResizeStart}
+              style={{ 
+                background: 'hsl(var(--primary))',
+                borderRadius: '0 0 4px 0',
+                zIndex: 100
+              }}
+            >
+              <Maximize2 className="h-4 w-4 text-primary-foreground" />
             </div>
-          </div>
+          </Card>
+        </div>
+      </Draggable>
 
-          {/* Scrollable Content Area */}
-          <div className="flex-1 overflow-y-auto">
-            {/* Images */}
+      {/* Reader Mode Dialog */}
+      <Dialog open={showReaderMode} onOpenChange={setShowReaderMode}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">{title}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto pr-2">
+            {/* Images in reader mode */}
             {note.images && note.images.length > 0 && (
-              <div className="p-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+              <div className="space-y-4 mb-4">
                 {note.images.map(image => (
-                  <div key={image.id} className="relative group/image">
-                    <img 
-                      src={image.data} 
-                      alt="Note attachment" 
-                      className="w-full rounded border border-border"
-                    />
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover/image:opacity-100 transition-opacity"
-                      onClick={() => handleRemoveImage(image.id)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
+                  <img 
+                    key={image.id}
+                    src={image.data} 
+                    alt="Note attachment" 
+                    className="w-full rounded-lg border border-border"
+                  />
                 ))}
               </div>
             )}
-
-            {/* Content */}
-            <div className="p-4" onClick={(e) => e.stopPropagation()}>
-              {isEditing ? (
-                <Textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="Start writing your note..."
-                  className="min-h-[100px] resize-none"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <div
-                  className="min-h-[100px] text-sm whitespace-pre-wrap cursor-text"
-                  onClick={() => setIsEditing(true)}
-                >
-                  {content || <span className="text-muted-foreground italic">Click to start writing...</span>}
-                </div>
-              )}
+            
+            {/* Content in reader mode */}
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <p className="whitespace-pre-wrap text-base leading-relaxed">
+                {content || <span className="text-muted-foreground italic">No content yet</span>}
+              </p>
             </div>
           </div>
-
-          {/* Footer */}
-          <div className="px-4 py-2 bg-card/30 backdrop-blur-sm flex items-center justify-between text-xs text-muted-foreground border-t border-border flex-shrink-0">
+          <div className="pt-4 border-t flex items-center justify-between text-sm text-muted-foreground">
             <span>{wordCount} words</span>
-            {isEditing && (
-              <Button
-                size="sm"
-                onClick={handleSave}
-                className="h-7 text-xs"
-              >
-                Save
-              </Button>
-            )}
+            <span>Created: {new Date(note.createdAt).toLocaleDateString()}</span>
           </div>
-
-          {/* Resize Handle */}
-          <div
-            className="absolute bottom-1 right-1 w-8 h-8 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center touch-none"
-            onMouseDown={handleResizeStart}
-            onTouchStart={handleResizeStart}
-            style={{ 
-              background: 'hsl(var(--primary))',
-              borderRadius: '0 0 4px 0',
-              zIndex: 100
-            }}
-          >
-            <Maximize2 className="h-4 w-4 text-primary-foreground" />
-          </div>
-        </Card>
-      </div>
-    </Draggable>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 });
 
+NoteCard.displayName = 'NoteCard';
 export default NoteCard;
