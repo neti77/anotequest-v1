@@ -198,11 +198,9 @@ export const NoteCard = React.memo(({
   };
 
   const handleConnectionClick = (e) => {
-    e.stopPropagation();
     if (isConnecting) {
-      onEndConnection?.();
-    } else {
-      onStartConnection?.();
+      e.stopPropagation();
+      onItemClick?.();
     }
   };
 
