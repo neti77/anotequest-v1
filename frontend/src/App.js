@@ -364,7 +364,7 @@ function App() {
       createdAt: new Date().toISOString()
     };
     setTodos(prev => [...prev, newTodo]);
-  }, []);
+  }, [activeFolder]);
 
   const updateTodo = useCallback((id, updates) => {
     setTodos(prev => prev.map(t => 
