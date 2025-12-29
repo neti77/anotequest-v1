@@ -10,7 +10,8 @@ import {
   Plus,
   FolderPlus,
   Table,
-  CheckSquare
+  CheckSquare,
+  Link2
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
