@@ -324,18 +324,30 @@ export const Header = ({
             <span className="hidden sm:inline">Battle</span>
           </Button>
 
-          {/* Backup/Export Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={exportToPDF}
-            disabled={isExporting}
-            className="gap-1.5 h-8"
-            title="Backup to PDF"
-          >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Backup</span>
-          </Button>
+          {/* Export Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isExporting}
+                className="gap-1.5 h-8"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Export</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportToPDF}>
+                <FileText className="h-4 w-4 mr-2" />
+                Export as PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToText}>
+                <FileText className="h-4 w-4 mr-2" />
+                Export as Text
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Premium Badge */}
           {isPremium && (
