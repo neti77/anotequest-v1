@@ -372,6 +372,20 @@ function App() {
     setTodos(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  // Connection handlers
+  const addConnection = useCallback((connection) => {
+    const newConnection = {
+      ...connection,
+      id: Date.now() + Math.random(),
+      folderId: activeFolder
+    };
+    setConnections(prev => [...prev, newConnection]);
+  }, [activeFolder]);
+
+  const deleteConnection = useCallback((index) => {
+    setConnections(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
   const updateCharacter = useCallback((id, updates) => {
     setCharacters(prev => prev.map(char => 
       char.id === id ? { ...char, ...updates } : char
