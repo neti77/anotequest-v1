@@ -1,9 +1,9 @@
 import React, { useRef } from 'react';
 import Draggable from 'react-draggable';
-import { X, Maximize2 } from 'lucide-react';
+import { X, Maximize2, Link2 } from 'lucide-react';
 import { Button } from './ui/button';
 
-export const ImageItem = React.memo(({ image, updateImage, deleteImage }) => {
+export const ImageItem = React.memo(({ image, updateImage, deleteImage, onStartConnection, onEndConnection, isConnecting }) => {
   const nodeRef = useRef(null);
   
   const handleDrag = (e, data) => {
@@ -39,6 +39,15 @@ export const ImageItem = React.memo(({ image, updateImage, deleteImage }) => {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
+  const handleConnectionClick = (e) => {
+    e.stopPropagation();
+    if (isConnecting) {
+      onEndConnection?.();
+    } else {
+      onStartConnection?.();
+    }
+  };
+
   return (
     <Draggable
       nodeRef={nodeRef}
@@ -55,6 +64,15 @@ export const ImageItem = React.memo(({ image, updateImage, deleteImage }) => {
           zIndex: 12
         }}
       >
+        {/* Connection Bump */}
+        <div 
+          className={`absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-primary border-2 border-background shadow-md cursor-pointer hover:scale-125 transition-transform flex items-center justify-center ${isConnecting ? 'animate-pulse ring-2 ring-primary/50' : ''}`}
+          onClick={handleConnectionClick}
+          title={isConnecting ? "Click to connect" : "Connect to another item"}
+        >
+          <Link2 className="h-3 w-3 text-primary-foreground" />
+        </div>
+
         <div className="relative w-full h-full rounded-lg overflow-hidden shadow-lg border-2 border-border hover:border-primary transition-colors">
           <img
             src={image.data}
