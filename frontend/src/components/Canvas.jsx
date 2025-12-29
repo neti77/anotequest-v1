@@ -186,21 +186,21 @@ export const Canvas = ({
     }
   };
 
-  // Connection handling
-  const handleStartConnection = (itemId, itemType) => {
-    setConnectingFrom({ id: itemId, type: itemType });
-    toast.info('Click another item to connect');
-  };
-
-  const handleEndConnection = (itemId, itemType) => {
-    if (connectingFrom && connectingFrom.id !== itemId && addConnection) {
+  // Connection handling - now controlled by isLinkMode from parent
+  const handleItemClick = (itemId, itemType) => {
+    if (!isLinkMode) return;
+    
+    if (!connectingFrom) {
+      setConnectingFrom({ id: itemId, type: itemType });
+      toast.info('Now click another item to connect');
+    } else if (connectingFrom.id !== itemId) {
       addConnection({
         from: connectingFrom,
         to: { id: itemId, type: itemType }
       });
+      setConnectingFrom(null);
       toast.success('Items connected!');
     }
-    setConnectingFrom(null);
   };
 
   const getItemPosition = (itemId, itemType) => {
