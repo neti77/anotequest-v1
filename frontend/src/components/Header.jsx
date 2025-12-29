@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
-import { Moon, Sun, BookOpen, Swords, Crown, Pencil, Search, Undo2, Redo2, X, Download } from 'lucide-react';
+import { Moon, Sun, BookOpen, Swords, Crown, Pencil, Search, Undo2, Redo2, X, Download, FileText } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
 
