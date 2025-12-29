@@ -223,25 +223,12 @@ export const NoteCard = React.memo(({
           className="absolute"
           style={{ width: `${noteSize.width}px`, zIndex: 10 }}
         >
-          {/* Connection Bumps */}
-          <div 
-            className={`absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-primary border-2 border-background shadow-md cursor-pointer hover:scale-125 transition-transform flex items-center justify-center ${isConnecting ? 'animate-pulse ring-2 ring-primary/50' : ''}`}
-            onClick={handleConnectionClick}
-            title={isConnecting ? "Click to connect" : "Connect to another item"}
-          >
-            <Link2 className="h-3 w-3 text-primary-foreground" />
-          </div>
-          <div 
-            className={`absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-primary border-2 border-background shadow-md cursor-pointer hover:scale-125 transition-transform flex items-center justify-center ${isConnecting ? 'animate-pulse ring-2 ring-primary/50' : ''}`}
-            onClick={handleConnectionClick}
-            title={isConnecting ? "Click to connect" : "Connect to another item"}
-          >
-            <Link2 className="h-3 w-3 text-primary-foreground" />
-          </div>
+          {/* Connection Bump - REMOVED, now using toolbar link tool */}
 
           <Card 
-            className={`note-card group shadow-md ${colorScheme.bg} ${colorScheme.border} border-2 overflow-hidden relative`}
+            className={`note-card group shadow-md ${colorScheme.bg} ${colorScheme.border} border-2 overflow-hidden relative ${isConnecting ? 'ring-2 ring-primary ring-offset-2 cursor-pointer' : ''}`}
             style={{ height: `${noteSize.height}px`, display: 'flex', flexDirection: 'column' }}
+            onClick={isConnecting ? handleConnectionClick : undefined}
           >
             {/* Header */}
             <div className="drag-handle px-4 py-3 bg-card/50 backdrop-blur-sm flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-border flex-shrink-0">
