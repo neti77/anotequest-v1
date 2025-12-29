@@ -560,6 +560,9 @@ function App() {
               onCloseDrawing={() => setIsDrawingMode(false)}
               userName={userName}
               activeFolder={activeFolder}
+              isLinkMode={isLinkMode}
+              connectingFrom={connectingFrom}
+              setConnectingFrom={setConnectingFrom}
             />
           </div>
           
