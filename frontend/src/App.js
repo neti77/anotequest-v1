@@ -297,10 +297,11 @@ function App() {
     const newSticker = {
       id: Date.now() + Math.random(),
       ...sticker,
+      folderId: activeFolder,
       createdAt: new Date().toISOString()
     };
     setStickers(prev => [...prev, newSticker]);
-  }, []);
+  }, [activeFolder]);
 
   const updateSticker = useCallback((id, updates) => {
     setStickers(prev => prev.map(sticker => 
@@ -317,10 +318,11 @@ function App() {
     const newImage = {
       id: Date.now() + Math.random(),
       ...image,
+      folderId: activeFolder,
       createdAt: new Date().toISOString()
     };
     setImages(prev => [...prev, newImage]);
-  }, []);
+  }, [activeFolder]);
 
   const updateImage = useCallback((id, updates) => {
     setImages(prev => prev.map(img => 
@@ -337,10 +339,11 @@ function App() {
     const newTable = {
       id: Date.now() + Math.random(),
       ...table,
+      folderId: activeFolder,
       createdAt: new Date().toISOString()
     };
     setTables(prev => [...prev, newTable]);
-  }, []);
+  }, [activeFolder]);
 
   const updateTable = useCallback((id, updates) => {
     setTables(prev => prev.map(t => 
@@ -357,6 +360,7 @@ function App() {
     const newTodo = {
       id: Date.now() + Math.random(),
       ...todo,
+      folderId: activeFolder,
       createdAt: new Date().toISOString()
     };
     setTodos(prev => [...prev, newTodo]);
