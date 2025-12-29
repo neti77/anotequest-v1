@@ -43,7 +43,10 @@ export const Canvas = ({
   isDrawingMode,
   onCloseDrawing,
   userName,
-  activeFolder
+  activeFolder,
+  isLinkMode,
+  connectingFrom,
+  setConnectingFrom
 }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -51,7 +54,6 @@ export const Canvas = ({
   const [drawings, setDrawings] = useState([]);
   const [zoom, setZoom] = useState(1);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
-  const [connectingFrom, setConnectingFrom] = useState(null);
 
   // Load drawings from localStorage (per folder)
   useEffect(() => {
