@@ -365,9 +365,9 @@ export const Canvas = ({
               updateNote={updateNote}
               deleteNote={deleteNote}
               folders={folders}
-              onStartConnection={() => handleStartConnection(note.id, 'note')}
-              onEndConnection={() => handleEndConnection(note.id, 'note')}
-              isConnecting={connectingFrom !== null}
+              onItemClick={() => handleItemClick(note.id, 'note')}
+              isConnecting={isLinkMode}
+              isSelected={connectingFrom?.id === note.id}
               zoom={zoom}
             />
           ))}
@@ -389,9 +389,9 @@ export const Canvas = ({
               image={image}
               updateImage={updateImage}
               deleteImage={deleteImage}
-              onStartConnection={() => handleStartConnection(image.id, 'image')}
-              onEndConnection={() => handleEndConnection(image.id, 'image')}
-              isConnecting={connectingFrom !== null}
+              onItemClick={() => handleItemClick(image.id, 'image')}
+              isConnecting={isLinkMode}
+              isSelected={connectingFrom?.id === image.id}
             />
           ))}
 
