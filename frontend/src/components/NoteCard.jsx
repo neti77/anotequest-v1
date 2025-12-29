@@ -224,9 +224,9 @@ export const NoteCard = React.memo(({
           {/* Connection Bump - REMOVED, now using toolbar link tool */}
 
           <Card 
-            className={`note-card group shadow-md ${colorScheme.bg} ${colorScheme.border} border-2 overflow-hidden relative ${isConnecting ? 'ring-2 ring-primary ring-offset-2 cursor-pointer' : ''}`}
+            className={`note-card group shadow-md ${colorScheme.bg} ${colorScheme.border} border-2 overflow-hidden relative ${isConnecting ? 'cursor-pointer hover:ring-2 hover:ring-primary' : ''} ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}
             style={{ height: `${noteSize.height}px`, display: 'flex', flexDirection: 'column' }}
-            onClick={isConnecting ? handleConnectionClick : undefined}
+            onClick={handleConnectionClick}
           >
             {/* Header */}
             <div className="drag-handle px-4 py-3 bg-card/50 backdrop-blur-sm flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-border flex-shrink-0">
