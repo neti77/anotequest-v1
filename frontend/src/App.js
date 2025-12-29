@@ -36,6 +36,8 @@ function App() {
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLinkMode, setIsLinkMode] = useState(false);
+  const [connectingFrom, setConnectingFrom] = useState(null);
   const timeIntervalRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
