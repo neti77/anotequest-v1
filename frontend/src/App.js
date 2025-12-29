@@ -17,6 +17,7 @@ function App() {
   const [images, setImages] = useState([]);
   const [tables, setTables] = useState([]);
   const [todos, setTodos] = useState([]);
+  const [connections, setConnections] = useState([]);
   const [characters, setCharacters] = useState([]);
   const [unlockedCharacter, setUnlockedCharacter] = useState(null);
   const [stats, setStats] = useState({
