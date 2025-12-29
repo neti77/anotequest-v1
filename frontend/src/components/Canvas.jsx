@@ -311,22 +311,38 @@ export const Canvas = ({
             onClose={onCloseDrawing}
           />
 
-          {/* Connection Lines */}
-          {connections.map((conn, idx) => {
-            const fromPos = getItemPosition(conn.from.id, conn.from.type);
-            const toPos = getItemPosition(conn.to.id, conn.to.type);
-            if (fromPos && toPos) {
-              return (
-                <ConnectionLine
-                  key={idx}
-                  from={fromPos}
-                  to={toPos}
-                  onDelete={() => deleteConnection && deleteConnection(idx)}
-                />
-              );
-            }
-            return null;
-          })}
+          {/* SVG Layer for Connection Lines - renders smoothly */}
+          <svg 
+            className="absolute inset-0 pointer-events-none" 
+            style={{ 
+              width: canvasSize.width, 
+              height: canvasSize.height,
+              zIndex: 5 
+            }}
+          >
+            {connections.map((conn, idx) => {
+              const fromPos = getItemPosition(conn.from.id, conn.from.type);
+              const toPos = getItemPosition(conn.to.id, conn.to.type);
+              if (fromPos && toPos) {
+                return (
+                  <ConnectionLine
+                    key={idx}
+                    from={fromPos}
+                    to={toPos}
+                    onDelete={() => deleteConnection && deleteConnection(idx)}
+                  />
+                );
+              }
+              return null;
+            })}
+          </svg>
+
+          {/* Link Mode Indicator */}
+          {isLinkMode && (
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground px-4 py-2 rounded-full shadow-lg text-sm font-medium animate-pulse">
+              🔗 Link Mode: Click items to connect them
+            </div>
+          )}
 
           {/* Empty State */}
           {notes.length === 0 && stickers.length === 0 && images.length === 0 && (
