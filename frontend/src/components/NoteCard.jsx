@@ -72,9 +72,9 @@ export const NoteCard = React.memo(({
   updateNote, 
   deleteNote, 
   folders, 
-  onStartConnection,
-  onEndConnection,
+  onItemClick,
   isConnecting,
+  isSelected,
   zoom = 1
 }) => {
   const [isEditing, setIsEditing] = useState(false);
