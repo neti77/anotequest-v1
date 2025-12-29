@@ -520,6 +520,11 @@ function App() {
             onAddImage={addImage}
             onAddTable={addTable}
             onAddTodo={addTodo}
+            isLinkMode={isLinkMode}
+            onToggleLinkMode={() => {
+              setIsLinkMode(!isLinkMode);
+              setConnectingFrom(null);
+            }}
           />
           
           {/* Main Canvas */}
