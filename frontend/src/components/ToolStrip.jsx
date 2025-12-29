@@ -291,6 +291,17 @@ export const ToolStrip = ({
           <CheckSquare className="h-5 w-5" />
         </Button>
 
+        {/* Link/Connect Tool */}
+        <Button
+          variant={isLinkMode ? 'default' : 'ghost'}
+          size="icon"
+          className={`h-10 w-10 rounded-xl ${isLinkMode ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+          onClick={onToggleLinkMode}
+          title="Connect items (click two items to link)"
+        >
+          <Link2 className="h-5 w-5" />
+        </Button>
+
         {/* Folders */}
         <Button
           variant={expandedTool === 'folders' ? 'default' : 'ghost'}
