@@ -425,7 +425,7 @@ function App() {
   const filteredNotes = useMemo(() => {
     let result = activeFolder 
       ? notes.filter(note => note.folderId === activeFolder)
-      : notes;
+      : notes.filter(note => !note.folderId); // Root folder shows only unassigned notes
     
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -437,6 +437,37 @@ function App() {
     
     return result;
   }, [notes, activeFolder, searchQuery]);
+
+  // Filter other items by folder (each folder has its own canvas)
+  const filteredStickers = useMemo(() => {
+    return activeFolder 
+      ? stickers.filter(s => s.folderId === activeFolder)
+      : stickers.filter(s => !s.folderId);
+  }, [stickers, activeFolder]);
+
+  const filteredImages = useMemo(() => {
+    return activeFolder 
+      ? images.filter(i => i.folderId === activeFolder)
+      : images.filter(i => !i.folderId);
+  }, [images, activeFolder]);
+
+  const filteredTables = useMemo(() => {
+    return activeFolder 
+      ? tables.filter(t => t.folderId === activeFolder)
+      : tables.filter(t => !t.folderId);
+  }, [tables, activeFolder]);
+
+  const filteredTodos = useMemo(() => {
+    return activeFolder 
+      ? todos.filter(t => t.folderId === activeFolder)
+      : todos.filter(t => !t.folderId);
+  }, [todos, activeFolder]);
+
+  const filteredConnections = useMemo(() => {
+    return activeFolder 
+      ? connections.filter(c => c.folderId === activeFolder)
+      : connections.filter(c => !c.folderId);
+  }, [connections, activeFolder]);
 
   if (!isLoaded) {
     return (
