@@ -525,10 +525,11 @@ function App() {
             <Canvas
               notes={filteredNotes}
               totalNoteCount={notes.length}
-              stickers={stickers}
-              images={images}
-              tables={tables}
-              todos={todos}
+              stickers={filteredStickers}
+              images={filteredImages}
+              tables={filteredTables}
+              todos={filteredTodos}
+              connections={filteredConnections}
               characters={characters.filter(c => c.unlocked && !c.caged)}
               addNote={addNote}
               updateNote={updateNote}
@@ -536,18 +537,22 @@ function App() {
               addSticker={addSticker}
               updateSticker={updateSticker}
               deleteSticker={deleteSticker}
+              addImage={addImage}
               updateImage={updateImage}
               deleteImage={deleteImage}
               updateTable={updateTable}
               deleteTable={deleteTable}
               updateTodo={updateTodo}
               deleteTodo={deleteTodo}
+              addConnection={addConnection}
+              deleteConnection={deleteConnection}
               updateCharacter={updateCharacter}
               folders={folders}
               isPremium={isPremium}
               isDrawingMode={isDrawingMode}
               onCloseDrawing={() => setIsDrawingMode(false)}
               userName={userName}
+              activeFolder={activeFolder}
             />
           </div>
           
