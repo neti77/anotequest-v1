@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import Draggable from 'react-draggable';
-import { X, Maximize2, Link2 } from 'lucide-react';
+import { X, Maximize2 } from 'lucide-react';
 import { Button } from './ui/button';
 
 export const ImageItem = React.memo(({ image, updateImage, deleteImage, onStartConnection, onEndConnection, isConnecting }) => {
@@ -43,8 +43,6 @@ export const ImageItem = React.memo(({ image, updateImage, deleteImage, onStartC
     e.stopPropagation();
     if (isConnecting) {
       onEndConnection?.();
-    } else {
-      onStartConnection?.();
     }
   };
 
@@ -57,22 +55,14 @@ export const ImageItem = React.memo(({ image, updateImage, deleteImage, onStartC
     >
       <div
         ref={nodeRef}
-        className="absolute group cursor-move"
+        className={`absolute group cursor-move ${isConnecting ? 'ring-2 ring-primary ring-offset-2' : ''}`}
         style={{
           width: image.size?.width || 300,
           height: image.size?.height || 200,
           zIndex: 12
         }}
+        onClick={isConnecting ? handleConnectionClick : undefined}
       >
-        {/* Connection Bump */}
-        <div 
-          className={`absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-primary border-2 border-background shadow-md cursor-pointer hover:scale-125 transition-transform flex items-center justify-center ${isConnecting ? 'animate-pulse ring-2 ring-primary/50' : ''}`}
-          onClick={handleConnectionClick}
-          title={isConnecting ? "Click to connect" : "Connect to another item"}
-        >
-          <Link2 className="h-3 w-3 text-primary-foreground" />
-        </div>
-
         <div className="relative w-full h-full rounded-lg overflow-hidden shadow-lg border-2 border-border hover:border-primary transition-colors">
           <img
             src={image.data}
