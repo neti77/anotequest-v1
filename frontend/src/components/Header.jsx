@@ -5,6 +5,8 @@ import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
+
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -288,14 +290,16 @@ export const Header = ({
   return (
     <header className="h-14 border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
       <div className="h-full px-4 flex items-center justify-between">
-        {/* Logo & Title */}
+        
+      {/* Logo & Title */}
         <div className="flex items-center gap-2">
-          <img 
-            src="https://customer-assets.emergentagent.com/job_gamified-notes-1/artifacts/nduu9o31_logo.png" 
-            alt="AnoteQuest Logo"
-            className="h-10 w-10 object-contain"
-          />
-          <div className="hidden sm:block">
+         <img
+           src="/logo.png"
+           alt="AnoteQuest Logo"
+           className="w-12 h-12"
+         />
+
+   <div className="hidden sm:block">
             <h1 className="text-lg font-bold font-display gradient-text">AnoteQuest</h1>
           </div>
         </div>
