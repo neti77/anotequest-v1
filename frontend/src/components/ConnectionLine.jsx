@@ -1,67 +1,91 @@
-import React from 'react';
-import { X } from 'lucide-react';
+import React, { useRef, useEffect, memo } from 'react';
 
-export const ConnectionLine = ({ from, to, onDelete }) => {
-  // Calculate control points for a smooth curve
-  const midX = (from.x + to.x) / 2;
-  const midY = (from.y + to.y) / 2;
-  
-  // Create a curved path
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  
-  // Control point offset for curve
-  const curvature = Math.min(Math.abs(dx), Math.abs(dy)) * 0.3;
-  
-  const path = `M ${from.x} ${from.y} Q ${midX} ${midY - curvature} ${to.x} ${to.y}`;
+const ConnectionLine = ({ from, to, onDelete, isDragging }) => {
+  const pathRef = useRef(null);
+  const startRef = useRef(null);
+  const endRef = useRef(null);
+  const deleteRef = useRef(null);
+  const rafRef = useRef(null);
+
+  const updateLine = () => {
+    const midX = (from.x + to.x) / 2;
+    const midY = (from.y + to.y) / 2;
+
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const curvature = Math.min(Math.abs(dx), Math.abs(dy)) * 0.3;
+
+    const d = `M ${from.x} ${from.y}
+               Q ${midX} ${midY - curvature}
+               ${to.x} ${to.y}`;
+
+    pathRef.current?.setAttribute('d', d);
+    startRef.current?.setAttribute('cx', from.x);
+    startRef.current?.setAttribute('cy', from.y);
+    endRef.current?.setAttribute('cx', to.x);
+    endRef.current?.setAttribute('cy', to.y);
+
+    if (deleteRef.current) {
+      deleteRef.current.setAttribute(
+        'transform',
+        `translate(${midX}, ${midY})`
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (rafRef.current) return;
+
+    rafRef.current = requestAnimationFrame(() => {
+      updateLine();
+      rafRef.current = null;
+    });
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [from.x, from.y, to.x, to.y]);
 
   return (
     <>
-      {/* The actual line */}
+      {/* Line */}
       <path
-        d={path}
+        ref={pathRef}
         fill="none"
         stroke="hsl(var(--primary))"
         strokeWidth="3"
         strokeLinecap="round"
-        className="transition-all duration-75"
-        style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))' }}
+        style={{
+          transition: isDragging ? 'none' : 'stroke 0.15s ease',
+        }}
       />
-      
-      {/* Arrow head at the end */}
-      <circle
-        cx={to.x}
-        cy={to.y}
-        r="5"
-        fill="hsl(var(--primary))"
-      />
-      
+
       {/* Start point */}
       <circle
-        cx={from.x}
-        cy={from.y}
+        ref={startRef}
         r="5"
         fill="hsl(var(--primary))"
       />
-      
-      {/* Delete button at midpoint */}
+
+      {/* End point */}
+      <circle
+        ref={endRef}
+        r="5"
+        fill="hsl(var(--primary))"
+      />
+
+      {/* Delete button */}
       {onDelete && (
-        <g 
+        <g
+          ref={deleteRef}
           className="cursor-pointer opacity-0 hover:opacity-100 transition-opacity"
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
           }}
         >
-          <circle
-            cx={midX}
-            cy={midY}
-            r="10"
-            fill="hsl(var(--destructive))"
-          />
+          <circle r="10" fill="hsl(var(--destructive))" />
           <text
-            x={midX}
-            y={midY}
             textAnchor="middle"
             dominantBaseline="central"
             fill="white"
@@ -76,4 +100,5 @@ export const ConnectionLine = ({ from, to, onDelete }) => {
   );
 };
 
-export default ConnectionLine;
+export default memo(ConnectionLine);
+
