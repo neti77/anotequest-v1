@@ -232,37 +232,49 @@ export const Canvas = ({
 
   return (
     <div className="relative w-full h-full">
-      {/* Zoom Controls */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 bg-card/90 backdrop-blur-sm rounded-full px-2 py-1 shadow-lg border border-border">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => handleZoom(-0.1)}
-          disabled={zoom <= 0.5}
+   {/* Zoom Controls – aligned with header */}
+<div
+  className="fixed top-3 left-1/2 -translate-x-1/2 z-50
+             flex items-center gap-1
+             bg-card/90 backdrop-blur-sm
+             rounded-full px-2 py-1
+             shadow-lg border border-border"
+     >
+  <Button
+    variant="ghost"
+    size="icon"
+    className="h-7 w-7"
+    onClick={() => handleZoom(-0.1)}
+    disabled={zoom <= 0.5}
         >
-          <ZoomOut className="h-4 w-4" />
+    <ZoomOut className="h-4 w-4" />
         </Button>
-        <span className="text-xs font-medium w-12 text-center">{Math.round(zoom * 100)}%</span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => handleZoom(0.1)}
-          disabled={zoom >= 2.5}
-        >
-          <ZoomIn className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => setZoom(1)}
-          disabled={zoom === 1}
-        >
-          <RotateCcw className="h-3 w-3" />
-        </Button>
-      </div>
+
+  <span className="text-xs font-medium w-12 text-center">
+    {Math.round(zoom * 100)}%
+  </span>
+
+  <Button
+    variant="ghost"
+    size="icon"
+    className="h-7 w-7"
+    onClick={() => handleZoom(0.1)}
+    disabled={zoom >= 2.5}
+  >
+    <ZoomIn className="h-4 w-4" />
+  </Button>
+
+  <Button
+    variant="ghost"
+    size="icon"
+    className="h-7 w-7"
+    onClick={() => setZoom(1)}
+    disabled={zoom === 1}
+  >
+    <RotateCcw className="h-3 w-3" />
+  </Button>
+</div>
+
 
       {/* File Limit Badge */}
       {!isPremium && (
