@@ -232,8 +232,7 @@ export const Canvas = ({
 
   return (
     <div className="relative w-full h-full">
-   {/* Zoom Controls – aligned with header */}
-{/* Zoom Controls – attached below header */}
+ {/* Zoom Controls – melted into header */}
 <div
   className="
     fixed
@@ -241,47 +240,51 @@ export const Canvas = ({
     left-1/2
     -translate-x-1/2
     z-40
+
     flex items-center gap-1
-    bg-card/95 backdrop-blur-sm
-    rounded-full px-3 py-1.5
-    shadow-md border border-border
+    px-3 py-0.5
+
+    bg-card/95 backdrop-blur-md
+    border border-border border-t-0
+
+    rounded-b-full
+    shadow-[0_8px_20px_-10px_rgba(0,0,0,0.35)]
   "
 >
   <Button
     variant="ghost"
     size="icon"
-    className="h-7 w-7"
+    className="h-6 w-6"
     onClick={() => handleZoom(-0.1)}
     disabled={zoom <= 0.5}
   >
-    <ZoomOut className="h-4 w-4" />
+    <ZoomOut className="h-3.5 w-3.5" />
   </Button>
 
-  <span className="text-xs font-medium w-12 text-center">
+  <span className="text-[11px] font-medium w-10 text-center">
     {Math.round(zoom * 100)}%
   </span>
 
   <Button
     variant="ghost"
     size="icon"
-    className="h-7 w-7"
+    className="h-6 w-6"
     onClick={() => handleZoom(0.1)}
     disabled={zoom >= 2.5}
   >
-    <ZoomIn className="h-4 w-4" />
+    <ZoomIn className="h-3.5 w-3.5" />
   </Button>
 
   <Button
     variant="ghost"
     size="icon"
-    className="h-7 w-7"
+    className="h-6 w-6"
     onClick={() => setZoom(1)}
     disabled={zoom === 1}
   >
     <RotateCcw className="h-3 w-3" />
   </Button>
 </div>
-
 
 
       {/* File Limit Badge */}
