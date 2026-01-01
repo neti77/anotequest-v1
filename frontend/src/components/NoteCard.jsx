@@ -211,9 +211,9 @@ export const NoteCard = React.memo(({
       <Draggable
         nodeRef={nodeRef}
         handle=".drag-handle"
-        position={note.position}
+        defaultPosition={note.position}
         onStop={handleDragStop}
-        bounds="parent"
+        //bounds="parent"
         disabled={isResizing}
       >
         <div
