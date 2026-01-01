@@ -3,30 +3,34 @@ import Draggable from 'react-draggable';
 import { X, Maximize2 } from 'lucide-react';
 import { Button } from './ui/button';
 
-export const ImageItem = React.memo(({ image, updateImage, deleteImage, onItemClick, isConnecting, isSelected }) => {
+export const ImageItem = React.memo(({
+  image,
+  updateImage,
+  deleteImage,
+  onItemClick,
+  isConnecting,
+  isSelected,
+  zoom = 1
+}) => {
   const nodeRef = useRef(null);
-  
-  const handleDrag = (e, data) => {
-    updateImage(image.id, {
-      defaultPosition={item.position}
-    });
-  };
 
   const handleResize = (e) => {
     e.stopPropagation();
+
     const startX = e.clientX;
     const startY = e.clientY;
     const startWidth = image.size?.width || 300;
     const startHeight = image.size?.height || 200;
 
     const handleMouseMove = (moveEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const deltaY = moveEvent.clientY - startY;
-      const newWidth = Math.max(100, startWidth + deltaX);
-      const newHeight = Math.max(80, startHeight + deltaY);
-      
+      const deltaX = (moveEvent.clientX - startX) / zoom;
+      const deltaY = (moveEvent.clientY - startY) / zoom;
+
       updateImage(image.id, {
-        size: { width: newWidth, height: newHeight }
+        size: {
+          width: Math.max(100, startWidth + deltaX),
+          height: Math.max(80, startHeight + deltaY),
+        }
       });
     };
 
@@ -47,21 +51,22 @@ export const ImageItem = React.memo(({ image, updateImage, deleteImage, onItemCl
   };
 
   return (
-<Draggable
-  nodeRef={nodeRef}
- 
-  defaultPosition={item.position}
-  scale={zoom}
-  onStop={(e, data) => {
-    updateItem(item.id, {
-      position: { x: data.x, y: data.y }
-    });
-  }}
->
-
+    <Draggable
+      nodeRef={nodeRef}
+      defaultPosition={image.position}
+      scale={zoom}
+      cancel="button, [data-no-drag]"
+      onStop={(e, data) => {
+        updateImage(image.id, {
+          position: { x: data.x, y: data.y }
+        });
+      }}
+    >
       <div
         ref={nodeRef}
-        className={`absolute group cursor-move ${isConnecting ? 'cursor-pointer hover:ring-2 hover:ring-primary' : ''} ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+        className={`absolute group ${
+          isConnecting ? 'cursor-pointer hover:ring-2 hover:ring-primary' : 'cursor-move'
+        } ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}
         style={{
           width: image.size?.width || 300,
           height: image.size?.height || 200,
@@ -72,12 +77,12 @@ export const ImageItem = React.memo(({ image, updateImage, deleteImage, onItemCl
         <div className="relative w-full h-full rounded-lg overflow-hidden shadow-lg border-2 border-border hover:border-primary transition-colors">
           <img
             src={image.data}
-            alt="Canvas image"
+            alt="Canvas"
             className="w-full h-full object-cover"
             draggable={false}
           />
-          
-          {/* Delete Button */}
+
+          {/* Delete */}
           <Button
             variant="destructive"
             size="icon"
@@ -90,8 +95,9 @@ export const ImageItem = React.memo(({ image, updateImage, deleteImage, onItemCl
             <X className="h-3 w-3" />
           </Button>
 
-          {/* Resize Handle */}
+          {/* Resize */}
           <div
+            data-no-drag
             className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity"
             onMouseDown={handleResize}
           >
