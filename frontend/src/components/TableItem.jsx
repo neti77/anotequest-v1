@@ -82,12 +82,17 @@ export const TableItem = React.memo(({ table, updateTable, deleteTable }) => {
 
   return (
     <Draggable
-      nodeRef={nodeRef}
-      position={table.position}
-      onStop={handleDrag}
-      bounds="parent"
-      handle=".table-handle"
-    >
+  nodeRef={nodeRef}
+  handle=".drag-handle"
+  defaultPosition={item.position}
+  scale={zoom}
+  onStop={(e, data) => {
+    updateItem(item.id, {
+      position: { x: data.x, y: data.y }
+    });
+  }}
+>
+
       <div
         ref={nodeRef}
         className="absolute group"
