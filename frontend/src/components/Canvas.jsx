@@ -150,8 +150,9 @@ export const Canvas = ({
 
     // Get drop position relative to canvas
     const rect = canvasRef.current.getBoundingClientRect();
-    const scrollLeft = canvasRef.current.scrollLeft;
-    const scrollTop = canvasRef.current.scrollTop;
+    const scrollLeft = containerRef.current.scrollLeft;
+    const scrollTop = containerRef.current.scrollTop;
+
     const x = (e.clientX - rect.left + scrollLeft) / zoom;
     const y = (e.clientY - rect.top + scrollTop) / zoom;
 
