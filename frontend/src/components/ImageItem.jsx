@@ -8,7 +8,7 @@ export const ImageItem = React.memo(({ image, updateImage, deleteImage, onItemCl
   
   const handleDrag = (e, data) => {
     updateImage(image.id, {
-      position: { x: data.x, y: data.y }
+      defaultPosition={item.position}
     });
   };
 
@@ -47,12 +47,18 @@ export const ImageItem = React.memo(({ image, updateImage, deleteImage, onItemCl
   };
 
   return (
-    <Draggable
-      nodeRef={nodeRef}
-      position={image.position}
-      onStop={handleDrag}
-      bounds="parent"
-    >
+<Draggable
+  nodeRef={nodeRef}
+ 
+  defaultPosition={item.position}
+  scale={zoom}
+  onStop={(e, data) => {
+    updateItem(item.id, {
+      position: { x: data.x, y: data.y }
+    });
+  }}
+>
+
       <div
         ref={nodeRef}
         className={`absolute group cursor-move ${isConnecting ? 'cursor-pointer hover:ring-2 hover:ring-primary' : ''} ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}
