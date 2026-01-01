@@ -79,12 +79,17 @@ export const StickerItem = React.memo(({ sticker, updateSticker, deleteSticker }
 
   return (
     <Draggable
-      nodeRef={nodeRef}
-      position={sticker.position}
-      onStop={handleDragStop}
-      bounds="parent"
-      disabled={isResizing}
-    >
+  nodeRef={nodeRef}
+  handle=".drag-handle"
+  defaultPosition={item.position}
+  scale={zoom}
+  onStop={(e, data) => {
+    updateItem(item.id, {
+      position: { x: data.x, y: data.y }
+    });
+  }}
+>
+
       <div
         ref={nodeRef}
         className="absolute cursor-move group"
