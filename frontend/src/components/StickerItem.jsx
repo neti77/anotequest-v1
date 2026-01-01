@@ -24,7 +24,7 @@ export const StickerItem = React.memo(({ sticker, updateSticker, deleteSticker }
 
   const handleDragStop = (e, data) => {
     updateSticker(sticker.id, {
-      position: { x: data.x, y: data.y }
+      defaultPosition={item.position}
     });
   };
 
@@ -78,17 +78,8 @@ export const StickerItem = React.memo(({ sticker, updateSticker, deleteSticker }
   }, [sticker.id, size, updateSticker]);
 
   return (
-    <Draggable
-  nodeRef={nodeRef}
-  handle=".drag-handle"
-  defaultPosition={item.position}
-  scale={zoom}
-  onStop={(e, data) => {
-    updateItem(item.id, {
-      position: { x: data.x, y: data.y }
-    });
-  }}
->
+   <Draggable nodeRef={nodeRef} handle=".drag-handle" defaultPosition={note.position} onStop={handleDragStop} scale={zoom} >
+
 
       <div
         ref={nodeRef}
