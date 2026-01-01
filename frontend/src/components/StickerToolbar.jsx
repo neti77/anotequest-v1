@@ -29,7 +29,18 @@ export const StickerToolbar = ({ selectedTool, setSelectedTool, stickerColor, se
   const nodeRef = React.useRef(null);
   
   return (
-    <Draggable handle=".drag-handle" bounds="parent" nodeRef={nodeRef}>
+    <Draggable
+  nodeRef={nodeRef}
+  handle=".drag-handle"
+  defaultPosition={item.position}
+  scale={zoom}
+  onStop={(e, data) => {
+    updateItem(item.id, {
+      position: { x: data.x, y: data.y }
+    });
+  }}
+>
+
       <div ref={nodeRef} className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
         <Card className="p-3 bg-card/95 backdrop-blur-md shadow-xl border-2 border-border">
           {/* Drag Handle */}
