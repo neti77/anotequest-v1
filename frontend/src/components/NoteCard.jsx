@@ -215,6 +215,7 @@ export const NoteCard = React.memo(({
         onStop={handleDragStop}
         //bounds="parent"
         disabled={isResizing}
+        scale={zoom}
       >
         <div
           ref={nodeRef}
