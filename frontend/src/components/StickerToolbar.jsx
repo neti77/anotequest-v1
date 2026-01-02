@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import Draggable from 'react-draggable';
 import {
   ArrowRight,
@@ -42,11 +42,18 @@ export const StickerToolbar = ({
 }) => {
   const nodeRef = useRef(null);
 
+  // controlled position (safe)
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
   return (
     <Draggable
       nodeRef={nodeRef}
+      position={position}
       handle=".drag-handle"
-      defaultPosition={{ x: 0, y: 0 }}
+      cancel="button"
+      onStop={(e, data) => {
+        setPosition({ x: data.x, y: data.y });
+      }}
     >
       <div
         ref={nodeRef}
