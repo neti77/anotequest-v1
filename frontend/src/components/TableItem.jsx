@@ -73,15 +73,16 @@ export const TableItem = React.memo(({ table, updateTable, deleteTable, zoom = 1
 
   return (
     <Draggable
-      nodeRef={nodeRef}
-      defaultPosition={table.position}
-      scale={zoom}
-      onStop={(e, data) =>
-        updateTable(table.id, {
-          position: { x: data.x, y: data.y }
-        })
-      }
-    >
+  nodeRef={nodeRef}
+  position={table.position}
+  scale={zoom}
+  onStop={(e, data) => {
+    updateTable(table.id, {
+      position: { x: data.x, y: data.y }
+    });
+  }}
+>
+
       <div
         ref={nodeRef}
         className="absolute cursor-move"
