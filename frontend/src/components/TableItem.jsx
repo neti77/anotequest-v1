@@ -4,52 +4,45 @@ import { X, Plus, Minus, Maximize2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 
-export const TableItem = React.memo(({ table, updateTable, deleteTable }) => {
+export const TableItem = React.memo(({ table, updateTable, deleteTable, zoom = 1 }) => {
   const nodeRef = useRef(null);
-  const [data, setData] = useState(table.data || [['', '', ''], ['', '', ''], ['', '', '']]);
-  
-  const handleDrag = (e, dragData) => {
-    updateTable(table.id, {
-      position: { x: dragData.x, y: dragData.y }
-    });
-  };
+  const [data, setData] = useState(
+    table.data || [['', '', ''], ['', '', ''], ['', '', '']]
+  );
 
   const handleCellChange = (rowIndex, colIndex, value) => {
-    const newData = data.map((row, rIdx) =>
-      row.map((cell, cIdx) =>
-        rIdx === rowIndex && cIdx === colIndex ? value : cell
-      )
+    const newData = data.map((row, r) =>
+      row.map((cell, c) => (r === rowIndex && c === colIndex ? value : cell))
     );
     setData(newData);
     updateTable(table.id, { data: newData });
   };
 
   const addRow = () => {
-    const newRow = new Array(data[0]?.length || 3).fill('');
-    const newData = [...data, newRow];
+    const newData = [...data, new Array(data[0].length).fill('')];
     setData(newData);
-    updateTable(table.id, { data: newData, rows: newData.length });
+    updateTable(table.id, { data: newData });
   };
 
   const addColumn = () => {
     const newData = data.map(row => [...row, '']);
     setData(newData);
-    updateTable(table.id, { data: newData, cols: newData[0].length });
+    updateTable(table.id, { data: newData });
   };
 
   const removeRow = () => {
     if (data.length > 1) {
       const newData = data.slice(0, -1);
       setData(newData);
-      updateTable(table.id, { data: newData, rows: newData.length });
+      updateTable(table.id, { data: newData });
     }
   };
 
   const removeColumn = () => {
-    if (data[0]?.length > 1) {
+    if (data[0].length > 1) {
       const newData = data.map(row => row.slice(0, -1));
       setData(newData);
-      updateTable(table.id, { data: newData, cols: newData[0].length });
+      updateTable(table.id, { data: newData });
     }
   };
 
@@ -60,42 +53,38 @@ export const TableItem = React.memo(({ table, updateTable, deleteTable }) => {
     const startWidth = table.size?.width || 400;
     const startHeight = table.size?.height || 200;
 
-    const handleMouseMove = (moveEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const deltaY = moveEvent.clientY - startY;
+    const handleMove = (ev) => {
       updateTable(table.id, {
-        size: { 
-          width: Math.max(200, startWidth + deltaX), 
-          height: Math.max(100, startHeight + deltaY) 
+        size: {
+          width: Math.max(200, startWidth + (ev.clientX - startX)),
+          height: Math.max(120, startHeight + (ev.clientY - startY))
         }
       });
     };
 
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+    const stop = () => {
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', stop);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', stop);
   };
 
   return (
     <Draggable
-  nodeRef={nodeRef}
-  handle=".drag-handle"
-  defaultPosition={item.position}
-  scale={zoom}
-  onStop={(e, data) => {
-    updateItem(item.id, {
-      position: { x: data.x, y: data.y }
-    });
-  }}
->
-
+      nodeRef={nodeRef}
+      defaultPosition={table.position}
+      scale={zoom}
+      onStop={(e, data) =>
+        updateTable(table.id, {
+          position: { x: data.x, y: data.y }
+        })
+      }
+    >
       <div
         ref={nodeRef}
-        className="absolute group"
+        className="absolute cursor-move"
         style={{
           width: table.size?.width || 400,
           zIndex: 12
@@ -103,31 +92,18 @@ export const TableItem = React.memo(({ table, updateTable, deleteTable }) => {
       >
         <Card className="overflow-hidden shadow-lg">
           {/* Header */}
-          <div className="table-handle flex items-center justify-between px-3 py-2 bg-muted/50 cursor-move border-b">
+          <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b">
             <span className="text-xs font-medium">Table</span>
             <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5"
-                onClick={addColumn}
-                title="Add column"
-              >
+              <Button size="icon" variant="ghost" onClick={addColumn}>
                 <Plus className="h-3 w-3" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5"
-                onClick={removeColumn}
-                title="Remove column"
-              >
+              <Button size="icon" variant="ghost" onClick={removeColumn}>
                 <Minus className="h-3 w-3" />
               </Button>
               <Button
-                variant="destructive"
                 size="icon"
-                className="h-5 w-5 ml-1"
+                variant="destructive"
                 onClick={() => deleteTable(table.id)}
               >
                 <X className="h-3 w-3" />
@@ -136,19 +112,17 @@ export const TableItem = React.memo(({ table, updateTable, deleteTable }) => {
           </div>
 
           {/* Table */}
-          <div className="overflow-auto" style={{ maxHeight: (table.size?.height || 200) - 40 }}>
-            <table className="w-full border-collapse text-sm">
+          <div className="overflow-auto" style={{ maxHeight: table.size?.height || 200 }}>
+            <table className="w-full border-collapse text-xs">
               <tbody>
-                {data.map((row, rowIndex) => (
-                  <tr key={rowIndex}>
-                    {row.map((cell, colIndex) => (
-                      <td key={colIndex} className="border border-border p-0">
+                {data.map((row, r) => (
+                  <tr key={r}>
+                    {row.map((cell, c) => (
+                      <td key={c} className="border border-border">
                         <input
-                          type="text"
                           value={cell}
-                          onChange={(e) => handleCellChange(rowIndex, colIndex, e.target.value)}
-                          className="w-full h-8 px-2 bg-transparent focus:outline-none focus:bg-primary/5 text-xs"
-                          placeholder="..."
+                          onChange={(e) => handleCellChange(r, c, e.target.value)}
+                          className="w-full h-8 px-2 bg-transparent focus:outline-none"
                         />
                       </td>
                     ))}
@@ -159,30 +133,16 @@ export const TableItem = React.memo(({ table, updateTable, deleteTable }) => {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-3 py-1.5 bg-muted/30 border-t">
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-xs"
-                onClick={addRow}
-              >
-                <Plus className="h-3 w-3 mr-1" /> Row
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-xs"
-                onClick={removeRow}
-              >
-                <Minus className="h-3 w-3 mr-1" /> Row
-              </Button>
+          <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-t">
+            <div className="flex gap-1">
+              <Button size="sm" variant="ghost" onClick={addRow}>+ Row</Button>
+              <Button size="sm" variant="ghost" onClick={removeRow}>− Row</Button>
             </div>
             <div
-              className="w-4 h-4 cursor-se-resize"
+              className="cursor-se-resize"
               onMouseDown={handleResize}
             >
-              <Maximize2 className="h-4 w-4 text-muted-foreground rotate-90" />
+              <Maximize2 className="h-4 w-4 rotate-90" />
             </div>
           </div>
         </Card>
@@ -191,5 +151,4 @@ export const TableItem = React.memo(({ table, updateTable, deleteTable }) => {
   );
 });
 
-TableItem.displayName = 'TableItem';
 export default TableItem;
