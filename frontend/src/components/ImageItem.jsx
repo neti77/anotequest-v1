@@ -53,8 +53,9 @@ export const ImageItem = React.memo(({
   return (
     <Draggable
       nodeRef={nodeRef}
-      defaultPosition={image.position}
+      position={image.position}
       scale={zoom}
+      disabled={isConnecting}
       cancel="button, [data-no-drag]"
       onStop={(e, data) => {
         updateImage(image.id, {
@@ -64,25 +65,27 @@ export const ImageItem = React.memo(({
     >
       <div
         ref={nodeRef}
+        onClick={handleConnectionClick}
         className={`absolute group ${
-          isConnecting ? 'cursor-pointer hover:ring-2 hover:ring-primary' : 'cursor-move'
+          isConnecting
+            ? 'cursor-pointer hover:ring-2 hover:ring-primary'
+            : 'cursor-move'
         } ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}
         style={{
           width: image.size?.width || 300,
           height: image.size?.height || 200,
           zIndex: 12
         }}
-        onClick={handleConnectionClick}
       >
         <div className="relative w-full h-full rounded-lg overflow-hidden shadow-lg border-2 border-border hover:border-primary transition-colors">
           <img
             src={image.data}
-            alt="Canvas"
+            alt="Canvas image"
             className="w-full h-full object-cover"
             draggable={false}
           />
 
-          {/* Delete */}
+          {/* Delete Button */}
           <Button
             variant="destructive"
             size="icon"
@@ -95,7 +98,7 @@ export const ImageItem = React.memo(({
             <X className="h-3 w-3" />
           </Button>
 
-          {/* Resize */}
+          {/* Resize Handle */}
           <div
             data-no-drag
             className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity"
@@ -111,3 +114,4 @@ export const ImageItem = React.memo(({
 
 ImageItem.displayName = 'ImageItem';
 export default ImageItem;
+
