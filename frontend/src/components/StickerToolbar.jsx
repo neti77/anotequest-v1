@@ -1,9 +1,18 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import Draggable from 'react-draggable';
-import { ArrowRight, ArrowDown, ArrowLeft, ArrowUp, Circle, Square, Star, Heart, Move } from 'lucide-react';
+import {
+  ArrowRight,
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  Circle,
+  Square,
+  Star,
+  Heart,
+  Move
+} from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { Separator } from './ui/separator';
 
 const STICKER_TYPES = [
   { type: 'arrow-right', icon: ArrowRight, label: 'Arrow Right' },
@@ -25,23 +34,24 @@ const STICKER_COLORS = [
   { color: '#f97316', name: 'Orange' },
 ];
 
-export const StickerToolbar = ({ selectedTool, setSelectedTool, stickerColor, setStickerColor }) => {
-  const nodeRef = React.useRef(null);
-  
+export const StickerToolbar = ({
+  selectedTool,
+  setSelectedTool,
+  stickerColor,
+  setStickerColor
+}) => {
+  const nodeRef = useRef(null);
+
   return (
     <Draggable
-  nodeRef={nodeRef}
-  handle=".drag-handle"
-  defaultPosition={item.position}
-  scale={zoom}
-  onStop={(e, data) => {
-    updateItem(item.id, {
-      position: { x: data.x, y: data.y }
-    });
-  }}
->
-
-      <div ref={nodeRef} className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+      nodeRef={nodeRef}
+      handle=".drag-handle"
+      defaultPosition={{ x: 0, y: 0 }}
+    >
+      <div
+        ref={nodeRef}
+        className="fixed top-20 left-1/2 -translate-x-1/2 z-50"
+      >
         <Card className="p-3 bg-card/95 backdrop-blur-md shadow-xl border-2 border-border">
           {/* Drag Handle */}
           <div className="drag-handle flex items-center gap-2 mb-3 cursor-move pb-2 border-b border-border">
@@ -57,7 +67,9 @@ export const StickerToolbar = ({ selectedTool, setSelectedTool, stickerColor, se
                 variant={selectedTool === type ? 'default' : 'ghost'}
                 size="icon"
                 className="h-9 w-9"
-                onClick={() => setSelectedTool(selectedTool === type ? null : type)}
+                onClick={() =>
+                  setSelectedTool(selectedTool === type ? null : type)
+                }
                 title={label}
               >
                 <Icon className="h-4 w-4" />
@@ -67,13 +79,15 @@ export const StickerToolbar = ({ selectedTool, setSelectedTool, stickerColor, se
 
           {/* Color Picker */}
           <div>
-            <span className="text-xs font-medium mb-2 block">Color:</span>
+            <span className="text-xs font-medium mb-2 block">Color</span>
             <div className="flex gap-2">
               {STICKER_COLORS.map(({ color, name }) => (
                 <button
                   key={color}
                   className={`w-7 h-7 rounded-md border-2 transition-all hover:scale-110 ${
-                    stickerColor === color ? 'border-primary ring-2 ring-primary/50' : 'border-border'
+                    stickerColor === color
+                      ? 'border-primary ring-2 ring-primary/50'
+                      : 'border-border'
                   }`}
                   style={{ background: color }}
                   onClick={() => setStickerColor(color)}
