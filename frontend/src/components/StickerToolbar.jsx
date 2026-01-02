@@ -103,3 +103,4 @@ export const StickerToolbar = ({
 };
 
 export default StickerToolbar;
+
