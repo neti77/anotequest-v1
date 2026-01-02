@@ -40,6 +40,16 @@ function App() {
   const [connectingFrom, setConnectingFrom] = useState(null);
   const timeIntervalRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const safePosition = (pos) =>
+  pos && typeof pos.x === 'number' && typeof pos.y === 'number'
+    ? pos
+    : { x: 100, y: 100 };
+
+  const safeSize = (size, fallback) =>
+  size && typeof size.width === 'number' && typeof size.height === 'number'
+    ? size
+    : fallback;
+
 
   // Undo/Redo state
   const [history, setHistory] = useState([]);
@@ -47,41 +57,75 @@ function App() {
   const isUndoRedo = useRef(false);
 
   // Load data from localStorage on mount
-  useEffect(() => {
-    console.log('Loading data from localStorage...');
-    try {
-      const savedNotes = localStorage.getItem('anotequest_notes');
-      const savedFolders = localStorage.getItem('anotequest_folders');
-      const savedStickers = localStorage.getItem('anotequest_stickers');
-      const savedImages = localStorage.getItem('anotequest_images');
-      const savedTables = localStorage.getItem('anotequest_tables');
-      const savedTodos = localStorage.getItem('anotequest_todos');
-      const savedCharacters = localStorage.getItem('anotequest_characters');
-      const savedStats = localStorage.getItem('anotequest_stats');
-      const savedPremium = localStorage.getItem('anotequest_premium');
-      const savedUserName = localStorage.getItem('anotequest_username');
+useEffect(() => {
+  console.log('Loading data from localStorage...');
+  try {
+    const load = (key) => {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : [];
+    };
 
-      if (savedNotes) setNotes(JSON.parse(savedNotes));
-      if (savedFolders) setFolders(JSON.parse(savedFolders));
-      if (savedStickers) setStickers(JSON.parse(savedStickers));
-      if (savedImages) setImages(JSON.parse(savedImages));
-      if (savedTables) setTables(JSON.parse(savedTables));
-      if (savedTodos) setTodos(JSON.parse(savedTodos));
-      if (savedCharacters) setCharacters(JSON.parse(savedCharacters));
-      if (savedStats) setStats(JSON.parse(savedStats));
-      if (savedPremium) setIsPremium(JSON.parse(savedPremium));
-      if (savedUserName) setUserName(savedUserName);
-      
-      if (!savedUserName) {
-        setShowNameInput(true);
-      }
-      
-      setIsLoaded(true);
-    } catch (error) {
-      console.error('Error loading from localStorage:', error);
-      setIsLoaded(true);
-    }
-  }, []);
+    setNotes(
+      load('anotequest_notes').map(n => ({
+        ...n,
+        position: safePosition(n.position)
+      }))
+    );
+
+    setFolders(load('anotequest_folders'));
+
+    setStickers(
+      load('anotequest_stickers').map(s => ({
+        ...s,
+        position: safePosition(s.position),
+        rotation: s.rotation ?? 0
+      }))
+    );
+
+    setImages(
+      load('anotequest_images').map(i => ({
+        ...i,
+        position: safePosition(i.position),
+        size: safeSize(i.size, { width: 300, height: 200 })
+      }))
+    );
+
+    setTables(
+      load('anotequest_tables').map(t => ({
+        ...t,
+        position: safePosition(t.position),
+        size: safeSize(t.size, { width: 400, height: 200 }),
+        data: t.data ?? [['']]
+      }))
+    );
+
+    setTodos(
+      load('anotequest_todos').map(t => ({
+        ...t,
+        position: safePosition(t.position)
+      }))
+    );
+
+    setCharacters(load('anotequest_characters'));
+
+    const savedStats = localStorage.getItem('anotequest_stats');
+    if (savedStats) setStats(JSON.parse(savedStats));
+
+    const savedPremium = localStorage.getItem('anotequest_premium');
+    if (savedPremium) setIsPremium(JSON.parse(savedPremium));
+
+    const savedUserName = localStorage.getItem('anotequest_username');
+    if (savedUserName) setUserName(savedUserName);
+    else setShowNameInput(true);
+
+    setIsLoaded(true);
+  } catch (err) {
+    console.error('Corrupted localStorage, resetting', err);
+    localStorage.clear();
+    setIsLoaded(true);
+  }
+}, []);
+
 
   // Track time spent
   useEffect(() => {
