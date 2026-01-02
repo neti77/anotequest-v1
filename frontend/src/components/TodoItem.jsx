@@ -81,17 +81,13 @@ export const TodoItem = React.memo(({ todo, updateTodo, deleteTodo }) => {
   const completedCount = items.filter(i => i.completed).length;
 
   return (
-   <Draggable
-  nodeRef={nodeRef}
-  handle=".drag-handle"
-  defaultPosition={item.position}
-  scale={zoom}
-  onStop={(e, data) => {
-    updateItem(item.id, {
-      position: { x: data.x, y: data.y }
-    });
-  }}
->
+      <Draggable
+      nodeRef={nodeRef}
+      position={todo.position}
+      onStop={handleDrag}
+      bounds="parent"
+      handle=".todo-handle"
+    >
 
       <div
         ref={nodeRef}
