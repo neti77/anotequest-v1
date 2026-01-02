@@ -209,14 +209,19 @@ export const NoteCard = React.memo(({
   return (
     <>
       <Draggable
-        nodeRef={nodeRef}
-        handle=".drag-handle"
-        defaultPosition={note.position}
-        onStop={handleDragStop}
-        //bounds="parent"
-        disabled={isResizing}
-        scale={zoom}
-      >
+  nodeRef={nodeRef}
+  position={note.position}
+  handle=".drag-handle"
+  scale={zoom}
+  disabled={isResizing || isConnecting}
+  cancel="input, textarea, button, [data-no-drag]"
+  onStop={(e, data) => {
+    updateNote(note.id, {
+      position: { x: data.x, y: data.y }
+    });
+  }}
+>
+
         <div
           ref={nodeRef}
           className="absolute"
@@ -399,8 +404,10 @@ export const NoteCard = React.memo(({
             </div>
 
             {/* Resize Handle */}
-            <div
+           <div
+              data-no-drag
               className="absolute bottom-1 right-1 w-8 h-8 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center touch-none"
+
               onMouseDown={handleResizeStart}
               onTouchStart={handleResizeStart}
               style={{ 
