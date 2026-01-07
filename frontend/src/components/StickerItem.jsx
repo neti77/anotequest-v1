@@ -30,7 +30,8 @@ export const StickerItem = React.memo(({
   sticker,
   updateSticker,
   deleteSticker,
-  zoom = 1
+  zoom = 1,
+  shouldDeleteOnDrop,
 }) => {
   const nodeRef = useRef(null);
   const Icon = STICKER_ICONS[sticker.type] || Circle;
@@ -78,16 +79,20 @@ export const StickerItem = React.memo(({
   }, [size, sticker.id, updateSticker, zoom]);
 
   return (
-   <Draggable
-  nodeRef={nodeRef}
-  position={sticker.position}
-  scale={zoom}
-  onStop={(e, data) => {
-    updateSticker(sticker.id, {
-      position: { x: data.x, y: data.y }
-    });
-  }}
->
+    <Draggable
+      nodeRef={nodeRef}
+      position={sticker.position}
+      scale={zoom}
+      onStop={(e, data) => {
+        if (shouldDeleteOnDrop && shouldDeleteOnDrop(e)) {
+          deleteSticker(sticker.id);
+        } else {
+          updateSticker(sticker.id, {
+            position: { x: data.x, y: data.y },
+          });
+        }
+      }}
+    >
 
       <div
         ref={nodeRef}
@@ -133,14 +138,13 @@ export const StickerItem = React.memo(({
             </Button>
           </div>
 
-          {/* Resize */}
+          {/* Resize (subtle) */}
           <div
             data-no-drag
-            className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center"
+            className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize opacity-0 group-hover:opacity-60 hover:opacity-100 transition-opacity flex items-center justify-center"
             onMouseDown={handleResizeStart}
-            style={{ background: color }}
           >
-            <Maximize2 className="h-3 w-3 text-white" />
+            <Maximize2 className="h-3 w-3 text-slate-300 drop-shadow" />
           </div>
         </div>
       </div>

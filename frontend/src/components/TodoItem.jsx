@@ -5,14 +5,14 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 
-export const TodoItem = React.memo(({ todo, updateTodo, deleteTodo }) => {
+export const TodoItem = React.memo(({ todo, updateTodo, deleteTodo, zoom = 1, shouldDeleteOnDrop }) => {
   const nodeRef = useRef(null);
   const [items, setItems] = useState(todo.items || [{ id: Date.now(), text: '', completed: false }]);
   const [title, setTitle] = useState(todo.title || 'Todo List');
   
   const handleDrag = (e, dragData) => {
     updateTodo(todo.id, {
-      position: { x: dragData.x, y: dragData.y }
+      position: { x: dragData.x, y: dragData.y },
     });
   };
 
@@ -59,13 +59,13 @@ export const TodoItem = React.memo(({ todo, updateTodo, deleteTodo }) => {
     const startHeight = todo.size?.height || 200;
 
     const handleMouseMove = (moveEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const deltaY = moveEvent.clientY - startY;
+      const deltaX = (moveEvent.clientX - startX) / zoom;
+      const deltaY = (moveEvent.clientY - startY) / zoom;
       updateTodo(todo.id, {
-        size: { 
-          width: Math.max(200, startWidth + deltaX), 
-          height: Math.max(120, startHeight + deltaY) 
-        }
+        size: {
+          width: Math.max(200, startWidth + deltaX),
+          height: Math.max(120, startHeight + deltaY),
+        },
       });
     };
 
@@ -81,12 +81,19 @@ export const TodoItem = React.memo(({ todo, updateTodo, deleteTodo }) => {
   const completedCount = items.filter(i => i.completed).length;
 
   return (
-      <Draggable
+    <Draggable
       nodeRef={nodeRef}
       position={todo.position}
-      onStop={handleDrag}
+      onStop={(e, data) => {
+        if (shouldDeleteOnDrop && shouldDeleteOnDrop(e)) {
+          deleteTodo(todo.id);
+        } else {
+          handleDrag(e, data);
+        }
+      }}
       bounds="parent"
       handle=".todo-handle"
+      scale={zoom}
     >
 
       <div

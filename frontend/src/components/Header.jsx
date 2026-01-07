@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-
+import { Link } from "react-router-dom";
 
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ import {
 } from './ui/dropdown-menu';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 export const Header = ({ 
   stats, 
@@ -30,7 +31,8 @@ export const Header = ({
   canRedo,
   notes = [],
   tables = [],
-  todos = []
+  todos = [],
+  showBattle = false,
 }) => {
   const { theme, setTheme } = useTheme();
   const [showSearch, setShowSearch] = useState(false);
@@ -47,163 +49,27 @@ export const Header = ({
 
   const exportToPDF = async () => {
     setIsExporting(true);
-    toast.loading('Creating PDF backup...');
+    toast.loading('Creating canvas PDF...');
 
     try {
-      const doc = new jsPDF();
-      let yPos = 20;
-      const pageHeight = 280;
-      const margin = 20;
-
-      // Title
-      doc.setFontSize(24);
-      doc.setFont('helvetica', 'bold');
-      doc.text('AnoteQuest Backup', margin, yPos);
-      yPos += 10;
-
-      // User info
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`User: ${userName}`, margin, yPos);
-      yPos += 6;
-      doc.text(`Level: ${stats.level} | XP: ${stats.xp} | Time: ${formatTime(stats.timeSpent)}`, margin, yPos);
-      yPos += 6;
-      doc.text(`Exported: ${new Date().toLocaleString()}`, margin, yPos);
-      yPos += 15;
-
-      // Notes Section
-      if (notes.length > 0) {
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Notes (${notes.length})`, margin, yPos);
-        yPos += 10;
-
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'normal');
-
-        notes.forEach((note, index) => {
-          if (yPos > pageHeight) {
-            doc.addPage();
-            yPos = 20;
-          }
-
-          doc.setFont('helvetica', 'bold');
-          doc.text(`${index + 1}. ${note.title || 'Untitled Note'}`, margin, yPos);
-          yPos += 6;
-
-          doc.setFont('helvetica', 'normal');
-          if (note.content) {
-            const lines = doc.splitTextToSize(note.content, 170);
-            lines.forEach(line => {
-              if (yPos > pageHeight) {
-                doc.addPage();
-                yPos = 20;
-              }
-              doc.text(line, margin + 5, yPos);
-              yPos += 5;
-            });
-          }
-          yPos += 8;
-        });
+      const board = document.querySelector('[data-anotequest-canvas-board]');
+      if (!board) {
+        toast.dismiss();
+        toast.error('Could not find canvas to export');
+        setIsExporting(false);
+        return;
       }
 
-      // Todos Section
-      if (todos.length > 0) {
-        if (yPos > pageHeight - 40) {
-          doc.addPage();
-          yPos = 20;
-        }
+      const canvas = await html2canvas(board, {
+        useCORS: true,
+        backgroundColor: getComputedStyle(document.body).backgroundColor || '#ffffff',
+      });
 
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Todo Lists (${todos.length})`, margin, yPos);
-        yPos += 10;
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('landscape', 'px', [canvas.width, canvas.height]);
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`AnoteQuest_Canvas_${userName}_${new Date().toISOString().split('T')[0]}.pdf`);
 
-        todos.forEach((todo, index) => {
-          if (yPos > pageHeight) {
-            doc.addPage();
-            yPos = 20;
-          }
-
-          doc.setFontSize(12);
-          doc.setFont('helvetica', 'bold');
-          doc.text(`${todo.title || 'Todo List'}`, margin, yPos);
-          yPos += 6;
-
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'normal');
-          todo.items?.forEach(item => {
-            if (yPos > pageHeight) {
-              doc.addPage();
-              yPos = 20;
-            }
-            const checkbox = item.completed ? '[✓]' : '[ ]';
-            doc.text(`${checkbox} ${item.text || 'Empty task'}`, margin + 5, yPos);
-            yPos += 5;
-          });
-          yPos += 5;
-        });
-      }
-
-      // Tables Section
-      if (tables.length > 0) {
-        if (yPos > pageHeight - 40) {
-          doc.addPage();
-          yPos = 20;
-        }
-
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Tables (${tables.length})`, margin, yPos);
-        yPos += 10;
-
-        tables.forEach((table, index) => {
-          if (yPos > pageHeight) {
-            doc.addPage();
-            yPos = 20;
-          }
-
-          doc.setFontSize(12);
-          doc.setFont('helvetica', 'bold');
-          doc.text(`Table ${index + 1}`, margin, yPos);
-          yPos += 6;
-
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'normal');
-          table.data?.forEach(row => {
-            if (yPos > pageHeight) {
-              doc.addPage();
-              yPos = 20;
-            }
-            doc.text(`| ${row.join(' | ')} |`, margin + 5, yPos);
-            yPos += 5;
-          });
-          yPos += 5;
-        });
-      }
-
-      // Stats Summary
-      if (yPos > pageHeight - 30) {
-        doc.addPage();
-        yPos = 20;
-      }
-      
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Statistics', margin, yPos);
-      yPos += 8;
-      
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Total Notes: ${stats.totalNotes}`, margin, yPos);
-      yPos += 5;
-      doc.text(`Total Words: ${stats.totalWords}`, margin, yPos);
-      yPos += 5;
-      doc.text(`Battles Won: ${stats.wins}/${stats.battles}`, margin, yPos);
-
-      // Save
-      doc.save(`AnoteQuest_Backup_${userName}_${new Date().toISOString().split('T')[0]}.pdf`);
-      
       toast.dismiss();
       toast.success('PDF exported!');
     } catch (error) {
@@ -217,58 +83,20 @@ export const Header = ({
 
   const exportToText = () => {
     try {
-      let text = `AnoteQuest Export\n`;
+      let text = `AnoteQuest Notes\n`;
       text += `==================\n`;
       text += `User: ${userName}\n`;
-      text += `Level: ${stats.level} | XP: ${stats.xp}\n`;
       text += `Exported: ${new Date().toLocaleString()}\n\n`;
 
-      // Notes
       if (notes.length > 0) {
-        text += `NOTES (${notes.length})\n`;
-        text += `${'='.repeat(50)}\n\n`;
-        
         notes.forEach((note, index) => {
           text += `[${index + 1}] ${note.title || 'Untitled Note'}\n`;
           text += `${'-'.repeat(30)}\n`;
           text += `${note.content || '(No content)'}\n\n`;
         });
+      } else {
+        text += 'No notes yet.\n';
       }
-
-      // Todos
-      if (todos.length > 0) {
-        text += `\nTODO LISTS (${todos.length})\n`;
-        text += `${'='.repeat(50)}\n\n`;
-        
-        todos.forEach((todo) => {
-          text += `${todo.title || 'Todo List'}\n`;
-          text += `${'-'.repeat(30)}\n`;
-          todo.items?.forEach(item => {
-            const checkbox = item.completed ? '[✓]' : '[ ]';
-            text += `${checkbox} ${item.text || 'Empty task'}\n`;
-          });
-          text += '\n';
-        });
-      }
-
-      // Tables
-      if (tables.length > 0) {
-        text += `\nTABLES (${tables.length})\n`;
-        text += `${'='.repeat(50)}\n\n`;
-        
-        tables.forEach((table, index) => {
-          text += `Table ${index + 1}\n`;
-          text += `${'-'.repeat(30)}\n`;
-          table.data?.forEach(row => {
-            text += `| ${row.join(' | ')} |\n`;
-          });
-          text += '\n';
-        });
-      }
-
-      text += `\n${'='.repeat(50)}\n`;
-      text += `Stats: ${stats.totalNotes} notes, ${stats.totalWords} words, ${stats.wins}/${stats.battles} battles won\n`;
-
       // Download as txt file
       const blob = new Blob([text], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
@@ -291,25 +119,33 @@ export const Header = ({
     <header className="h-14 border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
       <div className="h-full px-4 flex items-center justify-between">
         
-      {/* Logo & Title */}
-        <div className="flex items-center gap-2">
-         <img
-           src="/logo.png"
-           alt="AnoteQuest Logo"
-           className="w-12 h-12"
-         />
+     {/* Logo & Title */}
+<Link
+  to="/"
+  aria-label="Go to AnoteQuest home"
+  className="flex items-center gap-2 cursor-pointer"
+>
+  <img
+    src="/logo.png"
+    alt="AnoteQuest Logo"
+    className="w-12 h-12"
+  />
+  <div className="hidden sm:block">
+    <h1 className="text-lg font-bold font-display text-purple-500">
+      AnoteQuest
+    </h1>
+  </div>
+</Link>
 
-   <div className="hidden sm:block">
-            <h1 className="text-lg font-bold font-display gradient-text">AnoteQuest</h1>
-          </div>
-        </div>
+
+        
 
         {/* Center - Search, Undo/Redo, XP */}
         <div className="flex items-center gap-2 md:gap-4">
           {/* Search */}
           <div className="relative">
             {showSearch ? (
-              <div className="flex items-center gap-1 bg-muted/50 rounded-full px-3 py-1">
+              <div className="flex items-center gap-1 bg-muted/50 rounded-md px-3 py-1">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <Input
                   value={searchQuery}
@@ -340,11 +176,11 @@ export const Header = ({
           </div>
 
           {/* Undo/Redo */}
-          <div className="flex items-center gap-0.5 bg-muted/30 rounded-full p-0.5">
+          <div className="flex items-center gap-0.5 bg-muted/30 rounded-md p-0.5">
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-full"
+              className="h-7 w-7 rounded-md"
               onClick={onUndo}
               disabled={!canUndo}
               title="Undo"
@@ -354,7 +190,7 @@ export const Header = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 rounded-full"
+              className="h-7 w-7 rounded-md"
               onClick={onRedo}
               disabled={!canRedo}
               title="Redo"
@@ -372,7 +208,7 @@ export const Header = ({
           )}
 
           {/* XP Bar - Hidden on small screens */}
-          <div className="hidden lg:flex items-center gap-3 bg-muted/30 rounded-full px-4 py-1.5 min-w-[160px]">
+          <div className="hidden lg:flex items-center gap-3 bg-muted/30 rounded-md px-4 py-1.5 min-w-[160px]">
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs font-medium">Lv {stats.level}</span>
@@ -395,16 +231,18 @@ export const Header = ({
             Hi, <span className="font-medium text-foreground">{userName}</span>
           </span>
 
-          {/* Battle Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onBattle}
-            className="gap-1.5 hover:bg-destructive/10 hover:text-destructive border-destructive/30 h-8"
-          >
-            <Swords className="h-4 w-4" />
-            <span className="hidden sm:inline">Battle</span>
-          </Button>
+          {/* Battle Button (temporarily hidden) */}
+          {showBattle && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onBattle}
+              className="gap-1.5 hover:bg-destructive/10 hover:text-destructive border-destructive/30 h-8"
+            >
+              <Swords className="h-4 w-4" />
+              <span className="hidden sm:inline">Battle</span>
+            </Button>
+          )}
 
           {/* Export Menu */}
           <DropdownMenu>

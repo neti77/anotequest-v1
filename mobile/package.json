@@ -1,8 +1,7 @@
 {
-  "name": "anotequest-mobile",
-  "version": "0.0.1",
-  "private": true,
-  "main": "node_modules/expo/AppEntry.js",
+  "name": "mobile",
+  "version": "1.0.0",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -10,18 +9,14 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "expo": "~48.0.0",
-    "expo-constants": "~14.2.2",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "react-native": "0.71.8",
-    "react-native-gesture-handler": "~2.9.0",
-    "@react-native-async-storage/async-storage": "^1.19.0",
-    "axios": "^1.8.4",
-    "@react-navigation/native": "^6.1.6",
-    "@react-navigation/native-stack": "^6.9.12"
+    "@react-navigation/native": "^7.1.26",
+    "@react-navigation/native-stack": "^7.9.0",
+    "expo": "~54.0.31",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0"
   },
-  "devDependencies": {
-    "@babel/core": "^7.20.0"
-  }
+  "private": true
 }

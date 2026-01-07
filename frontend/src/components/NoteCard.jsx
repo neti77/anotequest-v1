@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import Draggable from 'react-draggable';
-import { Trash2, GripVertical, FolderOpen, Palette, Check, Image as ImageIcon, X, Maximize2, Link2, Expand } from 'lucide-react';
+import { Trash2, GripVertical, FolderOpen, Palette, Check, Image as ImageIcon, X, Maximize2, Link2, Expand, Copy } from 'lucide-react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -71,11 +71,13 @@ export const NoteCard = React.memo(({
   note, 
   updateNote, 
   deleteNote, 
+  addNote,
   folders, 
   onItemClick,
   isConnecting,
   isSelected,
-  zoom = 1
+  zoom = 1,
+  shouldDeleteOnDrop,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(note.title);
@@ -157,6 +159,25 @@ export const NoteCard = React.memo(({
     toast.success('Moved to folder!');
   };
 
+  const handleDuplicate = () => {
+    if (!addNote) return;
+    const basePosition = note.position || { x: 200, y: 160 };
+
+    addNote({
+      title: note.title || 'New Note',
+      content: note.content,
+      size: note.size,
+      color: note.color,
+      images: [...(note.images || [])],
+      position: {
+        x: basePosition.x + 40,
+        y: basePosition.y + 40,
+      },
+      folderId: note.folderId,
+    });
+    toast.success('Note duplicated');
+  };
+
   const handleRemoveImage = (imageId) => {
     updateNote(note.id, {
       images: note.images.filter(img => img.id !== imageId)
@@ -209,18 +230,22 @@ export const NoteCard = React.memo(({
   return (
     <>
       <Draggable
-  nodeRef={nodeRef}
-  position={note.position}
-  handle=".drag-handle"
-  scale={zoom}
-  disabled={isResizing || isConnecting}
-  cancel="input, textarea, button, [data-no-drag]"
-  onStop={(e, data) => {
-    updateNote(note.id, {
-      position: { x: data.x, y: data.y }
-    });
-  }}
->
+        nodeRef={nodeRef}
+        position={note.position}
+        handle=".drag-handle"
+        scale={zoom}
+        disabled={isResizing || isConnecting}
+        cancel="input, textarea, button, [data-no-drag]"
+        onStop={(e, data) => {
+          if (shouldDeleteOnDrop && shouldDeleteOnDrop(e)) {
+            deleteNote(note.id);
+          } else {
+            updateNote(note.id, {
+              position: { x: data.x, y: data.y },
+            });
+          }
+        }}
+      >
 
         <div
           ref={nodeRef}
@@ -277,6 +302,20 @@ export const NoteCard = React.memo(({
                 >
                   <ImageIcon className="h-4 w-4" />
                 </Button>
+
+                {/* Duplicate Note */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDuplicate();
+                  }}
+                  title="Duplicate note"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -299,7 +338,7 @@ export const NoteCard = React.memo(({
                         onClick={() => handleColorChange(color.name)}
                         className="flex items-center gap-2"
                       >
-                        <div className={`w-4 h-4 rounded ${color.bg} ${color.border} border-2`}></div>
+                        <div className={`w-4 h-4 rounded-sm ${color.bg} ${color.border} border-2`}></div>
                         <span className="capitalize">{color.name}</span>
                         {note.color === color.name && <Check className="h-4 w-4 ml-auto" />}
                       </DropdownMenuItem>
@@ -389,8 +428,8 @@ export const NoteCard = React.memo(({
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="px-4 py-2 bg-card/30 backdrop-blur-sm flex items-center justify-between text-xs text-muted-foreground border-t border-border flex-shrink-0">
+            {/* Footer (also draggable area) */}
+            <div className="drag-handle px-4 py-2 bg-card/30 backdrop-blur-sm flex items-center justify-between text-xs text-muted-foreground border-t border-border flex-shrink-0 cursor-grab active:cursor-grabbing">
               <span>{wordCount} words</span>
               {isEditing && (
                 <Button
@@ -403,20 +442,18 @@ export const NoteCard = React.memo(({
               )}
             </div>
 
-            {/* Resize Handle */}
-           <div
+            {/* Resize Handle (subtle) */}
+            <div
               data-no-drag
-              className="absolute bottom-1 right-1 w-8 h-8 cursor-nwse-resize opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center touch-none"
-
+              className="absolute bottom-1 right-1 w-4 h-4 cursor-nwse-resize opacity-0 group-hover:opacity-60 hover:opacity-100 transition-opacity flex items-center justify-center touch-none"
               onMouseDown={handleResizeStart}
               onTouchStart={handleResizeStart}
-              style={{ 
-                background: 'hsl(var(--primary))',
-                borderRadius: '0 0 4px 0',
-                zIndex: 100
+              style={{
+                borderRadius: '6px',
+                zIndex: 100,
               }}
             >
-              <Maximize2 className="h-4 w-4 text-primary-foreground" />
+              <Maximize2 className="h-3 w-3 text-primary/50" />
             </div>
           </Card>
         </div>
@@ -437,7 +474,7 @@ export const NoteCard = React.memo(({
                     key={image.id}
                     src={image.data} 
                     alt="Note attachment" 
-                    className="w-full rounded-lg border border-border"
+                    className="w-full rounded-md border border-border"
                   />
                 ))}
               </div>

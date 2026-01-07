@@ -10,7 +10,8 @@ export const ImageItem = React.memo(({
   onItemClick,
   isConnecting,
   isSelected,
-  zoom = 1
+  zoom = 1,
+  shouldDeleteOnDrop,
 }) => {
   const nodeRef = useRef(null);
 
@@ -58,9 +59,13 @@ export const ImageItem = React.memo(({
       disabled={isConnecting}
       cancel="button, [data-no-drag]"
       onStop={(e, data) => {
-        updateImage(image.id, {
-          position: { x: data.x, y: data.y }
-        });
+        if (shouldDeleteOnDrop && shouldDeleteOnDrop(e)) {
+          deleteImage(image.id);
+        } else {
+          updateImage(image.id, {
+            position: { x: data.x, y: data.y },
+          });
+        }
       }}
     >
       <div
@@ -98,13 +103,13 @@ export const ImageItem = React.memo(({
             <X className="h-3 w-3" />
           </Button>
 
-          {/* Resize Handle */}
+          {/* Resize Handle (subtle) */}
           <div
             data-no-drag
-            className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-0 group-hover:opacity-60 hover:opacity-100 transition-opacity flex items-center justify-center"
             onMouseDown={handleResize}
           >
-            <Maximize2 className="h-4 w-4 text-muted-foreground rotate-90" />
+            <Maximize2 className="h-3 w-3 text-muted-foreground/70 rotate-90" />
           </div>
         </div>
       </div>

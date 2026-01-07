@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Eraser, Pen, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
@@ -8,12 +9,12 @@ const COLORS = [
   '#ec4899', '#14b8a6', '#000000', '#6b7280', '#ffffff'
 ];
 
-export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActive, onClose }) => {
+export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActive, onClose, zoom = 1, scrollContainerRef }) => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [color, setColor] = useState('#3b82f6');
-  const [brushSize, setBrushSize] = useState(3);
+  const [brushSize, setBrushSize] = useState(4);
   const [currentPath, setCurrentPath] = useState([]);
   const [isEraser, setIsEraser] = useState(false);
   
@@ -31,14 +32,18 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     drawings.forEach(drawing => {
-      if (drawing.isEraser) {
+      const isErasingStroke = drawing.isEraser;
+
+      if (isErasingStroke) {
         ctx.globalCompositeOperation = 'destination-out';
       } else {
         ctx.globalCompositeOperation = 'source-over';
       }
       
-      ctx.strokeStyle = drawing.color;
-      ctx.lineWidth = drawing.brushSize;
+      ctx.strokeStyle = isErasingStroke ? 'rgba(0,0,0,1)' : drawing.color;
+      // Make stored eraser strokes chunkier so they fully clear previous lines
+      const effectiveBrushSize = isErasingStroke ? drawing.brushSize * 3 : drawing.brushSize;
+      ctx.lineWidth = effectiveBrushSize;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       
@@ -61,15 +66,15 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
     if (!canvas) return { x: 0, y: 0 };
     
     const rect = canvas.getBoundingClientRect();
-    const scrollContainer = canvas.closest('.overflow-auto');
+    const scrollContainer = scrollContainerRef?.current || canvas.closest('.overflow-auto');
     const scrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
     const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
     
     return {
-      x: touch.clientX - rect.left + scrollLeft,
-      y: touch.clientY - rect.top + scrollTop
+      x: (touch.clientX - rect.left + scrollLeft) / zoom,
+      y: (touch.clientY - rect.top + scrollTop) / zoom,
     };
-  }, []);
+  }, [scrollContainerRef, zoom]);
 
   // Mouse handlers
   const handleMouseDown = (e) => {
@@ -77,7 +82,10 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
     e.preventDefault();
     setIsDrawing(true);
     const rect = canvasRef.current.getBoundingClientRect();
-    const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const pos = {
+      x: (e.clientX - rect.left) / zoom,
+      y: (e.clientY - rect.top) / zoom,
+    };
     setCurrentPath([pos]);
   };
 
@@ -85,7 +93,10 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
     if (!isDrawing || !isActive) return;
     e.preventDefault();
     const rect = canvasRef.current.getBoundingClientRect();
-    const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const pos = {
+      x: (e.clientX - rect.left) / zoom,
+      y: (e.clientY - rect.top) / zoom,
+    };
     setCurrentPath(prev => [...prev, pos]);
     drawStroke(pos);
   };
@@ -177,7 +188,8 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
     if (isEraser) {
       ctx.globalCompositeOperation = 'destination-out';
       ctx.strokeStyle = 'rgba(0,0,0,1)';
-      ctx.lineWidth = brushSize * 2;
+      // Eraser is intentionally larger than brush to clear strokes more easily
+      ctx.lineWidth = brushSize * 3;
     } else {
       ctx.globalCompositeOperation = 'source-over';
       ctx.strokeStyle = color;
@@ -201,6 +213,75 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
     setCurrentPath([]);
   };
 
+const toolbar = isActive ? (
+  <div className="fixed right-4 top-1/2 -translate-y-1/2 z-50">
+    <div className="bg-card/90 backdrop-blur-xl rounded-2xl shadow-lg border border-border/60 px-2 py-3 flex flex-col items-center gap-3">
+      {/* Label */}
+      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground border border-border/60 select-none">
+        Draw
+      </span>
+
+      {/* Pen/Eraser Toggle */}
+      <div className="flex flex-col gap-1 bg-muted/50 rounded-full p-1">
+        <Button
+          variant={!isEraser ? 'default' : 'ghost'}
+          size="icon"
+          className="h-8 w-8 rounded-full"
+          onClick={() => setIsEraser(false)}
+        >
+          <Pen className="h-4 w-4" />
+        </Button>
+        <Button
+          variant={isEraser ? 'default' : 'ghost'}
+          size="icon"
+          className="h-8 w-8 rounded-full"
+          onClick={() => setIsEraser(true)}
+        >
+          <Eraser className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Brush Size (vertical) */}
+      <div className="flex flex-col items-center gap-1">
+        <Slider
+          orientation="vertical"
+          value={[brushSize]}
+          onValueChange={(v) => setBrushSize(v[0])}
+          min={1}
+          max={20}
+          step={1}
+          className="h-24"
+        />
+        <span className="text-[10px] text-muted-foreground">{brushSize}</span>
+      </div>
+
+      {/* Colors (vertical) */}
+      <div className="flex flex-col items-center gap-1">
+        {COLORS.slice(0, 5).map(c => (
+          <button
+            key={c}
+            className={`w-5 h-5 rounded-full border-2 transition-all ${
+              color === c ? 'border-primary scale-110' : 'border-transparent'
+            }`}
+            style={{ background: c }}
+            onClick={() => setColor(c)}
+          />
+        ))}
+      </div>
+
+      {/* Close Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive"
+        onClick={onClose}
+      >
+        <X className="h-4 w-4" />
+      </Button>
+    </div>
+  </div>
+) : null;
+
   return (
     <>
       <canvas
@@ -223,75 +304,10 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
         onTouchEnd={handleTouchEnd}
       />
 
-      {/* Transparent Floating Toolbar - Only when drawing is active */}
-      {isActive && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50">
-          <div className="bg-card/80 backdrop-blur-xl rounded-full shadow-lg border border-border/50 px-4 py-2 flex items-center gap-3">
-            {/* Pen/Eraser Toggle */}
-            <div className="flex gap-1 bg-muted/50 rounded-full p-1">
-              <Button
-                variant={!isEraser ? 'default' : 'ghost'}
-                size="icon"
-                className="h-8 w-8 rounded-full"
-                onClick={() => setIsEraser(false)}
-              >
-                <Pen className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={isEraser ? 'default' : 'ghost'}
-                size="icon"
-                className="h-8 w-8 rounded-full"
-                onClick={() => setIsEraser(true)}
-              >
-                <Eraser className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* Divider */}
-            <div className="w-px h-6 bg-border" />
-
-            {/* Colors */}
-            <div className="flex gap-1">
-              {COLORS.slice(0, 6).map(c => (
-                <button
-                  key={c}
-                  className={`w-6 h-6 rounded-full border-2 transition-all ${
-                    color === c ? 'border-primary scale-110' : 'border-transparent'
-                  }`}
-                  style={{ background: c }}
-                  onClick={() => setColor(c)}
-                />
-              ))}
-            </div>
-
-            {/* Divider */}
-            <div className="w-px h-6 bg-border" />
-
-            {/* Brush Size */}
-            <div className="flex items-center gap-2 w-24">
-              <Slider
-                value={[brushSize]}
-                onValueChange={(v) => setBrushSize(v[0])}
-                min={1}
-                max={10}
-                step={1}
-                className="w-full"
-              />
-              <span className="text-xs text-muted-foreground w-4">{brushSize}</span>
-            </div>
-
-            {/* Close Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive"
-              onClick={onClose}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Toolbar is portaled to <body> so it is not affected by canvas transforms/scroll */}
+      {typeof document !== 'undefined' && toolbar
+        ? createPortal(toolbar, document.body)
+        : null}
     </>
   );
 };

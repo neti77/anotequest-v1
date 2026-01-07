@@ -8,8 +8,8 @@ module.exports = {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Fredoka', 'system-ui', 'sans-serif'],
-                display: ['Space Grotesk', 'system-ui', 'sans-serif'],
+                sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+                display: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
             },
             borderRadius: {
                 lg: 'var(--radius)',

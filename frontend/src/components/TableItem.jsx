@@ -4,7 +4,7 @@ import { X, Plus, Minus, Maximize2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 
-export const TableItem = React.memo(({ table, updateTable, deleteTable, zoom = 1 }) => {
+export const TableItem = React.memo(({ table, updateTable, deleteTable, zoom = 1, shouldDeleteOnDrop }) => {
   const nodeRef = useRef(null);
   const [data, setData] = useState(
     table.data || [['', '', ''], ['', '', ''], ['', '', '']]
@@ -73,15 +73,19 @@ export const TableItem = React.memo(({ table, updateTable, deleteTable, zoom = 1
 
   return (
     <Draggable
-  nodeRef={nodeRef}
-  position={table.position}
-  scale={zoom}
-  onStop={(e, data) => {
-    updateTable(table.id, {
-      position: { x: data.x, y: data.y }
-    });
-  }}
->
+      nodeRef={nodeRef}
+      position={table.position}
+      scale={zoom}
+      onStop={(e, data) => {
+        if (shouldDeleteOnDrop && shouldDeleteOnDrop(e)) {
+          deleteTable(table.id);
+        } else {
+          updateTable(table.id, {
+            position: { x: data.x, y: data.y },
+          });
+        }
+      }}
+    >
 
       <div
         ref={nodeRef}
@@ -140,10 +144,10 @@ export const TableItem = React.memo(({ table, updateTable, deleteTable, zoom = 1
               <Button size="sm" variant="ghost" onClick={removeRow}>− Row</Button>
             </div>
             <div
-              className="cursor-se-resize"
+              className="cursor-se-resize opacity-60 hover:opacity-100 transition-opacity flex items-center justify-center"
               onMouseDown={handleResize}
             >
-              <Maximize2 className="h-4 w-4 rotate-90" />
+              <Maximize2 className="h-3 w-3 text-muted-foreground rotate-90" />
             </div>
           </div>
         </Card>

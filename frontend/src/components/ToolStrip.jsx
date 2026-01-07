@@ -11,7 +11,8 @@ import {
   FolderPlus,
   Table,
   CheckSquare,
-  Link2
+  Link2,
+  Trash2,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -40,11 +41,13 @@ export const ToolStrip = ({
   onToggleDrawing, 
   isDrawing,
   addSticker,
+  addNoteSticker,
   folders,
   notes,
   activeFolder,
   setActiveFolder,
   addFolder,
+  deleteFolder,
   onToggleCharacters,
   characterPanelOpen,
   onAddImage,
@@ -186,13 +189,22 @@ export const ToolStrip = ({
     return notes.filter(note => note.folderId === folderId).length;
   };
 
+  const handleDeleteFolder = (folder) => {
+    const confirmed = window.confirm(
+      `Delete folder "${folder.name}"? This cannot be undone. Notes will be kept and moved to All Notes.`
+    );
+    if (!confirmed) return;
+    deleteFolder(folder.id);
+    toast.success('Folder deleted');
+  };
+
   if (isCollapsed) {
     return (
       <div className="fixed left-0 top-1/2 -translate-y-1/2 z-40">
         <Button
           variant="secondary"
           size="icon"
-          className="rounded-l-none rounded-r-lg h-12 w-6 shadow-lg"
+          className="rounded-l-none rounded-r-md h-12 w-6 shadow-lg"
           onClick={() => setIsCollapsed(false)}
         >
           <ChevronRight className="h-4 w-4" />
@@ -204,7 +216,7 @@ export const ToolStrip = ({
   return (
     <div className="fixed left-4 top-1/2 -translate-y-1/2 z-40 flex gap-2">
       {/* Main Tool Strip */}
-      <div className="bg-card/90 backdrop-blur-md rounded-2xl shadow-xl border border-border/50 p-2 flex flex-col gap-1">
+      <div className="bg-card/90 backdrop-blur-md rounded-xl shadow-xl border border-border/50 p-2 flex flex-col gap-1">
         {/* Collapse Button */}
         <Button
           variant="ghost"
@@ -219,12 +231,17 @@ export const ToolStrip = ({
         <Button
           variant={expandedTool === 'note' ? 'default' : 'ghost'}
           size="icon"
-          className="h-10 w-10 rounded-xl"
+          className="h-10 w-10 rounded-lg"
           onClick={() => {
             onAddNote();
             toast.success('Note created!');
           }}
           title="Add Note"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('application/anotequest-item', JSON.stringify({ kind: 'note' }));
+            e.dataTransfer.effectAllowed = 'copy';
+          }}
         >
           <Plus className="h-5 w-5" />
         </Button>
@@ -233,7 +250,7 @@ export const ToolStrip = ({
         <Button
           variant={isDrawing ? 'default' : 'ghost'}
           size="icon"
-          className="h-10 w-10 rounded-xl"
+          className="h-10 w-10 rounded-lg"
           onClick={onToggleDrawing}
           title="Draw"
         >
@@ -244,18 +261,37 @@ export const ToolStrip = ({
         <Button
           variant={expandedTool === 'stickers' ? 'default' : 'ghost'}
           size="icon"
-          className="h-10 w-10 rounded-xl"
+          className="h-10 w-10 rounded-lg"
           onClick={() => handleToolClick('stickers')}
           title="Stickers"
         >
           <Sticker className="h-5 w-5" />
         </Button>
 
+        {/* Note Sticker (yellow sticky) */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-lg"
+          onClick={() => {
+            addNoteSticker();
+            toast.success('Note sticker added!');
+          }}
+          title="Note sticker"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('application/anotequest-item', JSON.stringify({ kind: 'noteSticker' }));
+            e.dataTransfer.effectAllowed = 'copy';
+          }}
+        >
+          <StickyNote className="h-5 w-5 text-amber-400" />
+        </Button>
+
         {/* Upload Image */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-10 w-10 rounded-xl"
+          className="h-10 w-10 rounded-lg"
           onClick={handleImageClick}
           title="Upload Image"
         >
@@ -273,9 +309,14 @@ export const ToolStrip = ({
         <Button
           variant="ghost"
           size="icon"
-          className="h-10 w-10 rounded-xl"
+          className="h-10 w-10 rounded-lg"
           onClick={handleAddTable}
           title="Add Table"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('application/anotequest-item', JSON.stringify({ kind: 'table' }));
+            e.dataTransfer.effectAllowed = 'copy';
+          }}
         >
           <Table className="h-5 w-5" />
         </Button>
@@ -284,9 +325,14 @@ export const ToolStrip = ({
         <Button
           variant="ghost"
           size="icon"
-          className="h-10 w-10 rounded-xl"
+          className="h-10 w-10 rounded-lg"
           onClick={handleAddTodo}
           title="Add Todo List"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('application/anotequest-item', JSON.stringify({ kind: 'todo' }));
+            e.dataTransfer.effectAllowed = 'copy';
+          }}
         >
           <CheckSquare className="h-5 w-5" />
         </Button>
@@ -295,7 +341,7 @@ export const ToolStrip = ({
         <Button
           variant={isLinkMode ? 'default' : 'ghost'}
           size="icon"
-          className={`h-10 w-10 rounded-xl ${isLinkMode ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+          className={`h-10 w-10 rounded-lg ${isLinkMode ? 'ring-2 ring-primary ring-offset-1' : ''}`}
           onClick={onToggleLinkMode}
           title="Connect items (click two items to link)"
         >
@@ -306,23 +352,25 @@ export const ToolStrip = ({
         <Button
           variant={expandedTool === 'folders' ? 'default' : 'ghost'}
           size="icon"
-          className="h-10 w-10 rounded-xl"
+          className="h-10 w-10 rounded-lg"
           onClick={() => handleToolClick('folders')}
           title="Folders"
         >
           <Folder className="h-5 w-5" />
         </Button>
 
-        {/* Characters - Using emoji face */}
-        <Button
-          variant={characterPanelOpen ? 'default' : 'ghost'}
-          size="icon"
-          className="h-10 w-10 rounded-xl text-lg"
-          onClick={onToggleCharacters}
-          title="Characters"
-        >
-          🧙
-        </Button>
+        {/* Characters - Using emoji face (temporarily disabled if no handler) */}
+        {onToggleCharacters && (
+          <Button
+            variant={characterPanelOpen ? 'default' : 'ghost'}
+            size="icon"
+            className="h-10 w-10 rounded-lg text-lg"
+            onClick={onToggleCharacters}
+            title="Characters"
+          >
+            🧙
+          </Button>
+        )}
       </div>
 
       {/* Expanded Panel */}
@@ -340,6 +388,11 @@ export const ToolStrip = ({
                     onClick={() => handleAddSticker(type)}
                     title={label}
                     style={{ color: stickerColor }}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('application/anotequest-item', JSON.stringify({ kind: 'sticker', type }));
+                      e.dataTransfer.effectAllowed = 'copy';
+                    }}
                   >
                     {icon}
                   </button>
@@ -410,21 +463,37 @@ export const ToolStrip = ({
                   </button>
 
                   {folders.map(folder => (
-                    <button
+                    <div
                       key={folder.id}
-                      className={`w-full text-left px-2 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${
+                      className={`w-full px-2 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${
                         activeFolder === folder.id ? 'bg-primary/20 text-primary' : 'hover:bg-muted'
                       }`}
-                      onClick={() => setActiveFolder(folder.id)}
                     >
-                      <span className="flex items-center gap-1.5 truncate">
+                      <button
+                        className="flex items-center gap-1.5 truncate flex-1 text-left"
+                        onClick={() => setActiveFolder(folder.id)}
+                      >
                         <Folder className="h-3.5 w-3.5 flex-shrink-0" />
                         {folder.name}
-                      </span>
-                      <Badge variant="outline" className="text-[10px] h-4 px-1">
-                        {getFolderNoteCount(folder.id)}
-                      </Badge>
-                    </button>
+                      </button>
+                      <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                        <Badge variant="outline" className="text-[10px] h-4 px-1">
+                          {getFolderNoteCount(folder.id)}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 text-destructive/80 hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteFolder(folder);
+                          }}
+                          title="Delete folder"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
                   ))}
 
                   {folders.length === 0 && !showFolderInput && (

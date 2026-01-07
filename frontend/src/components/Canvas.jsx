@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import NoteCard from './NoteCard';
@@ -10,6 +10,7 @@ import TodoItem from './TodoItem';
 import CharacterRoamer from './CharacterRoamer';
 import DrawingCanvas from './DrawingCanvas';
 import ConnectionLine from './ConnectionLine';
+import NoteSticker from './NoteSticker';
 import { toast } from 'sonner';
 import imageCompression from 'browser-image-compression';
 
@@ -17,6 +18,7 @@ export const Canvas = ({
   notes, 
   totalNoteCount,
   stickers,
+  noteStickers = [],
   images = [],
   tables = [],
   todos = [],
@@ -31,8 +33,10 @@ export const Canvas = ({
   addImage,
   updateImage,
   deleteImage,
+  addTable,
   updateTable,
   deleteTable,
+  addTodo,
   updateTodo,
   deleteTodo,
   addConnection,
@@ -46,11 +50,15 @@ export const Canvas = ({
   activeFolder,
   isLinkMode,
   connectingFrom,
-  setConnectingFrom
+  setConnectingFrom,
+  // NoteSticker-specific handlers
+  updateNoteSticker,
+  deleteNoteSticker,
 }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
-  const [canvasSize, setCanvasSize] = useState({ width: 3000, height: 2000 });
+  const trashRef = useRef(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 1600, height: 1000 });
   const [drawings, setDrawings] = useState([]);
   const [zoom, setZoom] = useState(1);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -72,31 +80,38 @@ export const Canvas = ({
     localStorage.setItem(key, JSON.stringify(drawings));
   }, [drawings, activeFolder]);
 
-  // Calculate canvas size based on content
+  // Calculate canvas size based on content and grow as needed (right & bottom only)
   useEffect(() => {
-    const padding = 500;
-    let maxX = 1500;
-    let maxY = 1000;
+    const padding = 300;
+    const minWidth = 1600;
+    const minHeight = 1000;
 
-    notes.forEach(note => {
-      const noteRight = note.position.x + (note.size?.width || 320);
-      const noteBottom = note.position.y + (note.size?.height || 200);
-      maxX = Math.max(maxX, noteRight);
-      maxY = Math.max(maxY, noteBottom);
-    });
+    let maxX = 0;
+    let maxY = 0;
 
-    stickers.forEach(sticker => {
-      const stickerRight = sticker.position.x + (sticker.size?.width || 100);
-      const stickerBottom = sticker.position.y + (sticker.size?.height || 100);
-      maxX = Math.max(maxX, stickerRight);
-      maxY = Math.max(maxY, stickerBottom);
-    });
+    const consider = (item, defaultWidth, defaultHeight) => {
+      if (!item || !item.position) return;
+      const width = item.size?.width || defaultWidth;
+      const height = item.size?.height || defaultHeight;
+      maxX = Math.max(maxX, item.position.x + width);
+      maxY = Math.max(maxY, item.position.y + height);
+    };
 
-    setCanvasSize({
-      width: Math.max(3000, maxX + padding),
-      height: Math.max(2000, maxY + padding)
-    });
-  }, [notes, stickers]);
+    notes.forEach(note => consider(note, 320, 200));
+    stickers.forEach(sticker => consider(sticker, 100, 100));
+    noteStickers.forEach(sticker => consider(sticker, 200, 160));
+    images.forEach(image => consider(image, 300, 200));
+    tables.forEach(table => consider(table, 400, 200));
+    todos.forEach(todo => consider(todo, 280, 200));
+
+    const targetWidth = Math.max(minWidth, maxX + padding);
+    const targetHeight = Math.max(minHeight, maxY + padding);
+
+    setCanvasSize(prev => ({
+      width: Math.max(prev.width, targetWidth),
+      height: Math.max(prev.height, targetHeight),
+    }));
+  }, [notes, stickers, noteStickers, images, tables, todos]);
 
   // Zoom handlers
   const handleZoom = useCallback((delta, clientX, clientY) => {
@@ -122,11 +137,15 @@ export const Canvas = ({
     }
   }, [handleWheel]);
 
-  // Drag and drop image handling
+  // Drag and drop handling (images + internal items)
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDraggingOver(true);
+
+    // Only show the "drop image" overlay when actual files are being dragged
+    const types = Array.from(e.dataTransfer?.types || []);
+    const isFileDrag = types.includes('Files');
+    setIsDraggingOver(isFileDrag);
   };
 
   const handleDragLeave = (e) => {
@@ -140,6 +159,75 @@ export const Canvas = ({
     e.stopPropagation();
     setIsDraggingOver(false);
 
+    // Get drop position relative to canvas
+    const rect = canvasRef.current.getBoundingClientRect();
+    const scrollLeft = containerRef.current.scrollLeft;
+    const scrollTop = containerRef.current.scrollTop;
+    const x = (e.clientX - rect.left + scrollLeft) / zoom;
+    const y = (e.clientY - rect.top + scrollTop) / zoom;
+
+    // First, handle internal drag-from-toolbar items
+    const itemData = e.dataTransfer.getData('application/anotequest-item');
+    if (itemData) {
+      try {
+        const item = JSON.parse(itemData);
+        const basePosition = { x, y };
+
+        switch (item.kind) {
+          case 'note':
+            if (addNote) {
+              addNote({ position: { x: basePosition.x - 160, y: basePosition.y - 120 } });
+              toast.success('Note created!');
+            }
+            return;
+          case 'noteSticker':
+            // creation of note stickers happens via parent handler; here we just place a basic one via addNote
+            return;
+          case 'table':
+            if (addTable) {
+              addTable({
+                type: 'table',
+                position: { x: basePosition.x - 200, y: basePosition.y - 100 },
+                size: { width: 400, height: 200 },
+                rows: 3,
+                cols: 3,
+                data: [['', '', ''], ['', '', ''], ['', '', '']],
+              });
+              toast.success('Table added!');
+            }
+            return;
+          case 'todo':
+            if (addTodo) {
+              addTodo({
+                type: 'todo',
+                position: { x: basePosition.x - 140, y: basePosition.y - 100 },
+                size: { width: 280, height: 200 },
+                title: 'Todo List',
+                items: [{ id: Date.now(), text: '', completed: false }],
+              });
+              toast.success('Todo list added!');
+            }
+            return;
+          case 'sticker':
+            if (addSticker) {
+              addSticker({
+                type: item.type,
+                position: { x: basePosition.x - 30, y: basePosition.y - 30 },
+                size: { width: 60, height: 60 },
+                rotation: 0,
+              });
+              toast.success('Sticker added!');
+            }
+            return;
+          default:
+            break;
+        }
+      } catch (err) {
+        console.error('Failed to parse internal drag data', err);
+      }
+    }
+
+    // Then handle external image drops
     const files = Array.from(e.dataTransfer.files);
     const imageFile = files.find(f => f.type.startsWith('image/'));
     
@@ -147,14 +235,6 @@ export const Canvas = ({
       toast.error('Please drop an image file');
       return;
     }
-
-    // Get drop position relative to canvas
-    const rect = canvasRef.current.getBoundingClientRect();
-    const scrollLeft = containerRef.current.scrollLeft;
-    const scrollTop = containerRef.current.scrollTop;
-
-    const x = (e.clientX - rect.left + scrollLeft) / zoom;
-    const y = (e.clientY - rect.top + scrollTop) / zoom;
 
     try {
       toast.loading('Processing image...');
@@ -231,6 +311,18 @@ export const Canvas = ({
     return null;
   };
 
+  const shouldDeleteOnDrop = useCallback((e) => {
+    if (!trashRef.current || !e) return false;
+    const rect = trashRef.current.getBoundingClientRect();
+    const { clientX, clientY } = e;
+    return (
+      clientX >= rect.left &&
+      clientX <= rect.right &&
+      clientY >= rect.top &&
+      clientY <= rect.bottom
+    );
+  }, []);
+
   return (
     <div className="relative w-full h-full">
  {/* Zoom Controls – melted into header */}
@@ -248,7 +340,7 @@ export const Canvas = ({
     bg-card/95 backdrop-blur-md
     border border-border border-t-0
 
-    rounded-b-full
+    rounded-b-xl
     shadow-[0_8px_20px_-10px_rgba(0,0,0,0.35)]
   "
 >
@@ -297,10 +389,18 @@ export const Canvas = ({
         </div>
       )}
 
+      {/* Trash zone for drag-to-delete */}
+      <div
+        ref={trashRef}
+        className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-2xl border border-destructive/40 bg-destructive/10 text-destructive shadow-lg backdrop-blur-md"
+      >
+        <Trash2 className="h-6 w-6" />
+      </div>
+
       {/* Drag overlay */}
-      {isDraggingOver && (
+        {isDraggingOver && (
         <div className="absolute inset-0 z-30 bg-primary/10 border-4 border-dashed border-primary rounded-lg flex items-center justify-center pointer-events-none">
-          <div className="bg-card/90 backdrop-blur-sm rounded-xl px-6 py-4 text-center">
+          <div className="bg-card/90 backdrop-blur-sm rounded-lg px-6 py-4 text-center">
             <p className="text-lg font-medium">Drop image here</p>
             <p className="text-sm text-muted-foreground">Image will be placed at drop location</p>
           </div>
@@ -317,6 +417,7 @@ export const Canvas = ({
         <div 
           ref={canvasRef}
           className="relative bg-gradient-to-br from-background via-primary/5 to-accent/5"
+          data-anotequest-canvas-board
           style={{
             width: `${canvasSize.width}px`,
             height: `${canvasSize.height}px`,
@@ -333,6 +434,8 @@ export const Canvas = ({
             setDrawings={setDrawings}
             isActive={isDrawingMode}
             onClose={onCloseDrawing}
+            zoom={zoom}
+            scrollContainerRef={containerRef}
           />
 
           {/* SVG Layer for Connection Lines - renders smoothly */}
@@ -363,7 +466,7 @@ export const Canvas = ({
 
           {/* Link Mode Indicator */}
           {isLinkMode && (
-            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground px-4 py-2 rounded-full shadow-lg text-sm font-medium animate-pulse">
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground px-4 py-2 rounded-xl shadow-lg text-sm font-medium animate-pulse">
               🔗 Link Mode: Click items to connect them
             </div>
           )}
@@ -388,11 +491,13 @@ export const Canvas = ({
               note={note}
               updateNote={updateNote}
               deleteNote={deleteNote}
+              addNote={addNote}
               folders={folders}
               onItemClick={() => handleItemClick(note.id, 'note')}
               isConnecting={isLinkMode}
               isSelected={connectingFrom?.id === note.id}
               zoom={zoom}
+              shouldDeleteOnDrop={shouldDeleteOnDrop}
             />
           ))}
 
@@ -403,6 +508,8 @@ export const Canvas = ({
               sticker={sticker}
               updateSticker={updateSticker}
               deleteSticker={deleteSticker}
+              zoom={zoom}
+              shouldDeleteOnDrop={shouldDeleteOnDrop}
             />
           ))}
 
@@ -416,6 +523,8 @@ export const Canvas = ({
               onItemClick={() => handleItemClick(image.id, 'image')}
               isConnecting={isLinkMode}
               isSelected={connectingFrom?.id === image.id}
+              zoom={zoom}
+              shouldDeleteOnDrop={shouldDeleteOnDrop}
             />
           ))}
 
@@ -426,6 +535,8 @@ export const Canvas = ({
               table={table}
               updateTable={updateTable}
               deleteTable={deleteTable}
+              zoom={zoom}
+              shouldDeleteOnDrop={shouldDeleteOnDrop}
             />
           ))}
 
@@ -436,6 +547,20 @@ export const Canvas = ({
               todo={todo}
               updateTodo={updateTodo}
               deleteTodo={deleteTodo}
+              zoom={zoom}
+              shouldDeleteOnDrop={shouldDeleteOnDrop}
+            />
+          ))}
+
+          {/* Render Note Stickers (highest layer) */}
+          {noteStickers.map((sticker) => (
+            <NoteSticker
+              key={sticker.id}
+              sticker={sticker}
+              updateNoteSticker={updateNoteSticker}
+              deleteNoteSticker={deleteNoteSticker}
+              zoom={zoom}
+              shouldDeleteOnDrop={shouldDeleteOnDrop}
             />
           ))}
 
