@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import Draggable from 'react-draggable';
-import { Trash2, GripVertical, FolderOpen, Palette, Check, Image as ImageIcon, X, Maximize2, Link2, Expand, Copy } from 'lucide-react';
+import { Trash2, GripVertical, FolderOpen, Palette, Check, Image as ImageIcon, X, Maximize2, Link2, Expand, Copy, Bold, Italic, Search, Type } from 'lucide-react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -84,8 +84,13 @@ export const NoteCard = React.memo(({
   const [content, setContent] = useState(note.content);
   const [isResizing, setIsResizing] = useState(false);
   const [showReaderMode, setShowReaderMode] = useState(false);
+  const [readerContent, setReaderContent] = useState(note.content || '');
+  const [readerFont, setReaderFont] = useState('system');
+  const [searchTerm, setSearchTerm] = useState('');
+  const readerSelectionIndexRef = useRef(0);
   const nodeRef = useRef(null);
   const fileInputRef = useRef(null);
+  const readerTextareaRef = useRef(null);
 
   const colorScheme = NOTE_COLORS.find(c => c.name === note.color) || NOTE_COLORS[0];
   const noteSize = note.size || { width: 320, height: 280 };
@@ -142,6 +147,103 @@ export const NoteCard = React.memo(({
     updateNote(note.id, { title, content });
     setIsEditing(false);
     toast.success('Note saved!');
+  };
+
+  const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const handleReaderOpen = () => {
+    setReaderContent(content || '');
+    setSearchTerm('');
+    readerSelectionIndexRef.current = 0;
+    setShowReaderMode(true);
+  };
+
+  const handleReaderSave = () => {
+    updateNote(note.id, { content: readerContent });
+    setContent(readerContent);
+    toast.success('Note updated');
+  };
+
+  const handleCopyAll = async () => {
+    try {
+      await navigator.clipboard.writeText(readerContent || '');
+      toast.success('Note text copied');
+    } catch (err) {
+      console.error('Copy failed', err);
+      toast.error('Unable to copy text');
+    }
+  };
+
+  const handleSearchNext = () => {
+    if (!searchTerm.trim() || !readerTextareaRef.current) return;
+
+    const text = readerContent || '';
+    const term = searchTerm.toLowerCase();
+
+    // Start searching after the current selection index
+    let startIndex = readerSelectionIndexRef.current;
+    if (startIndex >= text.length) startIndex = 0;
+
+    const idx = text.toLowerCase().indexOf(term, startIndex);
+    if (idx === -1) {
+      // Wrap around
+      const wrapIdx = text.toLowerCase().indexOf(term, 0);
+      if (wrapIdx === -1) return;
+      readerSelectionIndexRef.current = wrapIdx + term.length;
+      readerTextareaRef.current.focus();
+      readerTextareaRef.current.setSelectionRange(wrapIdx, wrapIdx + term.length);
+      return;
+    }
+
+    readerSelectionIndexRef.current = idx + term.length;
+    readerTextareaRef.current.focus();
+    readerTextareaRef.current.setSelectionRange(idx, idx + term.length);
+  };
+
+  const applyInlineFormat = (marker) => {
+    if (!readerTextareaRef.current) return;
+    const textarea = readerTextareaRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    if (start === null || end === null || start === end) return;
+
+    const text = readerContent || '';
+
+    const before = text.slice(0, start);
+    const selected = text.slice(start, end);
+    const after = text.slice(end);
+
+    const hasPrefix = before.endsWith(marker);
+    const hasSuffix = after.startsWith(marker);
+
+    let newText;
+    let newStart = start;
+    let newEnd = end;
+
+    if (hasPrefix && hasSuffix) {
+      // Remove existing markers (toggle off)
+      newText =
+        before.slice(0, before.length - marker.length) +
+        selected +
+        after.slice(marker.length);
+      newStart = start - marker.length;
+      newEnd = end - marker.length;
+    } else {
+      // Add markers around selection (toggle on)
+      newText = before + marker + selected + marker + after;
+      newStart = start + marker.length;
+      newEnd = end + marker.length;
+    }
+
+    setReaderContent(newText);
+
+    // Restore selection after React updates value
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newStart, newEnd);
+      readerSelectionIndexRef.current = newEnd;
+    });
   };
 
   const handleDelete = () => {
@@ -283,7 +385,7 @@ export const NoteCard = React.memo(({
                   className="h-7 w-7"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setShowReaderMode(true);
+                    handleReaderOpen();
                   }}
                   title="Open as document"
                 >
@@ -461,35 +563,179 @@ export const NoteCard = React.memo(({
 
       {/* Reader Mode Dialog */}
       <Dialog open={showReaderMode} onOpenChange={setShowReaderMode}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">{title}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto pr-2">
-            {/* Images in reader mode */}
-            {note.images && note.images.length > 0 && (
-              <div className="space-y-4 mb-4">
-                {note.images.map(image => (
-                  <img 
-                    key={image.id}
-                    src={image.data} 
-                    alt="Note attachment" 
-                    className="w-full rounded-md border border-border"
-                  />
-                ))}
+
+          <div className="flex-1 overflow-hidden flex gap-4">
+            {/* Tools sidebar – docked on the left in doc view */}
+            <div className="w-56 flex-shrink-0 border-r pr-4 flex flex-col gap-4 text-xs">
+              {/* Text style */}
+              <div>
+                <div className="font-semibold mb-2 flex items-center gap-2 text-sm">
+                  <Type className="h-4 w-4" />
+                  Text style
+                </div>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <Button
+                    size="sm"
+                    variant={readerFont === 'system' ? 'default' : 'outline'}
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setReaderFont('system')}
+                  >
+                    Sans
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={readerFont === 'serif' ? 'default' : 'outline'}
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setReaderFont('serif')}
+                  >
+                    Serif
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={readerFont === 'mono' ? 'default' : 'outline'}
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setReaderFont('mono')}
+                  >
+                    Mono
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 w-9 px-0 flex items-center justify-center"
+                    onClick={() => applyInlineFormat('**')}
+                    title="Bold selection"
+                  >
+                    <Bold className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 w-9 px-0 flex items-center justify-center"
+                    onClick={() => applyInlineFormat('*')}
+                    title="Italic selection"
+                  >
+                    <Italic className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
-            )}
-            
-            {/* Content in reader mode */}
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <p className="whitespace-pre-wrap text-base leading-relaxed">
-                {content || <span className="text-muted-foreground italic">No content yet</span>}
-              </p>
+
+              {/* Search */}
+              <div>
+                <div className="font-semibold mb-1 flex items-center gap-2 text-sm">
+                  <Search className="h-4 w-4" />
+                  Search
+                </div>
+                <div className="flex gap-2 mb-1">
+                  <Input
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      readerSelectionIndexRef.current = 0;
+                    }}
+                    placeholder="Find in note..."
+                    className="h-7 text-xs"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                    onClick={handleSearchNext}
+                  >
+                    Next
+                  </Button>
+                </div>
+                {searchTerm && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {(() => {
+                      const regex = new RegExp(escapeRegExp(searchTerm), 'gi');
+                      const matches = readerContent.match(regex);
+                      const count = matches ? matches.length : 0;
+                      return count === 1 ? '1 match' : `${count} matches`;
+                    })()}
+                  </p>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div>
+                <div className="font-semibold mb-1 flex items-center gap-2 text-sm">
+                  <Copy className="h-4 w-4" />
+                  Actions
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 justify-start text-xs"
+                    onClick={handleCopyAll}
+                  >
+                    Copy all text
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 justify-start text-xs"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <ImageIcon className="h-3 w-3 mr-1" />
+                    Add image
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Main document area */}
+            <div className="flex-1 overflow-y-auto pl-2">
+              {/* Images in reader mode */}
+              {note.images && note.images.length > 0 && (
+                <div className="space-y-4 mb-4">
+                  {note.images.map(image => (
+                    <img 
+                      key={image.id}
+                      src={image.data} 
+                      alt="Note attachment" 
+                      className="w-full rounded-md border border-border"
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Editable content in reader mode */}
+              <Textarea
+                ref={readerTextareaRef}
+                value={readerContent}
+                onChange={(e) => {
+                  setReaderContent(e.target.value);
+                  readerSelectionIndexRef.current = e.target.selectionEnd || 0;
+                }}
+                placeholder="Start writing your note..."
+                className="min-h-[260px] h-full resize-none text-base leading-relaxed"
+                style={{
+                  fontFamily:
+                    readerFont === 'serif'
+                      ? 'Georgia, Cambria, "Times New Roman", Times, serif'
+                      : readerFont === 'mono'
+                      ? 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+                      : 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                }}
+              />
             </div>
           </div>
-          <div className="pt-4 border-t flex items-center justify-between text-sm text-muted-foreground">
-            <span>{wordCount} words</span>
-            <span>Created: {new Date(note.createdAt).toLocaleDateString()}</span>
+
+          <div className="pt-4 mt-2 border-t flex items-center justify-between text-sm text-muted-foreground">
+            <span>{readerContent.trim().split(/\s+/).filter(w => w.length > 0).length} words</span>
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline">Created: {new Date(note.createdAt).toLocaleDateString()}</span>
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleReaderSave}>
+                Save changes
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -158,25 +158,21 @@ export const NoteSticker = React.memo(function NoteSticker({
         style={{ width, height, zIndex: 40 }}
         onDoubleClick={handleToggleDrawingMode}
       >
-        <div className="relative w-full h-full rounded-xl shadow-md border border-amber-300/80 bg-[#f5e6a7]">
-          {/* Tape / pin - slightly skewed for a more organic feel */}
-          <div className="pointer-events-none absolute -top-3 left-1/2 -translate-x-1/2 flex gap-1">
-            <div className="h-3 w-10 rounded-[2px] bg-amber-200/80 shadow-sm rotate-[-6deg] opacity-90" />
-            <div className="h-3 w-10 rounded-[2px] bg-amber-200/80 shadow-sm rotate-[4deg] opacity-90" />
-          </div>
-
-          {/* Folded corner */}
-          <div className="pointer-events-none absolute top-0 right-0 w-8 h-8 overflow-hidden rounded-tr-xl">
-            <div className="absolute right-0 top-0 h-6 w-6 origin-top-right rotate-45 bg-[#e8cf7f] shadow-md" />
-            <div className="absolute right-0 top-0 h-px w-10 origin-top-right rotate-45 bg-amber-400/70 opacity-70" />
-          </div>
+        <div className="relative w-full h-full">
+          {/* Background note image */}
+          <img
+            src="/notesticker.png"
+            alt="Note sticker"
+            className="w-full h-full object-contain pointer-events-none select-none"
+            draggable={false}
+          />
 
           {/* Drawing surface */}
           <canvas
             ref={canvasRef}
             width={width}
             height={height}
-            className="absolute inset-0 rounded-xl"
+            className="absolute inset-0"
             style={{
               touchAction: 'none',
               background: 'transparent',
@@ -194,7 +190,7 @@ export const NoteSticker = React.memo(function NoteSticker({
           {/* Subtle resize handle */}
           <div
             data-no-drag
-            className="absolute bottom-1 right-1 w-4 h-4 cursor-nwse-resize opacity-0 group-hover:opacity-60 hover:opacity-100 transition-opacity flex items-center justify-center"
+            className="absolute bottom-1 right-1 w-4 h-4 cursor-nwse-resize opacity-60 hover:opacity-100 transition-opacity flex items-center justify-center"
           >
             <Maximize2 className="h-3 w-3 text-amber-700/70" />
           </div>

@@ -131,7 +131,8 @@ export const Header = ({
     className="w-12 h-12"
   />
   <div className="hidden sm:block">
-    <h1 className="text-lg font-bold font-display text-purple-500">
+    <h1 className="text-lg font-bold font-display text-amber-500
+">
       AnoteQuest
     </h1>
   </div>

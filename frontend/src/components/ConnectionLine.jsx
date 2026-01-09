@@ -1,84 +1,38 @@
-import React, { useRef, useEffect, memo } from 'react';
+import React, { memo } from 'react';
 
 const ConnectionLine = ({ from, to, onDelete, isDragging }) => {
-  const pathRef = useRef(null);
-  const startRef = useRef(null);
-  const endRef = useRef(null);
-  const deleteRef = useRef(null);
-  const rafRef = useRef(null);
+  const midX = (from.x + to.x) / 2;
+  const midY = (from.y + to.y) / 2;
 
-  const updateLine = () => {
-    const midX = (from.x + to.x) / 2;
-    const midY = (from.y + to.y) / 2;
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const curvature = Math.min(Math.abs(dx), Math.abs(dy)) * 0.3;
+  const controlY = midY - Math.sign(dy || 1) * curvature;
 
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const curvature = Math.min(Math.abs(dx), Math.abs(dy)) * 0.3;
-
-    const d = `M ${from.x} ${from.y}
-               Q ${midX} ${midY - curvature}
-               ${to.x} ${to.y}`;
-
-    pathRef.current?.setAttribute('d', d);
-    startRef.current?.setAttribute('cx', from.x);
-    startRef.current?.setAttribute('cy', from.y);
-    endRef.current?.setAttribute('cx', to.x);
-    endRef.current?.setAttribute('cy', to.y);
-
-    if (deleteRef.current) {
-      deleteRef.current.setAttribute(
-        'transform',
-        `translate(${midX}, ${midY})`
-      );
-    }
-  };
-
-  useEffect(() => {
-    if (rafRef.current) return;
-
-    rafRef.current = requestAnimationFrame(() => {
-      updateLine();
-      rafRef.current = null;
-    });
-
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [from.x, from.y, to.x, to.y]);
+  const d = `M ${from.x} ${from.y} Q ${midX} ${controlY} ${to.x} ${to.y}`;
 
   return (
     <>
-      {/* Line */}
+      {/* Curved line */}
       <path
-        ref={pathRef}
+        d={d}
         fill="none"
         stroke="hsl(var(--primary))"
         strokeWidth="3"
         strokeLinecap="round"
-        style={{
-          transition: isDragging ? 'none' : 'stroke 0.15s ease',
-        }}
+        pointerEvents="none"
+        style={{ transition: isDragging ? 'none' : 'stroke 0.15s ease' }}
       />
 
-      {/* Start point */}
-      <circle
-        ref={startRef}
-        r="5"
-        fill="hsl(var(--primary))"
-      />
-
-      {/* End point */}
-      <circle
-        ref={endRef}
-        r="5"
-        fill="hsl(var(--primary))"
-      />
+      {/* Start / End points */}
+      <circle r="5" cx={from.x} cy={from.y} fill="hsl(var(--primary))" />
+      <circle r="5" cx={to.x} cy={to.y} fill="hsl(var(--primary))" />
 
       {/* Delete button */}
-      {onDelete && (
+      {onDelete && !isDragging && (
         <g
-          ref={deleteRef}
           className="cursor-pointer opacity-0 hover:opacity-100 transition-opacity"
+          transform={`translate(${midX}, ${midY})`}
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
@@ -101,4 +55,3 @@ const ConnectionLine = ({ from, to, onDelete, isDragging }) => {
 };
 
 export default memo(ConnectionLine);
-

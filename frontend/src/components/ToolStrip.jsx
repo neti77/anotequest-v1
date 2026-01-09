@@ -11,7 +11,6 @@ import {
   FolderPlus,
   Table,
   CheckSquare,
-  Link2,
   Trash2,
 } from 'lucide-react';
 import { Button } from './ui/button';
@@ -53,8 +52,6 @@ export const ToolStrip = ({
   onAddImage,
   onAddTable,
   onAddTodo,
-  isLinkMode,
-  onToggleLinkMode
 }) => {
   const [expandedTool, setExpandedTool] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -335,17 +332,6 @@ export const ToolStrip = ({
           }}
         >
           <CheckSquare className="h-5 w-5" />
-        </Button>
-
-        {/* Link/Connect Tool */}
-        <Button
-          variant={isLinkMode ? 'default' : 'ghost'}
-          size="icon"
-          className={`h-10 w-10 rounded-lg ${isLinkMode ? 'ring-2 ring-primary ring-offset-1' : ''}`}
-          onClick={onToggleLinkMode}
-          title="Connect items (click two items to link)"
-        >
-          <Link2 className="h-5 w-5" />
         </Button>
 
         {/* Folders */}

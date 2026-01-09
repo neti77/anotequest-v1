@@ -17,7 +17,6 @@ function App() {
   const [images, setImages] = useState([]);
   const [tables, setTables] = useState([]);
   const [todos, setTodos] = useState([]);
-  const [connections, setConnections] = useState([]);
   const [characters, setCharacters] = useState([]);
   const [unlockedCharacter, setUnlockedCharacter] = useState(null);
   const [stats, setStats] = useState({
@@ -36,8 +35,6 @@ function App() {
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLinkMode, setIsLinkMode] = useState(false);
-  const [connectingFrom, setConnectingFrom] = useState(null);
   const timeIntervalRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const safePosition = (pos) =>
@@ -574,11 +571,6 @@ useEffect(() => {
       : todos.filter(t => !t.folderId);
   }, [todos, activeFolder]);
 
-  const filteredConnections = useMemo(() => {
-    return activeFolder 
-      ? connections.filter(c => c.folderId === activeFolder)
-      : connections.filter(c => !c.folderId);
-  }, [connections, activeFolder]);
 
   if (!isLoaded) {
     return (
@@ -623,11 +615,6 @@ useEffect(() => {
           onAddImage={addImage}
           onAddTable={addTable}
           onAddTodo={addTodo}
-          isLinkMode={isLinkMode}
-          onToggleLinkMode={() => {
-            setIsLinkMode(!isLinkMode);
-            setConnectingFrom(null);
-          }}
         />
         
         {/* Main Canvas */}
@@ -640,7 +627,6 @@ useEffect(() => {
             images={filteredImages}
             tables={filteredTables}
             todos={filteredTodos}
-            connections={filteredConnections}
             // characters feature temporarily disabled
             characters={[]}
             addNote={addNote}
@@ -660,8 +646,6 @@ useEffect(() => {
             addTodo={addTodo}
             updateTodo={updateTodo}
             deleteTodo={deleteTodo}
-            addConnection={addConnection}
-            deleteConnection={deleteConnection}
             updateCharacter={updateCharacter}
             folders={folders}
             isPremium={isPremium}
@@ -669,9 +653,6 @@ useEffect(() => {
             onCloseDrawing={() => setIsDrawingMode(false)}
             userName={userName}
             activeFolder={activeFolder}
-            isLinkMode={isLinkMode}
-            connectingFrom={connectingFrom}
-            setConnectingFrom={setConnectingFrom}
           />
         </div>
         

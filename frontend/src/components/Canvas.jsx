@@ -9,7 +9,6 @@ import TableItem from './TableItem';
 import TodoItem from './TodoItem';
 import CharacterRoamer from './CharacterRoamer';
 import DrawingCanvas from './DrawingCanvas';
-import ConnectionLine from './ConnectionLine';
 import NoteSticker from './NoteSticker';
 import { toast } from 'sonner';
 import imageCompression from 'browser-image-compression';
@@ -23,7 +22,6 @@ export const Canvas = ({
   tables = [],
   todos = [],
   characters,
-  connections = [],
   addNote, 
   updateNote, 
   deleteNote,
@@ -39,8 +37,6 @@ export const Canvas = ({
   addTodo,
   updateTodo,
   deleteTodo,
-  addConnection,
-  deleteConnection,
   updateCharacter,
   folders,
   isPremium,
@@ -48,9 +44,6 @@ export const Canvas = ({
   onCloseDrawing,
   userName,
   activeFolder,
-  isLinkMode,
-  connectingFrom,
-  setConnectingFrom,
   // NoteSticker-specific handlers
   updateNoteSticker,
   deleteNoteSticker,
@@ -267,22 +260,7 @@ export const Canvas = ({
     }
   };
 
-  // Connection handling - now controlled by isLinkMode from parent
-  const handleItemClick = (itemId, itemType) => {
-    if (!isLinkMode) return;
-    
-    if (!connectingFrom) {
-      setConnectingFrom({ id: itemId, type: itemType });
-      toast.info('Now click another item to connect');
-    } else if (connectingFrom.id !== itemId) {
-      addConnection({
-        from: connectingFrom,
-        to: { id: itemId, type: itemType }
-      });
-      setConnectingFrom(null);
-      toast.success('Items connected!');
-    }
-  };
+  // Connection feature removed
 
   const getItemPosition = (itemId, itemType) => {
     let item;
@@ -382,7 +360,7 @@ export const Canvas = ({
 
       {/* File Limit Badge */}
       {!isPremium && (
-        <div className="absolute top-4 right-4 z-20">
+        <div className="absolute top-1 right-2 z-20">
           <Badge variant="outline" className="bg-card/80 backdrop-blur-sm">
             {totalNoteCount}/100 notes
           </Badge>
@@ -438,39 +416,6 @@ export const Canvas = ({
             scrollContainerRef={containerRef}
           />
 
-          {/* SVG Layer for Connection Lines - renders smoothly */}
-          <svg 
-            className="absolute inset-0 pointer-events-none" 
-            style={{ 
-              width: canvasSize.width, 
-              height: canvasSize.height,
-              zIndex: 5 
-            }}
-          >
-            {connections.map((conn, idx) => {
-              const fromPos = getItemPosition(conn.from.id, conn.from.type);
-              const toPos = getItemPosition(conn.to.id, conn.to.type);
-              if (fromPos && toPos) {
-                return (
-                  <ConnectionLine
-                    key={idx}
-                    from={fromPos}
-                    to={toPos}
-                    onDelete={() => deleteConnection && deleteConnection(idx)}
-                  />
-                );
-              }
-              return null;
-            })}
-          </svg>
-
-          {/* Link Mode Indicator */}
-          {isLinkMode && (
-            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground px-4 py-2 rounded-xl shadow-lg text-sm font-medium animate-pulse">
-              🔗 Link Mode: Click items to connect them
-            </div>
-          )}
-
           {/* Empty State */}
           {notes.length === 0 && stickers.length === 0 && images.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -493,9 +438,6 @@ export const Canvas = ({
               deleteNote={deleteNote}
               addNote={addNote}
               folders={folders}
-              onItemClick={() => handleItemClick(note.id, 'note')}
-              isConnecting={isLinkMode}
-              isSelected={connectingFrom?.id === note.id}
               zoom={zoom}
               shouldDeleteOnDrop={shouldDeleteOnDrop}
             />
@@ -520,9 +462,6 @@ export const Canvas = ({
               image={image}
               updateImage={updateImage}
               deleteImage={deleteImage}
-              onItemClick={() => handleItemClick(image.id, 'image')}
-              isConnecting={isLinkMode}
-              isSelected={connectingFrom?.id === image.id}
               zoom={zoom}
               shouldDeleteOnDrop={shouldDeleteOnDrop}
             />
@@ -563,6 +502,7 @@ export const Canvas = ({
               shouldDeleteOnDrop={shouldDeleteOnDrop}
             />
           ))}
+
 
           {/* Render Roaming Characters */}
           {characters.map(character => (
