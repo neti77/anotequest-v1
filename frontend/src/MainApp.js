@@ -581,7 +581,7 @@ useEffect(() => {
   }
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col bg-background">
+    <div className="h-screen overflow-hidden flex flex-col bg-background pt-14">
       <Header 
         stats={stats}
         isPremium={isPremium}

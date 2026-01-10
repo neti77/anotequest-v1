@@ -56,6 +56,13 @@ export const Canvas = ({
   const [zoom, setZoom] = useState(1);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
+  // Touch pinch-zoom state (for iPad/phones)
+  const pinchState = useRef({
+    isPinching: false,
+    startDistance: 0,
+    startZoom: 1,
+  });
+
   // Load drawings from localStorage (per folder)
   useEffect(() => {
     const key = activeFolder ? `anotequest_drawings_${activeFolder}` : 'anotequest_drawings';
@@ -121,6 +128,62 @@ export const Canvas = ({
       handleZoom(delta, e.clientX, e.clientY);
     }
   }, [handleZoom]);
+
+  // Touch pinch-to-zoom (mobile/tablet)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const getDistance = (touch1, touch2) => {
+      const dx = touch1.clientX - touch2.clientX;
+      const dy = touch1.clientY - touch2.clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
+    const handleTouchStart = (e) => {
+      if (e.touches.length === 2) {
+        const dist = getDistance(e.touches[0], e.touches[1]);
+        pinchState.current = {
+          isPinching: true,
+          startDistance: dist,
+          startZoom: zoom,
+        };
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (!pinchState.current.isPinching || e.touches.length < 2) return;
+      // Prevent browser page zoom while pinching inside the canvas
+      e.preventDefault();
+      const dist = getDistance(e.touches[0], e.touches[1]);
+      if (pinchState.current.startDistance === 0) return;
+      const scale = dist / pinchState.current.startDistance;
+      const nextZoom = Math.min(2.5, Math.max(0.5, pinchState.current.startZoom * scale));
+      setZoom(nextZoom);
+    };
+
+    const handleTouchEnd = () => {
+      // Reset when fingers lifted
+      pinchState.current = {
+        isPinching: false,
+        startDistance: 0,
+        startZoom: zoom,
+      };
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    // touchmove must be non-passive so we can call preventDefault during pinch
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+    container.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [zoom]);
 
   useEffect(() => {
     const container = containerRef.current;

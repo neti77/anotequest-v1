@@ -116,7 +116,7 @@ export const Header = ({
   };
 
   return (
-    <header className="h-14 border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
+    <header className="h-14 border-b border-border bg-card/80 backdrop-blur-md fixed top-0 left-0 right-0 z-50">
       <div className="h-full px-4 flex items-center justify-between">
         
      {/* Logo & Title */}
