@@ -144,6 +144,7 @@ export const NoteCard = React.memo(({
   }, [note.id, noteSize, updateNote, zoom]);
 
   const handleSave = () => {
+    // Kept for compatibility, but edits are now auto-saved as you type
     updateNote(note.id, { title, content });
     setIsEditing(false);
     toast.success('Note saved!');
@@ -368,7 +369,11 @@ export const NoteCard = React.memo(({
                 {isEditing ? (
                   <Input
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={(e) => {
+                      const newTitle = e.target.value;
+                      setTitle(newTitle);
+                      updateNote(note.id, { title: newTitle });
+                    }}
                     className="h-7 text-sm font-semibold"
                     autoFocus
                     onClick={(e) => e.stopPropagation()}
@@ -514,7 +519,11 @@ export const NoteCard = React.memo(({
                 {isEditing ? (
                   <Textarea
                     value={content}
-                    onChange={(e) => setContent(e.target.value)}
+                    onChange={(e) => {
+                      const newContent = e.target.value;
+                      setContent(newContent);
+                      updateNote(note.id, { content: newContent });
+                    }}
                     placeholder="Start writing your note..."
                     className="min-h-[100px] resize-none"
                     onClick={(e) => e.stopPropagation()}

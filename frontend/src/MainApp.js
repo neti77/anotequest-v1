@@ -7,6 +7,11 @@ import CharacterPanelSlim from './components/CharacterPanelSlim';
 import BattleModal from './components/BattleModal';
 import CharacterUnlockModal from './components/CharacterUnlockModal';
 import NameInputModal from './components/NameInputModal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './components/ui/dialog';
+import { Button } from './components/ui/button';
+import { Badge } from './components/ui/badge';
+import { ScrollArea } from './components/ui/scroll-area';
+import { Trash2, RotateCcw } from 'lucide-react';
 
 function App() {
   const [notes, setNotes] = useState([]);
@@ -35,8 +40,11 @@ function App() {
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [drawings, setDrawings] = useState([]);
   const timeIntervalRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [trash, setTrash] = useState([]);
+  const [isTrashOpen, setIsTrashOpen] = useState(false);
   const safePosition = (pos) =>
   pos && typeof pos.x === 'number' && typeof pos.y === 'number'
     ? pos
@@ -113,6 +121,9 @@ useEffect(() => {
     );
 
     setCharacters(load('anotequest_characters'));
+
+    const savedTrash = localStorage.getItem('anotequest_trash');
+    if (savedTrash) setTrash(JSON.parse(savedTrash));
 
     const savedStats = localStorage.getItem('anotequest_stats');
     if (savedStats) setStats(JSON.parse(savedStats));
@@ -200,30 +211,50 @@ useEffect(() => {
     localStorage.setItem('anotequest_stats', JSON.stringify(stats));
   }, [stats, isLoaded]);
 
-  // Save history for undo/redo (simplified - just notes)
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem('anotequest_trash', JSON.stringify(trash));
+  }, [trash, isLoaded]);
+
+  // Save history for undo/redo (board-wide, last 10 steps)
   useEffect(() => {
     if (!isLoaded || isUndoRedo.current) {
       isUndoRedo.current = false;
       return;
     }
-    
-    const state = { notes: [...notes] };
+
+    const state = {
+      notes: [...notes],
+      stickers: [...stickers],
+      noteStickers: [...noteStickers],
+      images: [...images],
+      tables: [...tables],
+      todos: [...todos],
+      drawings: [...drawings],
+    };
+
     setHistory(prev => {
       const newHistory = prev.slice(0, historyIndex + 1);
       newHistory.push(state);
-      // Keep only last 50 states
-      if (newHistory.length > 50) newHistory.shift();
+      // Keep only last 10 states
+      if (newHistory.length > 10) newHistory.shift();
       return newHistory;
     });
-    setHistoryIndex(prev => Math.min(prev + 1, 49));
-  }, [notes, isLoaded]);
+    setHistoryIndex(prev => Math.min(prev + 1, 9));
+  }, [notes, stickers, noteStickers, images, tables, todos, drawings, isLoaded]);
 
   // Undo
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
       isUndoRedo.current = true;
       const prevState = history[historyIndex - 1];
-      setNotes(prevState.notes);
+      setNotes(prevState.notes || []);
+      setStickers(prevState.stickers || []);
+      setNoteStickers(prevState.noteStickers || []);
+      setImages(prevState.images || []);
+      setTables(prevState.tables || []);
+      setTodos(prevState.todos || []);
+      setDrawings(prevState.drawings || []);
       setHistoryIndex(prev => prev - 1);
     }
   }, [history, historyIndex]);
@@ -233,7 +264,13 @@ useEffect(() => {
     if (historyIndex < history.length - 1) {
       isUndoRedo.current = true;
       const nextState = history[historyIndex + 1];
-      setNotes(nextState.notes);
+      setNotes(nextState.notes || []);
+      setStickers(nextState.stickers || []);
+      setNoteStickers(nextState.noteStickers || []);
+      setImages(nextState.images || []);
+      setTables(nextState.tables || []);
+      setTodos(nextState.todos || []);
+      setDrawings(nextState.drawings || []);
       setHistoryIndex(prev => prev + 1);
     }
   }, [history, historyIndex]);
@@ -345,9 +382,25 @@ useEffect(() => {
     ));
   }, []);
 
-  const deleteNote = useCallback((id) => {
-    setNotes(prev => prev.filter(note => note.id !== id));
+  const addToTrash = useCallback((type, item) => {
+    setTrash(prev => [
+      ...prev,
+      {
+        id: Date.now() + Math.random(),
+        type,
+        item,
+        deletedAt: new Date().toISOString(),
+      },
+    ]);
   }, []);
+
+  const deleteNote = useCallback((id) => {
+    setNotes(prev => {
+      const note = prev.find(n => n.id === id);
+      if (note) addToTrash('note', note);
+      return prev.filter(n => n.id !== id);
+    });
+  }, [addToTrash]);
 
   const addFolder = useCallback((name) => {
     const newFolder = {
@@ -414,8 +467,12 @@ useEffect(() => {
   }, []);
 
   const deleteSticker = useCallback((id) => {
-    setStickers(prev => prev.filter(sticker => sticker.id !== id));
-  }, []);
+    setStickers(prev => {
+      const sticker = prev.find(s => s.id === id);
+      if (sticker) addToTrash('sticker', sticker);
+      return prev.filter(s => s.id !== id);
+    });
+  }, [addToTrash]);
 
   // Image handlers
   const addImage = useCallback((image) => {
@@ -435,8 +492,12 @@ useEffect(() => {
   }, []);
 
   const deleteImage = useCallback((id) => {
-    setImages(prev => prev.filter(img => img.id !== id));
-  }, []);
+    setImages(prev => {
+      const img = prev.find(i => i.id === id);
+      if (img) addToTrash('image', img);
+      return prev.filter(i => i.id !== id);
+    });
+  }, [addToTrash]);
 
   // Table handlers
   const addTable = useCallback((table) => {
@@ -456,8 +517,12 @@ useEffect(() => {
   }, []);
 
   const deleteTable = useCallback((id) => {
-    setTables(prev => prev.filter(t => t.id !== id));
-  }, []);
+    setTables(prev => {
+      const tbl = prev.find(t => t.id === id);
+      if (tbl) addToTrash('table', tbl);
+      return prev.filter(t => t.id !== id);
+    });
+  }, [addToTrash]);
 
   // Todo handlers
   const addTodo = useCallback((todo) => {
@@ -477,7 +542,46 @@ useEffect(() => {
   }, []);
 
   const deleteTodo = useCallback((id) => {
-    setTodos(prev => prev.filter(t => t.id !== id));
+    setTodos(prev => {
+      const todoItem = prev.find(t => t.id === id);
+      if (todoItem) addToTrash('todo', todoItem);
+      return prev.filter(t => t.id !== id);
+    });
+  }, [addToTrash]);
+
+  const restoreTrashItem = useCallback((trashId) => {
+    setTrash(prev => {
+      const entry = prev.find(t => t.id === trashId);
+      if (!entry) return prev;
+      const remaining = prev.filter(t => t.id !== trashId);
+      const { type, item } = entry;
+
+      switch (type) {
+        case 'note':
+          setNotes(prevNotes => [...prevNotes, item]);
+          break;
+        case 'sticker':
+          setStickers(prevStickers => [...prevStickers, item]);
+          break;
+        case 'image':
+          setImages(prevImages => [...prevImages, item]);
+          break;
+        case 'table':
+          setTables(prevTables => [...prevTables, item]);
+          break;
+        case 'todo':
+          setTodos(prevTodos => [...prevTodos, item]);
+          break;
+        default:
+          break;
+      }
+
+      return remaining;
+    });
+  }, []);
+
+  const deleteTrashItemForever = useCallback((trashId) => {
+    setTrash(prev => prev.filter(t => t.id !== trashId));
   }, []);
 
   // Connection handlers
@@ -627,6 +731,8 @@ useEffect(() => {
             images={filteredImages}
             tables={filteredTables}
             todos={filteredTodos}
+            drawings={drawings}
+            setDrawings={setDrawings}
             // characters feature temporarily disabled
             characters={[]}
             addNote={addNote}
@@ -653,6 +759,7 @@ useEffect(() => {
             onCloseDrawing={() => setIsDrawingMode(false)}
             userName={userName}
             activeFolder={activeFolder}
+            onOpenTrash={() => setIsTrashOpen(true)}
           />
         </div>
         
@@ -684,6 +791,82 @@ useEffect(() => {
           onClose={() => setUnlockedCharacter(null)}
         />
       )}
+
+      {/* Trash modal for restoring or permanently deleting items */}
+      <Dialog open={isTrashOpen} onOpenChange={setIsTrashOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4" />
+              Trash
+            </DialogTitle>
+            <DialogDescription>
+              Recently removed items. Restore them to the canvas or delete them forever.
+            </DialogDescription>
+          </DialogHeader>
+
+          {trash.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Trash is empty.</p>
+          ) : (
+            <ScrollArea className="max-h-64 mt-2">
+              <div className="space-y-3 pr-2">
+                {trash
+                  .slice()
+                  .reverse()
+                  .map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between rounded-md border border-border bg-card/80 px-3 py-2"
+                    >
+                      <div className="flex flex-col text-sm">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {entry.type}
+                          </Badge>
+                          <span className="font-medium truncate max-w-[180px]">
+                            {entry.type === 'note'
+                              ? entry.item.title || 'Untitled note'
+                              : entry.type === 'todo'
+                              ? entry.item.title || 'Todo list'
+                              : entry.type === 'table'
+                              ? 'Table'
+                              : entry.type === 'image'
+                              ? 'Image'
+                              : 'Sticker'}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">
+                          Removed {new Date(entry.deletedAt).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => restoreTrashItem(entry.id)}
+                        >
+                          <RotateCcw className="h-3 w-3 mr-1" />
+                          Restore
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => deleteTrashItemForever(entry.id)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Toaster richColors position="top-right" />
     </div>
   );

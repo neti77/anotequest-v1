@@ -21,6 +21,8 @@ export const Canvas = ({
   images = [],
   tables = [],
   todos = [],
+  drawings,
+  setDrawings,
   characters,
   addNote, 
   updateNote, 
@@ -47,12 +49,13 @@ export const Canvas = ({
   // NoteSticker-specific handlers
   updateNoteSticker,
   deleteNoteSticker,
+  // Opens the trash modal in parent
+  onOpenTrash,
 }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const trashRef = useRef(null);
   const [canvasSize, setCanvasSize] = useState({ width: 1600, height: 1000 });
-  const [drawings, setDrawings] = useState([]);
   const [zoom, setZoom] = useState(1);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
@@ -63,22 +66,7 @@ export const Canvas = ({
     startZoom: 1,
   });
 
-  // Load drawings from localStorage (per folder)
-  useEffect(() => {
-    const key = activeFolder ? `anotequest_drawings_${activeFolder}` : 'anotequest_drawings';
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      setDrawings(JSON.parse(saved));
-    } else {
-      setDrawings([]);
-    }
-  }, [activeFolder]);
-
-  // Save drawings (per folder)
-  useEffect(() => {
-    const key = activeFolder ? `anotequest_drawings_${activeFolder}` : 'anotequest_drawings';
-    localStorage.setItem(key, JSON.stringify(drawings));
-  }, [drawings, activeFolder]);
+  // Drawing persistence is now managed in MainApp via the shared `drawings` prop.
 
   // Calculate canvas size based on content and grow as needed (right & bottom only)
   useEffect(() => {
@@ -129,7 +117,7 @@ export const Canvas = ({
     }
   }, [handleZoom]);
 
-  // Touch pinch-to-zoom (mobile/tablet)
+  // Touch pinch-to-zoom (mobile/tablet), anchored around finger center
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -153,17 +141,43 @@ export const Canvas = ({
 
     const handleTouchMove = (e) => {
       if (!pinchState.current.isPinching || e.touches.length < 2) return;
-      // Prevent browser page zoom while pinching inside the canvas
-      e.preventDefault();
-      const dist = getDistance(e.touches[0], e.touches[1]);
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const dist = getDistance(touch1, touch2);
       if (pinchState.current.startDistance === 0) return;
-      const scale = dist / pinchState.current.startDistance;
-      const nextZoom = Math.min(2.5, Math.max(0.5, pinchState.current.startZoom * scale));
+
+      // Prevent browser/page zoom while pinching inside the canvas
+      e.preventDefault();
+
+      const oldZoom = pinchState.current.startZoom || zoom;
+      const scaleDelta = dist / pinchState.current.startDistance;
+      const nextZoomRaw = oldZoom * scaleDelta;
+      const nextZoom = Math.min(2.5, Math.max(0.5, nextZoomRaw));
+
+      const rect = container.getBoundingClientRect();
+      const centerX = (touch1.clientX + touch2.clientX) / 2;
+      const centerY = (touch1.clientY + touch2.clientY) / 2;
+
+      // Position of pinch center in scrolled content BEFORE zoom
+      const offsetX = centerX - rect.left + container.scrollLeft;
+      const offsetY = centerY - rect.top + container.scrollTop;
+      const contentX = offsetX / oldZoom;
+      const contentY = offsetY / oldZoom;
+
+      // After zoom, keep the same content point under the pinch center
+      const newScrollLeft = contentX * nextZoom - (centerX - rect.left);
+      const newScrollTop = contentY * nextZoom - (centerY - rect.top);
+
       setZoom(nextZoom);
+      container.scrollLeft = newScrollLeft;
+      container.scrollTop = newScrollTop;
+
+      // Prepare for next incremental step
+      pinchState.current.startZoom = nextZoom;
+      pinchState.current.startDistance = dist;
     };
 
     const handleTouchEnd = () => {
-      // Reset when fingers lifted
       pinchState.current = {
         isPinching: false,
         startDistance: 0,
@@ -355,7 +369,27 @@ export const Canvas = ({
   const shouldDeleteOnDrop = useCallback((e) => {
     if (!trashRef.current || !e) return false;
     const rect = trashRef.current.getBoundingClientRect();
-    const { clientX, clientY } = e;
+
+    let clientX;
+    let clientY;
+
+    // Support both mouse and touch end events
+    if (typeof TouchEvent !== 'undefined' && e instanceof TouchEvent) {
+      const touch = e.changedTouches && e.changedTouches[0];
+      if (!touch) return false;
+      clientX = touch.clientX;
+      clientY = touch.clientY;
+    } else if ('changedTouches' in e && e.changedTouches && e.changedTouches[0]) {
+      // Fallback for generic events from libraries
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    if (clientX == null || clientY == null) return false;
+
     return (
       clientX >= rect.left &&
       clientX <= rect.right &&
@@ -430,10 +464,11 @@ export const Canvas = ({
         </div>
       )}
 
-      {/* Trash zone for drag-to-delete */}
+      {/* Trash zone for drag-to-delete and opening trash modal */}
       <div
         ref={trashRef}
-        className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-2xl border border-destructive/40 bg-destructive/10 text-destructive shadow-lg backdrop-blur-md"
+        onClick={onOpenTrash}
+        className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-2xl border border-destructive/40 bg-destructive/10 text-destructive shadow-lg backdrop-blur-md cursor-pointer"
       >
         <Trash2 className="h-6 w-6" />
       </div>
