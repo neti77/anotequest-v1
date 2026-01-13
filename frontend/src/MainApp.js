@@ -22,6 +22,8 @@ function App() {
   const [images, setImages] = useState([]);
   const [tables, setTables] = useState([]);
   const [todos, setTodos] = useState([]);
+  const [sources, setSources] = useState([]);
+  const [connections, setConnections] = useState([]);
   const [characters, setCharacters] = useState([]);
   const [unlockedCharacter, setUnlockedCharacter] = useState(null);
   const [stats, setStats] = useState({
@@ -37,14 +39,18 @@ function App() {
   const [userName, setUserName] = useState('Adventurer');
   const [showBattle, setShowBattle] = useState(false);
   const [characterPanelOpen, setCharacterPanelOpen] = useState(false);
-  const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [drawingTool, setDrawingTool] = useState(null); // 'freehand' | 'line' | 'arrow' | 'ellipse' | null
   const [isPremium, setIsPremium] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [drawings, setDrawings] = useState([]);
   const timeIntervalRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [trash, setTrash] = useState([]);
+  const isDrawingMode = !!drawingTool;
   const [isTrashOpen, setIsTrashOpen] = useState(false);
+  const [activeNoteId, setActiveNoteId] = useState(null);
+  const [readerModeNoteId, setReaderModeNoteId] = useState(null);
+  const [showFolderView, setShowFolderView] = useState(false);
   const safePosition = (pos) =>
   pos && typeof pos.x === 'number' && typeof pos.y === 'number'
     ? pos
@@ -101,6 +107,14 @@ useEffect(() => {
         ...i,
         position: safePosition(i.position),
         size: safeSize(i.size, { width: 300, height: 200 })
+      }))
+    );
+
+    setSources(
+      load('anotequest_sources').map(s => ({
+        ...s,
+        position: safePosition(s.position),
+        size: safeSize(s.size, { width: 260, height: 120 }),
       }))
     );
 
@@ -193,6 +207,11 @@ useEffect(() => {
 
   useEffect(() => {
     if (!isLoaded) return;
+    localStorage.setItem('anotequest_sources', JSON.stringify(sources));
+  }, [sources, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
     localStorage.setItem('anotequest_tables', JSON.stringify(tables));
   }, [tables, isLoaded]);
 
@@ -228,6 +247,7 @@ useEffect(() => {
       stickers: [...stickers],
       noteStickers: [...noteStickers],
       images: [...images],
+      sources: [...sources],
       tables: [...tables],
       todos: [...todos],
       drawings: [...drawings],
@@ -241,7 +261,7 @@ useEffect(() => {
       return newHistory;
     });
     setHistoryIndex(prev => Math.min(prev + 1, 9));
-  }, [notes, stickers, noteStickers, images, tables, todos, drawings, isLoaded]);
+  }, [notes, stickers, noteStickers, images, sources, tables, todos, drawings, isLoaded]);
 
   // Undo
   const handleUndo = useCallback(() => {
@@ -252,6 +272,7 @@ useEffect(() => {
       setStickers(prevState.stickers || []);
       setNoteStickers(prevState.noteStickers || []);
       setImages(prevState.images || []);
+      setSources(prevState.sources || []);
       setTables(prevState.tables || []);
       setTodos(prevState.todos || []);
       setDrawings(prevState.drawings || []);
@@ -268,6 +289,7 @@ useEffect(() => {
       setStickers(nextState.stickers || []);
       setNoteStickers(nextState.noteStickers || []);
       setImages(nextState.images || []);
+      setSources(nextState.sources || []);
       setTables(nextState.tables || []);
       setTodos(nextState.todos || []);
       setDrawings(nextState.drawings || []);
@@ -419,6 +441,7 @@ useEffect(() => {
     setNotes(prev => prev.map(n => n.folderId === folderId ? { ...n, folderId: null } : n));
     setStickers(prev => prev.map(s => s.folderId === folderId ? { ...s, folderId: null } : s));
     setImages(prev => prev.map(i => i.folderId === folderId ? { ...i, folderId: null } : i));
+    setSources(prev => prev.map(s => s.folderId === folderId ? { ...s, folderId: null } : s));
     setTables(prev => prev.map(t => t.folderId === folderId ? { ...t, folderId: null } : t));
     setTodos(prev => prev.map(t => t.folderId === folderId ? { ...t, folderId: null } : t));
     setConnections(prev => prev.map(c => c.folderId === folderId ? { ...c, folderId: null } : c));
@@ -524,6 +547,37 @@ useEffect(() => {
     });
   }, [addToTrash]);
 
+  // Source / Link handlers
+  const addSource = useCallback((source) => {
+    if (!source?.url) return;
+
+    const basePosition = source.position || { x: 220, y: 200 };
+
+    const newSource = {
+      id: Date.now() + Math.random(),
+      url: source.url,
+      title: source.title || source.url,
+      description: source.description || '',
+      position: basePosition,
+      size: source.size || { width: 260, height: 120 },
+      folderId: activeFolder,
+      createdAt: new Date().toISOString(),
+    };
+    setSources(prev => [...prev, newSource]);
+  }, [activeFolder]);
+
+  const updateSource = useCallback((id, updates) => {
+    setSources(prev => prev.map(s => (s.id === id ? { ...s, ...updates } : s)));
+  }, []);
+
+  const deleteSource = useCallback((id) => {
+    setSources(prev => {
+      const src = prev.find(s => s.id === id);
+      if (src) addToTrash('source', src);
+      return prev.filter(s => s.id !== id);
+    });
+  }, [addToTrash]);
+
   // Todo handlers
   const addTodo = useCallback((todo) => {
     const newTodo = {
@@ -571,6 +625,9 @@ useEffect(() => {
           break;
         case 'todo':
           setTodos(prevTodos => [...prevTodos, item]);
+          break;
+        case 'source':
+          setSources(prevSources => [...prevSources, item]);
           break;
         default:
           break;
@@ -669,6 +726,12 @@ useEffect(() => {
       : tables.filter(t => !t.folderId);
   }, [tables, activeFolder]);
 
+  const filteredSources = useMemo(() => {
+    return activeFolder
+      ? sources.filter(s => s.folderId === activeFolder)
+      : sources.filter(s => !s.folderId);
+  }, [sources, activeFolder]);
+
   const filteredTodos = useMemo(() => {
     return activeFolder 
       ? todos.filter(t => t.folderId === activeFolder)
@@ -700,15 +763,99 @@ useEffect(() => {
         notes={notes}
         tables={tables}
         todos={todos}
+        folders={folders}
+        activeFolder={activeFolder}
+        setActiveFolder={setActiveFolder}
+        addFolder={addFolder}
+        deleteFolder={deleteFolder}
+        showFolderView={showFolderView}
+        setShowFolderView={setShowFolderView}
       />
+      
+      {/* Folder View Modal */}
+      {showFolderView && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-md pt-14">
+          <div className="h-full flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h2 className="text-xl font-bold font-display">Your Folders</h2>
+              <Button variant="outline" onClick={() => setShowFolderView(false)}>
+                Back to Canvas
+              </Button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {/* All Notes folder */}
+                <div
+                  onClick={() => {
+                    setActiveFolder(null);
+                    setShowFolderView(false);
+                  }}
+                  className={`group cursor-pointer flex flex-col items-center p-4 rounded-xl border-2 transition-all hover:shadow-lg hover:scale-105 ${
+                    activeFolder === null 
+                      ? 'border-primary bg-primary/10' 
+                      : 'border-border bg-card hover:border-primary/50'
+                  }`}
+                >
+                  <div className="w-16 h-16 flex items-center justify-center rounded-xl bg-primary/20 mb-3">
+                    <span className="text-3xl">📝</span>
+                  </div>
+                  <span className="text-sm font-medium text-center">All Notes</span>
+                  <span className="text-xs text-muted-foreground mt-1">{notes.length} notes</span>
+                </div>
+                
+                {/* Existing folders */}
+                {folders.map(folder => (
+                  <div
+                    key={folder.id}
+                    onClick={() => {
+                      setActiveFolder(folder.id);
+                      setShowFolderView(false);
+                    }}
+                    className={`group cursor-pointer flex flex-col items-center p-4 rounded-xl border-2 transition-all hover:shadow-lg hover:scale-105 ${
+                      activeFolder === folder.id 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-border bg-card hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="w-16 h-16 flex items-center justify-center rounded-xl bg-accent/20 mb-3">
+                      <span className="text-3xl">📁</span>
+                    </div>
+                    <span className="text-sm font-medium text-center truncate max-w-full">{folder.name}</span>
+                    <span className="text-xs text-muted-foreground mt-1">
+                      {notes.filter(n => n.folderId === folder.id).length} notes
+                    </span>
+                  </div>
+                ))}
+                
+                {/* Add new folder card */}
+                <div
+                  onClick={() => {
+                    const name = prompt('Enter folder name:');
+                    if (name && name.trim()) {
+                      addFolder(name.trim());
+                    }
+                  }}
+                  className="cursor-pointer flex flex-col items-center justify-center p-4 rounded-xl border-2 border-dashed border-border bg-muted/30 hover:border-primary/50 hover:bg-muted/50 transition-all"
+                >
+                  <div className="w-16 h-16 flex items-center justify-center rounded-xl bg-muted mb-3">
+                    <span className="text-3xl">➕</span>
+                  </div>
+                  <span className="text-sm font-medium text-muted-foreground">New Folder</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="flex-1 flex overflow-hidden relative">
         {/* Floating Tool Strip */}
         <ToolStrip
           onAddNote={() => addNote()}
-          onToggleDrawing={() => setIsDrawingMode(!isDrawingMode)}
-          isDrawing={isDrawingMode}
+          drawingTool={drawingTool}
+          setDrawingTool={setDrawingTool}
           addSticker={addSticker}
+          onAddSource={addSource}
           addNoteSticker={addNoteSticker}
           folders={folders}
           notes={notes}
@@ -719,6 +866,11 @@ useEffect(() => {
           onAddImage={addImage}
           onAddTable={addTable}
           onAddTodo={addTodo}
+          activeNote={notes.find(n => n.id === activeNoteId)}
+          onClearActiveNote={() => setActiveNoteId(null)}
+          updateNote={updateNote}
+          deleteNote={deleteNote}
+          onOpenReaderMode={(noteId) => setReaderModeNoteId(noteId)}
         />
         
         {/* Main Canvas */}
@@ -731,8 +883,10 @@ useEffect(() => {
             images={filteredImages}
             tables={filteredTables}
             todos={filteredTodos}
+            sources={filteredSources}
             drawings={drawings}
             setDrawings={setDrawings}
+            drawingTool={drawingTool}
             // characters feature temporarily disabled
             characters={[]}
             addNote={addNote}
@@ -752,14 +906,19 @@ useEffect(() => {
             addTodo={addTodo}
             updateTodo={updateTodo}
             deleteTodo={deleteTodo}
+            updateSource={updateSource}
+            deleteSource={deleteSource}
             updateCharacter={updateCharacter}
             folders={folders}
             isPremium={isPremium}
             isDrawingMode={isDrawingMode}
-            onCloseDrawing={() => setIsDrawingMode(false)}
+            onCloseDrawing={() => setDrawingTool(null)}
             userName={userName}
             activeFolder={activeFolder}
             onOpenTrash={() => setIsTrashOpen(true)}
+            onNoteClick={(note) => setActiveNoteId(note.id)}
+            readerModeNoteId={readerModeNoteId}
+            onReaderModeClosed={() => setReaderModeNoteId(null)}
           />
         </div>
         

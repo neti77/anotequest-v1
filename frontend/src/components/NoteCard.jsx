@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Draggable from 'react-draggable';
 import { Trash2, GripVertical, FolderOpen, Palette, Check, Image as ImageIcon, X, Maximize2, Link2, Expand, Copy, Bold, Italic, Search, Type } from 'lucide-react';
 import { Card } from './ui/card';
@@ -78,6 +78,11 @@ export const NoteCard = React.memo(({
   isSelected,
   zoom = 1,
   shouldDeleteOnDrop,
+  onNoteClick,
+  openReaderMode,
+  onReaderModeClosed,
+  onMultiDrag,
+  selectedCount = 0,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(note.title);
@@ -91,6 +96,24 @@ export const NoteCard = React.memo(({
   const nodeRef = useRef(null);
   const fileInputRef = useRef(null);
   const readerTextareaRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const lastDragPosRef = useRef({ x: 0, y: 0 });
+
+  // Open reader mode when triggered from outside (e.g., ToolStrip)
+  useEffect(() => {
+    if (openReaderMode) {
+      setReaderContent(note.content || '');
+      setShowReaderMode(true);
+    }
+  }, [openReaderMode, note.content]);
+
+  // Notify parent when reader mode closes
+  const handleReaderClose = (open) => {
+    setShowReaderMode(open);
+    if (!open && onReaderModeClosed) {
+      onReaderModeClosed();
+    }
+  };
 
   const colorScheme = NOTE_COLORS.find(c => c.name === note.color) || NOTE_COLORS[0];
   const noteSize = note.size || { width: 320, height: 280 };
@@ -339,6 +362,20 @@ export const NoteCard = React.memo(({
         scale={zoom}
         disabled={isResizing || isConnecting}
         cancel="input, textarea, button, [data-no-drag]"
+        onStart={(e, data) => {
+          isDraggingRef.current = false;
+          lastDragPosRef.current = { x: data.x, y: data.y };
+        }}
+        onDrag={(e, data) => {
+          isDraggingRef.current = true;
+          // Multi-drag: move other selected items by the same delta
+          if (isSelected && selectedCount > 1 && onMultiDrag) {
+            const deltaX = data.x - lastDragPosRef.current.x;
+            const deltaY = data.y - lastDragPosRef.current.y;
+            onMultiDrag(deltaX, deltaY);
+          }
+          lastDragPosRef.current = { x: data.x, y: data.y };
+        }}
         onStop={(e, data) => {
           if (shouldDeleteOnDrop && shouldDeleteOnDrop(e)) {
             deleteNote(note.id);
@@ -347,6 +384,8 @@ export const NoteCard = React.memo(({
               position: { x: data.x, y: data.y },
             });
           }
+          // Reset after a short delay to allow click to check
+          setTimeout(() => { isDraggingRef.current = false; }, 50);
         }}
       >
 
@@ -360,133 +399,38 @@ export const NoteCard = React.memo(({
           <Card 
             className={`note-card group shadow-md ${colorScheme.bg} ${colorScheme.border} border-2 overflow-hidden relative ${isConnecting ? 'cursor-pointer hover:ring-2 hover:ring-primary' : ''} ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}`}
             style={{ height: `${noteSize.height}px`, display: 'flex', flexDirection: 'column' }}
-            onClick={handleConnectionClick}
+            onClick={(e) => {
+              handleConnectionClick(e);
+              if (!isDraggingRef.current) {
+                onNoteClick?.(note);
+              }
+            }}
           >
             {/* Header */}
-            <div className="drag-handle px-4 py-3 bg-card/50 backdrop-blur-sm flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-border flex-shrink-0">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                {isEditing ? (
-                  <Input
-                    value={title}
-                    onChange={(e) => {
-                      const newTitle = e.target.value;
-                      setTitle(newTitle);
-                      updateNote(note.id, { title: newTitle });
-                    }}
-                    className="h-7 text-sm font-semibold"
-                    autoFocus
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                ) : (
-                  <h3 className="font-semibold text-sm truncate">{title}</h3>
-                )}
-              </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {/* Reader Mode */}
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-7 w-7"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleReaderOpen();
+            <div className="drag-handle px-4 py-3 bg-card/50 backdrop-blur-sm flex items-center gap-2 cursor-grab active:cursor-grabbing border-b border-border flex-shrink-0">
+              <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              {isEditing ? (
+                <Input
+                  value={title}
+                  onChange={(e) => {
+                    const newTitle = e.target.value;
+                    setTitle(newTitle);
+                    updateNote(note.id, { title: newTitle });
                   }}
-                  title="Open as document"
-                >
-                  <Expand className="h-4 w-4" />
-                </Button>
-
-                {/* Image Upload */}
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-7 w-7"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                >
-                  <ImageIcon className="h-4 w-4" />
-                </Button>
-
-                {/* Duplicate Note */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDuplicate();
-                  }}
-                  title="Duplicate note"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUploadLocal}
+                  className="h-7 text-sm font-semibold flex-1"
+                  autoFocus
+                  onClick={(e) => e.stopPropagation()}
                 />
-
-                {/* Color Picker */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <Palette className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
-                    {NOTE_COLORS.map(color => (
-                      <DropdownMenuItem
-                        key={color.name}
-                        onClick={() => handleColorChange(color.name)}
-                        className="flex items-center gap-2"
-                      >
-                        <div className={`w-4 h-4 rounded-sm ${color.bg} ${color.border} border-2`}></div>
-                        <span className="capitalize">{color.name}</span>
-                        {note.color === color.name && <Check className="h-4 w-4 ml-auto" />}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {/* Folder Menu */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <FolderOpen className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenuItem onClick={() => handleFolderChange(null)}>
-                      <span>No Folder</span>
-                      {!note.folderId && <Check className="h-4 w-4 ml-auto" />}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    {folders.map(folder => (
-                      <DropdownMenuItem
-                        key={folder.id}
-                        onClick={() => handleFolderChange(folder.id)}
-                      >
-                        <span>{folder.name}</span>
-                        {note.folderId === folder.id && <Check className="h-4 w-4 ml-auto" />}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleDelete}
-                  className="h-7 w-7 hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              ) : (
+                <h3 className="font-semibold text-sm truncate flex-1">{title}</h3>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUploadLocal}
+              />
             </div>
 
             {/* Scrollable Content Area */}
@@ -571,7 +515,7 @@ export const NoteCard = React.memo(({
       </Draggable>
 
       {/* Reader Mode Dialog */}
-      <Dialog open={showReaderMode} onOpenChange={setShowReaderMode}>
+      <Dialog open={showReaderMode} onOpenChange={handleReaderClose}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">{title}</DialogTitle>

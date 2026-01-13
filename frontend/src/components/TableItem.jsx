@@ -4,8 +4,9 @@ import { X, Plus, Minus, Maximize2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 
-export const TableItem = React.memo(({ table, updateTable, deleteTable, zoom = 1, shouldDeleteOnDrop }) => {
+export const TableItem = React.memo(({ table, updateTable, deleteTable, zoom = 1, shouldDeleteOnDrop, isSelected, onMultiDrag, selectedCount = 0 }) => {
   const nodeRef = useRef(null);
+  const lastDragPosRef = useRef({ x: 0, y: 0 });
   const [data, setData] = useState(
     table.data || [['', '', ''], ['', '', ''], ['', '', '']]
   );
@@ -76,6 +77,17 @@ export const TableItem = React.memo(({ table, updateTable, deleteTable, zoom = 1
       nodeRef={nodeRef}
       position={table.position}
       scale={zoom}
+      onStart={(e, data) => {
+        lastDragPosRef.current = { x: data.x, y: data.y };
+      }}
+      onDrag={(e, data) => {
+        if (isSelected && selectedCount > 1 && onMultiDrag) {
+          const deltaX = data.x - lastDragPosRef.current.x;
+          const deltaY = data.y - lastDragPosRef.current.y;
+          onMultiDrag(deltaX, deltaY);
+        }
+        lastDragPosRef.current = { x: data.x, y: data.y };
+      }}
       onStop={(e, data) => {
         if (shouldDeleteOnDrop && shouldDeleteOnDrop(e)) {
           deleteTable(table.id);
@@ -89,7 +101,7 @@ export const TableItem = React.memo(({ table, updateTable, deleteTable, zoom = 1
 
       <div
         ref={nodeRef}
-        className="absolute cursor-move"
+        className={`absolute cursor-move ${isSelected ? 'ring-2 ring-primary ring-offset-2 rounded-lg' : ''}`}
         style={{
           width: table.size?.width || 400,
           zIndex: 12

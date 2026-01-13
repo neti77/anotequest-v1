@@ -12,8 +12,11 @@ export const ImageItem = React.memo(({
   isSelected,
   zoom = 1,
   shouldDeleteOnDrop,
+  onMultiDrag,
+  selectedCount = 0,
 }) => {
   const nodeRef = useRef(null);
+  const lastDragPosRef = useRef({ x: 0, y: 0 });
 
   const handleResize = (e) => {
     e.stopPropagation();
@@ -58,6 +61,17 @@ export const ImageItem = React.memo(({
       scale={zoom}
       disabled={isConnecting}
       cancel="button, [data-no-drag]"
+      onStart={(e, data) => {
+        lastDragPosRef.current = { x: data.x, y: data.y };
+      }}
+      onDrag={(e, data) => {
+        if (isSelected && selectedCount > 1 && onMultiDrag) {
+          const deltaX = data.x - lastDragPosRef.current.x;
+          const deltaY = data.y - lastDragPosRef.current.y;
+          onMultiDrag(deltaX, deltaY);
+        }
+        lastDragPosRef.current = { x: data.x, y: data.y };
+      }}
       onStop={(e, data) => {
         if (shouldDeleteOnDrop && shouldDeleteOnDrop(e)) {
           deleteImage(image.id);

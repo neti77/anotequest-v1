@@ -1,7 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { 
   StickyNote, 
-  Pencil, 
+  Pencil,
+  Minus,
+  ArrowRight,
+  Circle,
+  Link2,
   Sticker, 
   Folder, 
   ImagePlus, 
@@ -12,12 +16,32 @@ import {
   Table,
   CheckSquare,
   Trash2,
+  Expand,
+  Copy,
+  Palette,
+  FolderOpen,
+  Check,
+  X,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from './ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from './ui/tooltip';
 import { toast } from 'sonner';
 import imageCompression from 'browser-image-compression';
 
@@ -30,6 +54,14 @@ const STICKER_TYPES = [
   { type: 'heart', icon: '♡', label: 'Heart' },
 ];
 
+const NOTE_COLORS = [
+  { name: 'default', bg: 'bg-card', border: 'border-border' },
+  { name: 'pink', bg: 'bg-secondary/30', border: 'border-secondary' },
+  { name: 'lavender', bg: 'bg-accent/30', border: 'border-accent' },
+  { name: 'mint', bg: 'bg-primary/30', border: 'border-primary' },
+  { name: 'peach', bg: 'bg-muted/50', border: 'border-muted-foreground' },
+];
+
 const COLORS = [
   '#3b82f6', '#ef4444', '#22c55e', '#eab308', '#8b5cf6', '#f97316',
   '#ec4899', '#14b8a6', '#000000', '#6b7280'
@@ -37,9 +69,10 @@ const COLORS = [
 
 export const ToolStrip = ({ 
   onAddNote, 
-  onToggleDrawing, 
-  isDrawing,
+  drawingTool,
+  setDrawingTool,
   addSticker,
+  onAddSource,
   addNoteSticker,
   folders,
   notes,
@@ -52,12 +85,20 @@ export const ToolStrip = ({
   onAddImage,
   onAddTable,
   onAddTodo,
+  activeNote,
+  onClearActiveNote,
+  updateNote,
+  deleteNote,
+  onOpenReaderMode,
 }) => {
   const [expandedTool, setExpandedTool] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [stickerColor, setStickerColor] = useState('#3b82f6');
   const [newFolderName, setNewFolderName] = useState('');
   const [showFolderInput, setShowFolderInput] = useState(false);
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const noteImageInputRef = useRef(null);
+  const [newLinkTitle, setNewLinkTitle] = useState('');
   const fileInputRef = useRef(null);
 
   const handleToolClick = (tool) => {
@@ -89,6 +130,23 @@ export const ToolStrip = ({
       setShowFolderInput(false);
       toast.success('Folder created!');
     }
+  };
+
+  const handleAddSourceClick = () => {
+    if (!onAddSource) return;
+    let url = newLinkUrl.trim();
+    const title = newLinkTitle.trim();
+    if (!url) return;
+
+    // Ensure URL has a protocol so it opens as an external site, not a local route
+    if (!/^https?:\/\//i.test(url)) {
+      url = `https://${url}`;
+    }
+
+    onAddSource({ url, title });
+    setNewLinkUrl('');
+    setNewLinkTitle('');
+    toast.success('Source added to canvas!');
   };
 
   const handleImageClick = () => {
@@ -211,89 +269,186 @@ export const ToolStrip = ({
   }
 
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="fixed left-4 top-1/2 -translate-y-1/2 z-40 flex gap-2">
       {/* Main Tool Strip */}
       <div className="bg-card/90 backdrop-blur-md rounded-xl shadow-xl border border-border/50 p-2 flex flex-col gap-1">
         {/* Collapse Button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 mb-1"
-          onClick={() => setIsCollapsed(true)}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 mb-1"
+              onClick={() => setIsCollapsed(true)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Collapse toolbar</p>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Add Note */}
-        <Button
-          variant={expandedTool === 'note' ? 'default' : 'ghost'}
-          size="icon"
-          className="h-10 w-10 rounded-lg"
-          onClick={() => {
-            onAddNote();
-            toast.success('Note created!');
-          }}
-          title="Add Note"
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData('application/anotequest-item', JSON.stringify({ kind: 'note' }));
-            e.dataTransfer.effectAllowed = 'copy';
-          }}
-        >
-          <Plus className="h-5 w-5" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={expandedTool === 'note' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-10 w-10 rounded-lg"
+              onClick={() => {
+                onAddNote();
+                toast.success('Note created!');
+              }}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/anotequest-item', JSON.stringify({ kind: 'note' }));
+                e.dataTransfer.effectAllowed = 'copy';
+              }}
+            >
+              <Plus className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Add a note</p>
+          </TooltipContent>
+        </Tooltip>
 
-        {/* Draw */}
-        <Button
-          variant={isDrawing ? 'default' : 'ghost'}
-          size="icon"
-          className="h-10 w-10 rounded-lg"
-          onClick={onToggleDrawing}
-          title="Draw"
-        >
-          <Pencil className="h-5 w-5" />
-        </Button>
+        {/* Freehand Draw */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={drawingTool === 'freehand' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-10 w-10 rounded-lg"
+              onClick={() =>
+                setDrawingTool(drawingTool === 'freehand' ? null : 'freehand')
+              }
+            >
+              <Pencil className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Freehand draw</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Straight Line */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={drawingTool === 'line' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-10 w-10 rounded-lg"
+              onClick={() =>
+                setDrawingTool(drawingTool === 'line' ? null : 'line')
+              }
+            >
+              <Minus className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Draw a line</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Arrow */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={drawingTool === 'arrow' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-10 w-10 rounded-lg"
+              onClick={() =>
+                setDrawingTool(drawingTool === 'arrow' ? null : 'arrow')
+              }
+            >
+              <ArrowRight className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Draw an arrow</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Circle / Ellipse */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={drawingTool === 'ellipse' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-10 w-10 rounded-lg"
+              onClick={() =>
+                setDrawingTool(drawingTool === 'ellipse' ? null : 'ellipse')
+              }
+            >
+              <Circle className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Draw a circle</p>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Stickers */}
-        <Button
-          variant={expandedTool === 'stickers' ? 'default' : 'ghost'}
-          size="icon"
-          className="h-10 w-10 rounded-lg"
-          onClick={() => handleToolClick('stickers')}
-          title="Stickers"
-        >
-          <Sticker className="h-5 w-5" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={expandedTool === 'stickers' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-10 w-10 rounded-lg"
+              onClick={() => handleToolClick('stickers')}
+            >
+              <Sticker className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Stickers</p>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Note Sticker (yellow sticky) */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 rounded-lg"
-          onClick={() => {
-            addNoteSticker();
-            toast.success('Note sticker added!');
-          }}
-          title="Note sticker"
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData('application/anotequest-item', JSON.stringify({ kind: 'noteSticker' }));
-            e.dataTransfer.effectAllowed = 'copy';
-          }}
-        >
-          <StickyNote className="h-5 w-5 text-amber-400" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-lg"
+              onClick={() => {
+                addNoteSticker();
+                toast.success('Note sticker added!');
+              }}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/anotequest-item', JSON.stringify({ kind: 'noteSticker' }));
+                e.dataTransfer.effectAllowed = 'copy';
+              }}
+            >
+              <StickyNote className="h-5 w-5 text-amber-400" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Add sticky note</p>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Upload Image */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 rounded-lg"
-          onClick={handleImageClick}
-          title="Upload Image"
-        >
-          <ImagePlus className="h-5 w-5" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-lg"
+              onClick={handleImageClick}
+            >
+              <ImagePlus className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Upload image</p>
+          </TooltipContent>
+        </Tooltip>
         <input
           ref={fileInputRef}
           type="file"
@@ -303,61 +458,255 @@ export const ToolStrip = ({
         />
 
         {/* Add Table */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 rounded-lg"
-          onClick={handleAddTable}
-          title="Add Table"
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData('application/anotequest-item', JSON.stringify({ kind: 'table' }));
-            e.dataTransfer.effectAllowed = 'copy';
-          }}
-        >
-          <Table className="h-5 w-5" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-lg"
+              onClick={handleAddTable}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/anotequest-item', JSON.stringify({ kind: 'table' }));
+                e.dataTransfer.effectAllowed = 'copy';
+              }}
+            >
+              <Table className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Add a table</p>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Add Todo List */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 rounded-lg"
-          onClick={handleAddTodo}
-          title="Add Todo List"
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData('application/anotequest-item', JSON.stringify({ kind: 'todo' }));
-            e.dataTransfer.effectAllowed = 'copy';
-          }}
-        >
-          <CheckSquare className="h-5 w-5" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-lg"
+              onClick={handleAddTodo}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('application/anotequest-item', JSON.stringify({ kind: 'todo' }));
+                e.dataTransfer.effectAllowed = 'copy';
+              }}
+            >
+              <CheckSquare className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Add todo list</p>
+          </TooltipContent>
+        </Tooltip>
 
-        {/* Folders */}
-        <Button
-          variant={expandedTool === 'folders' ? 'default' : 'ghost'}
-          size="icon"
-          className="h-10 w-10 rounded-lg"
-          onClick={() => handleToolClick('folders')}
-          title="Folders"
-        >
-          <Folder className="h-5 w-5" />
-        </Button>
+        {/* Links / Sources */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={expandedTool === 'links' ? 'default' : 'ghost'}
+              size="icon"
+              className="h-10 w-10 rounded-lg"
+              onClick={() => handleToolClick('links')}
+            >
+              <Link2 className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Add links / sources</p>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Characters - Using emoji face (temporarily disabled if no handler) */}
         {onToggleCharacters && (
-          <Button
-            variant={characterPanelOpen ? 'default' : 'ghost'}
-            size="icon"
-            className="h-10 w-10 rounded-lg text-lg"
-            onClick={onToggleCharacters}
-            title="Characters"
-          >
-            🧙
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={characterPanelOpen ? 'default' : 'ghost'}
+                size="icon"
+                className="h-10 w-10 rounded-lg text-lg"
+                onClick={onToggleCharacters}
+              >
+                🧙
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Characters</p>
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
+
+      {/* Note Tools Panel - shown when a note is selected */}
+      {activeNote && (
+        <Card className="bg-card/95 backdrop-blur-md shadow-xl border border-border/50 p-2 w-36 animate-in slide-in-from-left-2">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-muted-foreground">Note Tools</h3>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={onClearActiveNote}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+          <p className="text-[10px] font-medium truncate mb-2 text-foreground">{activeNote.title || 'Untitled'}</p>
+          
+          <div className="space-y-0.5">
+            {/* Reader Mode */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-7 text-[11px] px-2"
+              onClick={() => {
+                if (activeNote && onOpenReaderMode) {
+                  onOpenReaderMode(activeNote.id);
+                }
+              }}
+            >
+              <Expand className="h-3 w-3 mr-1.5" />
+              Reader
+            </Button>
+
+            {/* Add Image */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-7 text-[11px] px-2"
+              onClick={() => noteImageInputRef.current?.click()}
+            >
+              <ImageIcon className="h-3 w-3 mr-1.5" />
+              Image
+            </Button>
+            <input
+              ref={noteImageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file || !activeNote) return;
+                try {
+                  const compressed = await imageCompression(file, { maxSizeMB: 0.5, maxWidthOrHeight: 800 });
+                  const reader = new FileReader();
+                  reader.onload = (ev) => {
+                    const newImage = { id: Date.now(), data: ev.target.result };
+                    updateNote(activeNote.id, {
+                      images: [...(activeNote.images || []), newImage]
+                    });
+                    toast.success('Image added!');
+                  };
+                  reader.readAsDataURL(compressed);
+                } catch (err) {
+                  toast.error('Failed to add image');
+                }
+                e.target.value = '';
+              }}
+            />
+
+            {/* Duplicate */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-7 text-[11px] px-2"
+              onClick={() => {
+                const basePosition = activeNote.position || { x: 200, y: 160 };
+                onAddNote({
+                  title: activeNote.title || 'New Note',
+                  content: activeNote.content,
+                  size: activeNote.size,
+                  color: activeNote.color,
+                  images: [...(activeNote.images || [])],
+                  position: {
+                    x: basePosition.x + 40,
+                    y: basePosition.y + 40,
+                  },
+                  folderId: activeNote.folderId,
+                });
+                toast.success('Note duplicated');
+              }}
+            >
+              <Copy className="h-3 w-3 mr-1.5" />
+              Duplicate
+            </Button>
+
+            {/* Color Picker */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-full justify-start h-7 text-[11px] px-2">
+                  <Palette className="h-3 w-3 mr-1.5" />
+                  Color
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {NOTE_COLORS.map(color => (
+                  <DropdownMenuItem
+                    key={color.name}
+                    onClick={() => {
+                      updateNote(activeNote.id, { color: color.name });
+                      toast.success('Color updated!');
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <div className={`w-4 h-4 rounded-sm ${color.bg} ${color.border} border-2`}></div>
+                    <span className="capitalize">{color.name}</span>
+                    {activeNote.color === color.name && <Check className="h-4 w-4 ml-auto" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Folder */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-full justify-start h-7 text-[11px] px-2">
+                  <FolderOpen className="h-3 w-3 mr-1.5" />
+                  Folder
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => {
+                  updateNote(activeNote.id, { folderId: null });
+                  toast.success('Moved to All Notes');
+                }}>
+                  <span>No Folder</span>
+                  {!activeNote.folderId && <Check className="h-4 w-4 ml-auto" />}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {folders.map(folder => (
+                  <DropdownMenuItem
+                    key={folder.id}
+                    onClick={() => {
+                      updateNote(activeNote.id, { folderId: folder.id });
+                      toast.success('Moved to folder!');
+                    }}
+                  >
+                    <span>{folder.name}</span>
+                    {activeNote.folderId === folder.id && <Check className="h-4 w-4 ml-auto" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Delete */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-7 text-[11px] px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => {
+                deleteNote(activeNote.id);
+                onClearActiveNote();
+                toast.success('Note deleted');
+              }}
+            >
+              <Trash2 className="h-3 w-3 mr-1.5" />
+              Delete
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* Expanded Panel */}
       {expandedTool && (
@@ -400,100 +749,48 @@ export const ToolStrip = ({
             </div>
           )}
 
-          {/* Folders Panel */}
-          {expandedTool === 'folders' && (
+          {/* Links / Sources Panel */}
+          {expandedTool === 'links' && (
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold text-muted-foreground">Folders</h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => setShowFolderInput(!showFolderInput)}
-                >
-                  <FolderPlus className="h-3.5 w-3.5" />
-                </Button>
+              <h3 className="text-xs font-semibold mb-2 text-muted-foreground">Save a source</h3>
+              <div className="space-y-2 mb-2">
+                <Input
+                  value={newLinkUrl}
+                  onChange={(e) => setNewLinkUrl(e.target.value)}
+                  placeholder="https://example.com/article"
+                  className="h-7 text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddSourceClick();
+                    }
+                  }}
+                />
+                <Input
+                  value={newLinkTitle}
+                  onChange={(e) => setNewLinkTitle(e.target.value)}
+                  placeholder="Optional title"
+                  className="h-7 text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddSourceClick();
+                    }
+                  }}
+                />
               </div>
-
-              {showFolderInput && (
-                <div className="flex gap-1 mb-2">
-                  <Input
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                    placeholder="Name"
-                    className="h-7 text-xs"
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddFolder()}
-                    autoFocus
-                  />
-                  <Button size="sm" onClick={handleAddFolder} className="h-7 px-2 text-xs">
-                    Add
-                  </Button>
-                </div>
-              )}
-
-              <ScrollArea className="max-h-48">
-                <div className="space-y-1">
-                  <button
-                    className={`w-full text-left px-2 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${
-                      activeFolder === null ? 'bg-primary/20 text-primary' : 'hover:bg-muted'
-                    }`}
-                    onClick={() => setActiveFolder(null)}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <StickyNote className="h-3.5 w-3.5" />
-                      All Notes
-                    </span>
-                    <Badge variant="secondary" className="text-[10px] h-4 px-1">
-                      {notes.length}
-                    </Badge>
-                  </button>
-
-                  {folders.map(folder => (
-                    <div
-                      key={folder.id}
-                      className={`w-full px-2 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${
-                        activeFolder === folder.id ? 'bg-primary/20 text-primary' : 'hover:bg-muted'
-                      }`}
-                    >
-                      <button
-                        className="flex items-center gap-1.5 truncate flex-1 text-left"
-                        onClick={() => setActiveFolder(folder.id)}
-                      >
-                        <Folder className="h-3.5 w-3.5 flex-shrink-0" />
-                        {folder.name}
-                      </button>
-                      <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                        <Badge variant="outline" className="text-[10px] h-4 px-1">
-                          {getFolderNoteCount(folder.id)}
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5 text-destructive/80 hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteFolder(folder);
-                          }}
-                          title="Delete folder"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {folders.length === 0 && !showFolderInput && (
-                    <p className="text-xs text-muted-foreground text-center py-2">
-                      No folders yet
-                    </p>
-                  )}
-                </div>
-              </ScrollArea>
+              <Button
+                size="sm"
+                className="w-full h-7 text-xs"
+                onClick={handleAddSourceClick}
+                disabled={!newLinkUrl.trim()}
+              >
+                Add to canvas
+              </Button>
             </div>
           )}
         </Card>
       )}
     </div>
+    </TooltipProvider>
   );
 };
 

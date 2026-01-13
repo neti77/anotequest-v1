@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Moon, Sun, BookOpen, Swords, Crown, Pencil, Search, Undo2, Redo2, X, Download, FileText } from 'lucide-react';
+import { Moon, Sun, BookOpen, Swords, Crown, Pencil, Search, Undo2, Redo2, X, Download, FileText, Folder, ChevronDown, FolderPlus, Home, Check, Trash2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
-import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Link } from "react-router-dom";
@@ -12,6 +11,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from './ui/dropdown-menu';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
@@ -33,18 +33,41 @@ export const Header = ({
   tables = [],
   todos = [],
   showBattle = false,
+  // Folder props
+  folders = [],
+  activeFolder,
+  setActiveFolder,
+  addFolder,
+  deleteFolder,
+  showFolderView,
+  setShowFolderView,
 }) => {
   const { theme, setTheme } = useTheme();
   const [showSearch, setShowSearch] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const currentLevelXP = stats.xp - ((stats.level - 1) * 100);
-  const progressPercent = (currentLevelXP / 100) * 100;
+  const [newFolderName, setNewFolderName] = useState('');
+  const [isAddingFolder, setIsAddingFolder] = useState(false);
+
+  const currentFolder = folders.find(f => f.id === activeFolder);
 
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes}m`;
+  };
+
+  const handleAddFolder = () => {
+    if (newFolderName.trim()) {
+      addFolder(newFolderName.trim());
+      setNewFolderName('');
+      setIsAddingFolder(false);
+      toast.success('Folder created!');
+    }
+  };
+
+  const getFolderNoteCount = (folderId) => {
+    return notes.filter(note => note.folderId === folderId).length;
   };
 
   const exportToPDF = async () => {
@@ -208,16 +231,88 @@ export const Header = ({
             </Badge>
           )}
 
-          {/* XP Bar - Hidden on small screens */}
-          <div className="hidden lg:flex items-center gap-3 bg-muted/30 rounded-md px-4 py-1.5 min-w-[160px]">
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium">Lv {stats.level}</span>
-                <span className="text-xs text-muted-foreground">{currentLevelXP}/100</span>
-              </div>
-              <Progress value={progressPercent} className="h-1.5" />
-            </div>
-          </div>
+          {/* Folder Navigation */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="gap-2 h-8 px-3 min-w-[120px] justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <Folder className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium truncate max-w-[100px]">
+                    {currentFolder ? currentFolder.name : 'All Notes'}
+                  </span>
+                </div>
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-56">
+              <DropdownMenuItem 
+                onClick={() => setActiveFolder(null)}
+                className="gap-2"
+              >
+                <Home className="h-4 w-4" />
+                <span className="flex-1">All Notes</span>
+                <Badge variant="secondary" className="text-xs">{notes.length}</Badge>
+                {activeFolder === null && <Check className="h-4 w-4 text-primary" />}
+              </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              
+              {folders.map(folder => (
+                <DropdownMenuItem 
+                  key={folder.id}
+                  onClick={() => setActiveFolder(folder.id)}
+                  className="gap-2 group"
+                >
+                  <Folder className="h-4 w-4 text-accent" />
+                  <span className="flex-1 truncate">{folder.name}</span>
+                  <Badge variant="outline" className="text-xs">{getFolderNoteCount(folder.id)}</Badge>
+                  {activeFolder === folder.id && <Check className="h-4 w-4 text-primary" />}
+                </DropdownMenuItem>
+              ))}
+              
+              {folders.length > 0 && <DropdownMenuSeparator />}
+              
+              {/* Add new folder */}
+              {isAddingFolder ? (
+                <div className="px-2 py-1.5">
+                  <div className="flex gap-1">
+                    <Input
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      placeholder="Folder name"
+                      className="h-7 text-sm"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleAddFolder();
+                        if (e.key === 'Escape') {
+                          setIsAddingFolder(false);
+                          setNewFolderName('');
+                        }
+                      }}
+                    />
+                    <Button size="sm" className="h-7 px-2" onClick={handleAddFolder}>
+                      Add
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <DropdownMenuItem onClick={() => setIsAddingFolder(true)} className="gap-2">
+                  <FolderPlus className="h-4 w-4" />
+                  <span>New Folder</span>
+                </DropdownMenuItem>
+              )}
+              
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuItem onClick={() => setShowFolderView(true)} className="gap-2">
+                <Folder className="h-4 w-4" />
+                <span>View All Folders</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Time - Hidden on small screens */}
           <Badge variant="outline" className="text-xs hidden md:flex">

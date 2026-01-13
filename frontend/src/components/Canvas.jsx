@@ -1,12 +1,19 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { ZoomIn, ZoomOut, RotateCcw, Trash2 } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Trash2, MousePointer2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from './ui/tooltip';
 import NoteCard from './NoteCard';
 import StickerItem from './StickerItem';
 import ImageItem from './ImageItem';
 import TableItem from './TableItem';
 import TodoItem from './TodoItem';
+import SourceItem from './SourceItem';
 import CharacterRoamer from './CharacterRoamer';
 import DrawingCanvas from './DrawingCanvas';
 import NoteSticker from './NoteSticker';
@@ -21,8 +28,12 @@ export const Canvas = ({
   images = [],
   tables = [],
   todos = [],
+  sources = [],
   drawings,
   setDrawings,
+  drawingTool,
+  updateSource,
+  deleteSource,
   characters,
   addNote, 
   updateNote, 
@@ -51,6 +62,9 @@ export const Canvas = ({
   deleteNoteSticker,
   // Opens the trash modal in parent
   onOpenTrash,
+  onNoteClick,
+  readerModeNoteId,
+  onReaderModeClosed,
 }) => {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -58,6 +72,12 @@ export const Canvas = ({
   const [canvasSize, setCanvasSize] = useState({ width: 1600, height: 1000 });
   const [zoom, setZoom] = useState(1);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+
+  // Multi-select state
+  const [selectedItems, setSelectedItems] = useState([]); // Array of { type, id }
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectionBox, setSelectionBox] = useState(null); // { startX, startY, currentX, currentY }
+  const [selectMode, setSelectMode] = useState(false); // Toggle select mode on/off
 
   // Touch pinch-zoom state (for iPad/phones)
   const pinchState = useRef({
@@ -91,6 +111,7 @@ export const Canvas = ({
     images.forEach(image => consider(image, 300, 200));
     tables.forEach(table => consider(table, 400, 200));
     todos.forEach(todo => consider(todo, 280, 200));
+    sources.forEach(source => consider(source, 260, 120));
 
     const targetWidth = Math.max(minWidth, maxX + padding);
     const targetHeight = Math.max(minHeight, maxY + padding);
@@ -206,6 +227,262 @@ export const Canvas = ({
       return () => container.removeEventListener('wheel', handleWheel);
     }
   }, [handleWheel]);
+
+  // Multi-select box logic
+  const getCanvasCoordinates = useCallback((clientX, clientY) => {
+    if (!canvasRef.current) return { x: 0, y: 0 };
+    const rect = canvasRef.current.getBoundingClientRect();
+    // rect already accounts for scroll position, just need to account for zoom
+    return {
+      x: (clientX - rect.left) / zoom,
+      y: (clientY - rect.top) / zoom
+    };
+  }, [zoom]);
+
+  const handleCanvasMouseDown = useCallback((e) => {
+    // Only start selection if in select mode and clicking directly on canvas (not an item)
+    if (!selectMode) return;
+    if (drawingTool) return; // Don't select while drawing
+    
+    // Check if clicking on an item - if so, don't start selection box
+    const target = e.target;
+    if (target !== canvasRef.current && !target.hasAttribute('data-anotequest-canvas-board')) {
+      return;
+    }
+
+    // Prevent default to stop text selection
+    e.preventDefault();
+
+    const coords = getCanvasCoordinates(e.clientX, e.clientY);
+    setIsSelecting(true);
+    setSelectionBox({
+      startX: coords.x,
+      startY: coords.y,
+      currentX: coords.x,
+      currentY: coords.y
+    });
+    // Clear selection when starting a new box
+    setSelectedItems([]);
+  }, [selectMode, drawingTool, getCanvasCoordinates]);
+
+  const handleCanvasMouseMove = useCallback((e) => {
+    if (!isSelecting || !selectionBox) return;
+    
+    // Prevent text selection while dragging
+    e.preventDefault();
+    
+    const coords = getCanvasCoordinates(e.clientX, e.clientY);
+    setSelectionBox(prev => ({
+      ...prev,
+      currentX: coords.x,
+      currentY: coords.y
+    }));
+  }, [isSelecting, selectionBox, getCanvasCoordinates]);
+
+  const handleCanvasMouseUp = useCallback(() => {
+    if (!isSelecting || !selectionBox) {
+      setIsSelecting(false);
+      setSelectionBox(null);
+      return;
+    }
+
+    // Calculate selection box bounds
+    const minX = Math.min(selectionBox.startX, selectionBox.currentX);
+    const maxX = Math.max(selectionBox.startX, selectionBox.currentX);
+    const minY = Math.min(selectionBox.startY, selectionBox.currentY);
+    const maxY = Math.max(selectionBox.startY, selectionBox.currentY);
+
+    // Check if box is too small (just a click)
+    if (maxX - minX < 10 && maxY - minY < 10) {
+      setIsSelecting(false);
+      setSelectionBox(null);
+      return;
+    }
+
+    // Find all items that intersect with the selection box
+    const newSelectedItems = [];
+
+    const intersects = (item, defaultWidth, defaultHeight) => {
+      if (!item?.position) return false;
+      const itemX = item.position.x;
+      const itemY = item.position.y;
+      const itemWidth = item.size?.width || defaultWidth;
+      const itemHeight = item.size?.height || defaultHeight;
+      
+      // Check if rectangles overlap
+      return !(itemX + itemWidth < minX || 
+               itemX > maxX || 
+               itemY + itemHeight < minY || 
+               itemY > maxY);
+    };
+
+    notes.forEach(note => {
+      if (intersects(note, 320, 200)) {
+        newSelectedItems.push({ type: 'note', id: note.id });
+      }
+    });
+
+    stickers.forEach(sticker => {
+      if (intersects(sticker, 60, 60)) {
+        newSelectedItems.push({ type: 'sticker', id: sticker.id });
+      }
+    });
+
+    noteStickers.forEach(sticker => {
+      if (intersects(sticker, 200, 160)) {
+        newSelectedItems.push({ type: 'noteSticker', id: sticker.id });
+      }
+    });
+
+    images.forEach(image => {
+      if (intersects(image, 300, 200)) {
+        newSelectedItems.push({ type: 'image', id: image.id });
+      }
+    });
+
+    tables.forEach(table => {
+      if (intersects(table, 400, 200)) {
+        newSelectedItems.push({ type: 'table', id: table.id });
+      }
+    });
+
+    todos.forEach(todo => {
+      if (intersects(todo, 280, 200)) {
+        newSelectedItems.push({ type: 'todo', id: todo.id });
+      }
+    });
+
+    sources.forEach(source => {
+      if (intersects(source, 260, 120)) {
+        newSelectedItems.push({ type: 'source', id: source.id });
+      }
+    });
+
+    setSelectedItems(newSelectedItems);
+    if (newSelectedItems.length > 0) {
+      toast.success(`Selected ${newSelectedItems.length} item${newSelectedItems.length > 1 ? 's' : ''}`);
+    }
+
+    setIsSelecting(false);
+    setSelectionBox(null);
+  }, [isSelecting, selectionBox, notes, stickers, noteStickers, images, tables, todos, sources]);
+
+  // Handle moving all selected items together
+  const handleMultiDrag = useCallback((deltaX, deltaY, draggedType, draggedId) => {
+    if (selectedItems.length <= 1) return;
+    
+    // Move all selected items except the one being dragged (it moves itself)
+    selectedItems.forEach(({ type, id }) => {
+      if (type === draggedType && id === draggedId) return; // Skip the dragged item
+      
+      switch (type) {
+        case 'note': {
+          const note = notes.find(n => n.id === id);
+          if (note) {
+            updateNote(id, {
+              position: {
+                x: note.position.x + deltaX,
+                y: note.position.y + deltaY
+              }
+            });
+          }
+          break;
+        }
+        case 'sticker': {
+          const sticker = stickers.find(s => s.id === id);
+          if (sticker) {
+            updateSticker(id, {
+              position: {
+                x: sticker.position.x + deltaX,
+                y: sticker.position.y + deltaY
+              }
+            });
+          }
+          break;
+        }
+        case 'noteSticker': {
+          const noteSticker = noteStickers.find(s => s.id === id);
+          if (noteSticker) {
+            updateNoteSticker(id, {
+              position: {
+                x: noteSticker.position.x + deltaX,
+                y: noteSticker.position.y + deltaY
+              }
+            });
+          }
+          break;
+        }
+        case 'image': {
+          const image = images.find(i => i.id === id);
+          if (image) {
+            updateImage(id, {
+              position: {
+                x: image.position.x + deltaX,
+                y: image.position.y + deltaY
+              }
+            });
+          }
+          break;
+        }
+        case 'table': {
+          const table = tables.find(t => t.id === id);
+          if (table) {
+            updateTable(id, {
+              position: {
+                x: table.position.x + deltaX,
+                y: table.position.y + deltaY
+              }
+            });
+          }
+          break;
+        }
+        case 'todo': {
+          const todo = todos.find(t => t.id === id);
+          if (todo) {
+            updateTodo(id, {
+              position: {
+                x: todo.position.x + deltaX,
+                y: todo.position.y + deltaY
+              }
+            });
+          }
+          break;
+        }
+        case 'source': {
+          const source = sources.find(s => s.id === id);
+          if (source) {
+            updateSource(id, {
+              position: {
+                x: source.position.x + deltaX,
+                y: source.position.y + deltaY
+              }
+            });
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    });
+  }, [selectedItems, notes, stickers, noteStickers, images, tables, todos, sources, 
+      updateNote, updateSticker, updateNoteSticker, updateImage, updateTable, updateTodo, updateSource]);
+
+  // Clear selection when clicking outside or pressing Escape
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setSelectedItems([]);
+        setSelectMode(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Check if an item is selected
+  const isItemSelected = useCallback((type, id) => {
+    return selectedItems.some(item => item.type === type && item.id === id);
+  }, [selectedItems]);
 
   // Drag and drop handling (images + internal items)
   const handleDragOver = (e) => {
@@ -452,6 +729,39 @@ export const Canvas = ({
   >
     <RotateCcw className="h-3 w-3" />
   </Button>
+
+  <div className="w-px h-4 bg-border mx-1" />
+
+  <TooltipProvider delayDuration={200}>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant={selectMode ? "default" : "ghost"}
+          size="icon"
+          className="h-6 w-6"
+          onClick={() => {
+            setSelectMode(!selectMode);
+            if (selectMode) {
+              setSelectedItems([]);
+            } else {
+              toast.info('Click and drag to select items');
+            }
+          }}
+        >
+          <MousePointer2 className="h-3.5 w-3.5" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        <p>{selectMode ? 'Exit select mode (Esc)' : 'Select multiple items'}</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+  
+  {selectedItems.length > 0 && (
+    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+      {selectedItems.length}
+    </Badge>
+  )}
 </div>
 
 
@@ -485,14 +795,17 @@ export const Canvas = ({
 
       <div 
         ref={containerRef}
-        className="w-full h-full overflow-auto"
+        className={`w-full h-full overflow-auto ${isSelecting ? 'select-none' : ''}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onMouseMove={handleCanvasMouseMove}
+        onMouseUp={handleCanvasMouseUp}
+        onMouseLeave={handleCanvasMouseUp}
       >
         <div 
           ref={canvasRef}
-          className="relative bg-gradient-to-br from-background via-primary/5 to-accent/5"
+          className={`relative bg-gradient-to-br from-background via-primary/5 to-accent/5 ${selectMode ? 'cursor-crosshair select-none' : ''}`}
           data-anotequest-canvas-board
           style={{
             width: `${canvasSize.width}px`,
@@ -500,9 +813,25 @@ export const Canvas = ({
             transform: `scale(${zoom})`,
             transformOrigin: 'top left',
             backgroundImage: `radial-gradient(circle at 2px 2px, hsl(var(--border)) 1px, transparent 0)`,
-            backgroundSize: '32px 32px'
+            backgroundSize: '32px 32px',
+            userSelect: selectMode ? 'none' : 'auto',
+            WebkitUserSelect: selectMode ? 'none' : 'auto',
           }}
+          onMouseDown={handleCanvasMouseDown}
         >
+          {/* Selection Box Overlay */}
+          {isSelecting && selectionBox && (
+            <div
+              className="absolute border-2 border-primary bg-primary/10 pointer-events-none z-50"
+              style={{
+                left: Math.min(selectionBox.startX, selectionBox.currentX),
+                top: Math.min(selectionBox.startY, selectionBox.currentY),
+                width: Math.abs(selectionBox.currentX - selectionBox.startX),
+                height: Math.abs(selectionBox.currentY - selectionBox.startY),
+              }}
+            />
+          )}
+
           {/* Drawing Canvas Layer */}
           <DrawingCanvas 
             canvasSize={canvasSize}
@@ -512,6 +841,7 @@ export const Canvas = ({
             onClose={onCloseDrawing}
             zoom={zoom}
             scrollContainerRef={containerRef}
+            drawingTool={drawingTool}
           />
 
           {/* Empty State */}
@@ -538,6 +868,12 @@ export const Canvas = ({
               folders={folders}
               zoom={zoom}
               shouldDeleteOnDrop={shouldDeleteOnDrop}
+              onNoteClick={onNoteClick}
+              openReaderMode={readerModeNoteId === note.id}
+              onReaderModeClosed={onReaderModeClosed}
+              isSelected={isItemSelected('note', note.id)}
+              onMultiDrag={(deltaX, deltaY) => handleMultiDrag(deltaX, deltaY, 'note', note.id)}
+              selectedCount={selectedItems.length}
             />
           ))}
 
@@ -550,6 +886,9 @@ export const Canvas = ({
               deleteSticker={deleteSticker}
               zoom={zoom}
               shouldDeleteOnDrop={shouldDeleteOnDrop}
+              isSelected={isItemSelected('sticker', sticker.id)}
+              onMultiDrag={(deltaX, deltaY) => handleMultiDrag(deltaX, deltaY, 'sticker', sticker.id)}
+              selectedCount={selectedItems.length}
             />
           ))}
 
@@ -562,6 +901,9 @@ export const Canvas = ({
               deleteImage={deleteImage}
               zoom={zoom}
               shouldDeleteOnDrop={shouldDeleteOnDrop}
+              isSelected={isItemSelected('image', image.id)}
+              onMultiDrag={(deltaX, deltaY) => handleMultiDrag(deltaX, deltaY, 'image', image.id)}
+              selectedCount={selectedItems.length}
             />
           ))}
 
@@ -574,6 +916,9 @@ export const Canvas = ({
               deleteTable={deleteTable}
               zoom={zoom}
               shouldDeleteOnDrop={shouldDeleteOnDrop}
+              isSelected={isItemSelected('table', table.id)}
+              onMultiDrag={(deltaX, deltaY) => handleMultiDrag(deltaX, deltaY, 'table', table.id)}
+              selectedCount={selectedItems.length}
             />
           ))}
 
@@ -586,6 +931,24 @@ export const Canvas = ({
               deleteTodo={deleteTodo}
               zoom={zoom}
               shouldDeleteOnDrop={shouldDeleteOnDrop}
+              isSelected={isItemSelected('todo', todo.id)}
+              onMultiDrag={(deltaX, deltaY) => handleMultiDrag(deltaX, deltaY, 'todo', todo.id)}
+              selectedCount={selectedItems.length}
+            />
+          ))}
+
+          {/* Render Sources / Links */}
+          {sources.map((source) => (
+            <SourceItem
+              key={source.id}
+              source={source}
+              updateSource={updateSource}
+              deleteSource={deleteSource}
+              zoom={zoom}
+              shouldDeleteOnDrop={shouldDeleteOnDrop}
+              isSelected={isItemSelected('source', source.id)}
+              onMultiDrag={(deltaX, deltaY) => handleMultiDrag(deltaX, deltaY, 'source', source.id)}
+              selectedCount={selectedItems.length}
             />
           ))}
 
@@ -598,6 +961,9 @@ export const Canvas = ({
               deleteNoteSticker={deleteNoteSticker}
               zoom={zoom}
               shouldDeleteOnDrop={shouldDeleteOnDrop}
+              isSelected={isItemSelected('noteSticker', sticker.id)}
+              onMultiDrag={(deltaX, deltaY) => handleMultiDrag(deltaX, deltaY, 'noteSticker', sticker.id)}
+              selectedCount={selectedItems.length}
             />
           ))}
 

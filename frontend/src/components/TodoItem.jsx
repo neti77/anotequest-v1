@@ -5,8 +5,9 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 
-export const TodoItem = React.memo(({ todo, updateTodo, deleteTodo, zoom = 1, shouldDeleteOnDrop }) => {
+export const TodoItem = React.memo(({ todo, updateTodo, deleteTodo, zoom = 1, shouldDeleteOnDrop, isSelected, onMultiDrag, selectedCount = 0 }) => {
   const nodeRef = useRef(null);
+  const lastDragPosRef = useRef({ x: 0, y: 0 });
   const [items, setItems] = useState(todo.items || [{ id: Date.now(), text: '', completed: false }]);
   const [title, setTitle] = useState(todo.title || 'Todo List');
   
@@ -84,6 +85,17 @@ export const TodoItem = React.memo(({ todo, updateTodo, deleteTodo, zoom = 1, sh
     <Draggable
       nodeRef={nodeRef}
       position={todo.position}
+      onStart={(e, data) => {
+        lastDragPosRef.current = { x: data.x, y: data.y };
+      }}
+      onDrag={(e, data) => {
+        if (isSelected && selectedCount > 1 && onMultiDrag) {
+          const deltaX = data.x - lastDragPosRef.current.x;
+          const deltaY = data.y - lastDragPosRef.current.y;
+          onMultiDrag(deltaX, deltaY);
+        }
+        lastDragPosRef.current = { x: data.x, y: data.y };
+      }}
       onStop={(e, data) => {
         if (shouldDeleteOnDrop && shouldDeleteOnDrop(e)) {
           deleteTodo(todo.id);
@@ -98,7 +110,7 @@ export const TodoItem = React.memo(({ todo, updateTodo, deleteTodo, zoom = 1, sh
 
       <div
         ref={nodeRef}
-        className="absolute group"
+        className={`absolute group ${isSelected ? 'ring-2 ring-primary ring-offset-2 rounded-lg' : ''}`}
         style={{
           width: todo.size?.width || 280,
           zIndex: 12

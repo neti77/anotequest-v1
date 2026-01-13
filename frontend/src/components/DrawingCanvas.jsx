@@ -9,7 +9,7 @@ const COLORS = [
   '#ec4899', '#14b8a6', '#000000', '#6b7280', '#ffffff'
 ];
 
-export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActive, onClose, zoom = 1, scrollContainerRef }) => {
+export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActive, onClose, zoom = 1, scrollContainerRef, drawingTool = 'freehand' }) => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
@@ -22,6 +22,8 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
     touchCount: 0,
     lastPanPosition: null
   });
+
+  const shapeStartRef = useRef(null);
 
   // Redraw canvas when drawings change
   useEffect(() => {
@@ -80,18 +82,30 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
   const handleMouseDown = (e) => {
     if (!isActive) return;
     e.preventDefault();
-    setIsDrawing(true);
     const rect = canvasRef.current.getBoundingClientRect();
     const pos = {
       x: (e.clientX - rect.left) / zoom,
       y: (e.clientY - rect.top) / zoom,
     };
-    setCurrentPath([pos]);
+
+    setIsDrawing(true);
+
+    if (drawingTool && drawingTool !== 'freehand') {
+      shapeStartRef.current = pos;
+    } else {
+      setCurrentPath([pos]);
+    }
   };
 
   const handleMouseMove = (e) => {
     if (!isDrawing || !isActive) return;
     e.preventDefault();
+
+    // For straight-line/shape tools we only care about start/end, no live ink drawing yet
+    if (drawingTool && drawingTool !== 'freehand') {
+      return;
+    }
+
     const rect = canvasRef.current.getBoundingClientRect();
     const pos = {
       x: (e.clientX - rect.left) / zoom,
@@ -101,8 +115,40 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
     drawStroke(pos);
   };
 
-  const handleMouseUp = () => {
-    finishDrawing();
+  const handleMouseUp = (e) => {
+    if (!isDrawing) return;
+
+    if (!isActive) {
+      setIsDrawing(false);
+      setCurrentPath([]);
+      shapeStartRef.current = null;
+      return;
+    }
+
+    if (drawingTool && drawingTool !== 'freehand') {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const endPos = {
+        x: (e.clientX - rect.left) / zoom,
+        y: (e.clientY - rect.top) / zoom,
+      };
+      const start = shapeStartRef.current;
+
+      if (start && (start.x !== endPos.x || start.y !== endPos.y)) {
+        const path = createShapePath(drawingTool, start, endPos);
+        if (path && path.length > 1) {
+          setDrawings(prev => [
+            ...prev,
+            { path, color, brushSize, isEraser: false, tool: drawingTool },
+          ]);
+        }
+      }
+
+      shapeStartRef.current = null;
+      setIsDrawing(false);
+      setCurrentPath([]);
+    } else {
+      finishDrawing();
+    }
   };
 
   // Touch handlers for iPad
@@ -114,9 +160,14 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
     if (touchCount === 1) {
       e.preventDefault();
       setIsPanning(false);
-      setIsDrawing(true);
       const pos = getPosition(e.touches[0]);
-      setCurrentPath([pos]);
+      setIsDrawing(true);
+
+      if (drawingTool && drawingTool !== 'freehand') {
+        shapeStartRef.current = pos;
+      } else {
+        setCurrentPath([pos]);
+      }
     } else if (touchCount === 2) {
       e.preventDefault();
       setIsDrawing(false);
@@ -135,6 +186,10 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
     const touchCount = e.touches.length;
     
     if (touchCount === 1 && isDrawing && !isPanning) {
+      // For straight-line/shape tools we only care about final endpoint
+      if (drawingTool && drawingTool !== 'freehand') {
+        return;
+      }
       e.preventDefault();
       const pos = getPosition(e.touches[0]);
       setCurrentPath(prev => [...prev, pos]);
@@ -167,8 +222,23 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
     const remainingTouches = e.touches.length;
     
     if (remainingTouches === 0) {
-      if (isDrawing && currentPath.length > 1) {
-        setDrawings(prev => [...prev, { path: currentPath, color, brushSize, isEraser }]);
+      if (isDrawing) {
+        if (drawingTool && drawingTool !== 'freehand') {
+          const touch = e.changedTouches && e.changedTouches[0];
+          if (shapeStartRef.current && touch) {
+            const endPos = getPosition(touch);
+            const path = createShapePath(drawingTool, shapeStartRef.current, endPos);
+            if (path && path.length > 1) {
+              setDrawings(prev => [
+                ...prev,
+                { path, color, brushSize, isEraser: false, tool: drawingTool },
+              ]);
+            }
+          }
+          shapeStartRef.current = null;
+        } else if (currentPath.length > 1) {
+          setDrawings(prev => [...prev, { path: currentPath, color, brushSize, isEraser }]);
+        }
       }
       setIsDrawing(false);
       setIsPanning(false);
@@ -179,7 +249,7 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
       setIsPanning(false);
       touchStateRef.current.lastPanPosition = null;
     }
-  }, [isDrawing, isPanning, currentPath, color, brushSize, isEraser, setDrawings, isActive]);
+  }, [isDrawing, isPanning, currentPath, color, brushSize, isEraser, setDrawings, isActive, drawingTool, getPosition]);
 
   const drawStroke = (pos) => {
     const ctx = canvasRef.current?.getContext('2d');
@@ -203,6 +273,74 @@ export const DrawingCanvas = ({ canvasSize, drawings, setDrawings, onPan, isActi
     ctx.moveTo(prevPoint.x, prevPoint.y);
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
+  };
+
+  const createShapePath = (type, start, end) => {
+    switch (type) {
+      case 'line':
+        return [start, end];
+      case 'arrow':
+        return createArrowPath(start, end);
+      case 'ellipse':
+        return createEllipsePath(start, end);
+      default:
+        return [start, end];
+    }
+  };
+
+  const createArrowPath = (start, end) => {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    if (!length) return [start, end];
+
+    const ux = dx / length;
+    const uy = dy / length;
+    const headLength = 12 + brushSize; // scale arrow head a bit with brush size
+    const angle = Math.PI / 7; // about 25 degrees
+
+    const tip = end;
+
+    const leftX =
+      tip.x - headLength * (ux * Math.cos(angle) + uy * Math.sin(angle));
+    const leftY =
+      tip.y - headLength * (uy * Math.cos(angle) - ux * Math.sin(angle));
+
+    const rightX =
+      tip.x - headLength * (ux * Math.cos(-angle) + uy * Math.sin(-angle));
+    const rightY =
+      tip.y - headLength * (uy * Math.cos(-angle) - ux * Math.sin(-angle));
+
+    return [
+      start,
+      end,
+      { x: leftX, y: leftY },
+      end,
+      { x: rightX, y: rightY },
+    ];
+  };
+
+  const createEllipsePath = (start, end) => {
+    const centerX = (start.x + end.x) / 2;
+    const centerY = (start.y + end.y) / 2;
+    const rx = Math.abs(end.x - start.x) / 2;
+    const ry = Math.abs(end.y - start.y) / 2;
+    const steps = 32;
+    const points = [];
+
+    if (rx === 0 && ry === 0) {
+      return [start, end];
+    }
+
+    for (let i = 0; i <= steps; i++) {
+      const t = (i / steps) * Math.PI * 2;
+      points.push({
+        x: centerX + rx * Math.cos(t),
+        y: centerY + ry * Math.sin(t),
+      });
+    }
+
+    return points;
   };
 
   const finishDrawing = () => {
