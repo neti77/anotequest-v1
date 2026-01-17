@@ -42,6 +42,7 @@ import {
   ChevronDown,
   Download,
   Sun,
+  Moon,
   Undo2,
   Redo2,
   GripVertical,
@@ -140,8 +141,49 @@ export default function App() {
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [showFolderDropdown, setShowFolderDropdown] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false);
   const [scale, setScale] = useState(1);
   const scrollViewRef = useRef<ScrollView>(null);
+  
+  // Undo/Redo history
+  const [history, setHistory] = useState<{ notes: Note[], todos: Todo[] }[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const maxHistoryLength = 50;
+
+  // Save current state to history
+  const saveToHistory = useCallback(() => {
+    setHistory(prev => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push({ notes: [...notes], todos: [...todos] });
+      if (newHistory.length > maxHistoryLength) {
+        newHistory.shift();
+        return newHistory;
+      }
+      return newHistory;
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, maxHistoryLength - 1));
+  }, [notes, todos, historyIndex]);
+
+  // Undo action
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      const prevState = history[historyIndex - 1];
+      setNotes(prevState.notes);
+      setTodos(prevState.todos);
+      setHistoryIndex(historyIndex - 1);
+    }
+  }, [history, historyIndex]);
+
+  // Redo action
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const nextState = history[historyIndex + 1];
+      setNotes(nextState.notes);
+      setTodos(nextState.todos);
+      setHistoryIndex(historyIndex + 1);
+    }
+  }, [history, historyIndex]);
 
   // Load data from AsyncStorage on mount
   useEffect(() => {
@@ -268,6 +310,7 @@ export default function App() {
 
   // Note functions
   const addNote = useCallback((noteData?: Partial<Note>) => {
+    saveToHistory();
     const newNote: Note = {
       id: Date.now(),
       title: noteData?.title || '',
@@ -281,7 +324,7 @@ export default function App() {
     setEditingNote(newNote);
     setStats((prev) => ({ ...prev, totalNotes: prev.totalNotes + 1, xp: prev.xp + 10 }));
     return newNote;
-  }, [activeFolder]);
+  }, [activeFolder, saveToHistory]);
 
   const updateNote = useCallback((id: number, updates: Partial<Note>) => {
     setNotes((prev) =>
@@ -290,6 +333,7 @@ export default function App() {
   }, []);
 
   const deleteNote = useCallback((id: number) => {
+    saveToHistory();
     const noteToDelete = notes.find((n) => n.id === id);
     if (noteToDelete) {
       setTrash((prev) => [
@@ -298,10 +342,11 @@ export default function App() {
       ]);
     }
     setNotes((prev) => prev.filter((n) => n.id !== id));
-  }, [notes]);
+  }, [notes, saveToHistory]);
 
   // Todo functions
   const addTodo = useCallback(() => {
+    saveToHistory();
     const newTodo: Todo = {
       id: Date.now(),
       title: 'New Checklist',
@@ -311,7 +356,7 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
     setTodos((prev) => [...prev, newTodo]);
-  }, [activeFolder]);
+  }, [activeFolder, saveToHistory]);
 
   const updateTodo = useCallback((id: number, updates: Partial<Todo>) => {
     setTodos((prev) =>
@@ -320,8 +365,9 @@ export default function App() {
   }, []);
 
   const deleteTodo = useCallback((id: number) => {
+    saveToHistory();
     setTodos((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  }, [saveToHistory]);
 
   // Folder functions
   const addFolder = useCallback(() => {
@@ -390,7 +436,7 @@ export default function App() {
   // State for sidebar
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
-  const [showFolderDropdown, setShowFolderDropdown] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   // Loading screen
   if (!isLoaded) {
@@ -408,142 +454,96 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" />
+      <SafeAreaView style={[styles.container, !isDarkMode && styles.containerLight]}>
+        <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
 
         {/* ===== HEADER ===== */}
-        <View style={styles.header}>
+        <View style={[styles.header, !isDarkMode && styles.headerLight]}>
           {/* Logo */}
           <View style={styles.headerLogo}>
             <Image source={require('./assets/logo.png')} style={styles.logoImage} />
           </View>
           
-          {/* Search */}
-          <Pressable style={styles.headerIconButton}>
-            <Search size={20} color="#9CA3AF" />
-          </Pressable>
-          
-          {/* Undo/Redo */}
-          <Pressable style={styles.headerIconButton}>
-            <Undo2 size={18} color="#6B7280" />
-          </Pressable>
-          <Pressable style={styles.headerIconButton}>
-            <Redo2 size={18} color="#6B7280" />
-          </Pressable>
+          {/* Spacer */}
+          <View style={{ flex: 1 }} />
           
           {/* Folder Dropdown */}
+          <View style={styles.folderDropdownWrapper}>
+            <Pressable 
+              style={[styles.folderDropdown, !isDarkMode && styles.folderDropdownLight]}
+              onPress={() => setShowFolderDropdown(!showFolderDropdown)}
+            >
+              <Folder size={14} color="#8B5CF6" />
+              <Text style={[styles.folderDropdownText, !isDarkMode && styles.folderDropdownTextLight]} numberOfLines={1}>
+                {activeFolderName}
+              </Text>
+              <ChevronDown size={12} color={isDarkMode ? "#6B7280" : "#9CA3AF"} style={showFolderDropdown && { transform: [{ rotate: '180deg' }] }} />
+            </Pressable>
+            
+            {/* Dropdown Menu */}
+            {showFolderDropdown && (
+              <View style={[styles.folderDropdownMenu, !isDarkMode && styles.folderDropdownMenuLight]}>
+                <Pressable 
+                  style={[styles.folderDropdownItem, !activeFolder && styles.folderDropdownItemActive]}
+                  onPress={() => { setActiveFolder(null); setShowFolderDropdown(false); }}
+                >
+                  <Folder size={14} color={!activeFolder ? "#8B5CF6" : (isDarkMode ? "#9CA3AF" : "#64748b")} />
+                  <Text style={[styles.folderDropdownItemText, !isDarkMode && styles.folderDropdownItemTextLight, !activeFolder && styles.folderDropdownItemTextActive]}>All Notes</Text>
+                </Pressable>
+                {folders.map((folder) => (
+                  <Pressable 
+                    key={folder.id}
+                    style={[styles.folderDropdownItem, activeFolder === folder.id && styles.folderDropdownItemActive]}
+                    onPress={() => { setActiveFolder(folder.id); setShowFolderDropdown(false); }}
+                  >
+                    <Folder size={14} color={activeFolder === folder.id ? "#8B5CF6" : (isDarkMode ? "#9CA3AF" : "#64748b")} />
+                    <Text style={[styles.folderDropdownItemText, !isDarkMode && styles.folderDropdownItemTextLight, activeFolder === folder.id && styles.folderDropdownItemTextActive]} numberOfLines={1}>{folder.name}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+          
+          {/* Spacer */}
+          <View style={{ flex: 1 }} />
+          
+          {/* Middle: Search, Undo, Redo */}
+          <Pressable style={styles.headerIconButton} onPress={() => setShowSearchModal(true)}>
+            <Search size={18} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
+          </Pressable>
           <Pressable 
-            style={styles.folderDropdown}
-            onPress={() => setShowFolderDropdown(!showFolderDropdown)}
+            style={[styles.headerIconButton, historyIndex <= 0 && styles.headerIconButtonDisabled]} 
+            onPress={handleUndo}
+            disabled={historyIndex <= 0}
           >
-            <Folder size={16} color="#9CA3AF" />
-            <Text style={styles.folderDropdownText}>{activeFolderName}</Text>
-            <ChevronDown size={16} color="#9CA3AF" />
+            <Undo2 size={18} color={historyIndex > 0 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
+          </Pressable>
+          <Pressable 
+            style={[styles.headerIconButton, historyIndex >= history.length - 1 && styles.headerIconButtonDisabled]} 
+            onPress={handleRedo}
+            disabled={historyIndex >= history.length - 1}
+          >
+            <Redo2 size={18} color={historyIndex < history.length - 1 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
           </Pressable>
           
-          {/* Right icons */}
-          <Pressable style={styles.headerIconButton}>
-            <Download size={18} color="#9CA3AF" />
+          {/* Right: Theme toggle + Note count */}
+          <Pressable 
+            style={[styles.headerIconButton, styles.themeToggleButton, !isDarkMode && styles.themeToggleButtonLight]} 
+            onPress={() => setIsDarkMode(!isDarkMode)}
+          >
+            {isDarkMode ? <Sun size={18} color="#F59E0B" /> : <Moon size={18} color="#64748B" />}
           </Pressable>
-          <Pressable style={styles.headerIconButton} onPress={() => setShowNameInput(true)}>
-            <Sun size={18} color="#9CA3AF" />
-          </Pressable>
+          
+          {/* Note count badge */}
+          <View style={[styles.headerNoteCount, !isDarkMode && styles.headerNoteCountLight]}>
+            <Text style={[styles.headerNoteCountText, !isDarkMode && styles.headerNoteCountTextLight]}>{filteredNotes.length}</Text>
+          </View>
         </View>
 
         {/* ===== MAIN CONTENT AREA ===== */}
         <View style={styles.mainContent}>
-          
-          {/* ===== LEFT SIDEBAR ===== */}
-          <View style={[styles.sidebar, sidebarCollapsed && styles.sidebarCollapsed]}>
-            {/* Collapse button */}
-            <Pressable 
-              style={styles.sidebarButton}
-              onPress={() => setSidebarCollapsed(!sidebarCollapsed)}
-            >
-              <ChevronLeft size={20} color="#9CA3AF" />
-            </Pressable>
-            
-            <View style={styles.sidebarDivider} />
-            
-            {/* Tool buttons */}
-            <Pressable 
-              style={[styles.sidebarButton, activeTool === 'add' && styles.sidebarButtonActive]}
-              onPress={() => {
-                setActiveTool('add');
-                addNote();
-              }}
-            >
-              <Plus size={20} color="#9CA3AF" />
-            </Pressable>
-            
-            <Pressable style={styles.sidebarButton}>
-              <Pencil size={20} color="#9CA3AF" />
-            </Pressable>
-            
-            <Pressable style={styles.sidebarButton}>
-              <Minus size={20} color="#9CA3AF" />
-            </Pressable>
-            
-            <Pressable style={styles.sidebarButton}>
-              <ArrowRight size={20} color="#9CA3AF" />
-            </Pressable>
-            
-            <Pressable style={styles.sidebarButton}>
-              <Circle size={20} color="#9CA3AF" />
-            </Pressable>
-            
-            <Pressable style={styles.sidebarButton}>
-              <ImageIcon size={20} color="#9CA3AF" />
-            </Pressable>
-            
-            <Pressable 
-              style={[styles.sidebarButton, styles.sidebarButtonHighlight]}
-              onPress={() => setShowNewFolderModal(true)}
-            >
-              <Folder size={20} color="#F59E0B" />
-            </Pressable>
-            
-            <Pressable style={styles.sidebarButton}>
-              <Square size={20} color="#9CA3AF" />
-            </Pressable>
-            
-            <Pressable style={styles.sidebarButton}>
-              <Table size={20} color="#9CA3AF" />
-            </Pressable>
-            
-            <Pressable 
-              style={styles.sidebarButton}
-              onPress={addTodo}
-            >
-              <CheckSquare size={20} color="#9CA3AF" />
-            </Pressable>
-            
-            <Pressable style={styles.sidebarButton}>
-              <Link size={20} color="#9CA3AF" />
-            </Pressable>
-          </View>
-
           {/* ===== CANVAS AREA ===== */}
           <View style={styles.canvasArea}>
-            {/* Zoom Controls Bar */}
-            <View style={styles.zoomBar}>
-              <Pressable onPress={handleZoomOut} style={styles.zoomButton}>
-                <ZoomOut size={16} color="#9CA3AF" />
-              </Pressable>
-              <Text style={styles.zoomText}>{Math.round(scale * 100)}%</Text>
-              <Pressable onPress={handleZoomIn} style={styles.zoomButton}>
-                <ZoomIn size={16} color="#9CA3AF" />
-              </Pressable>
-              <Pressable onPress={resetZoom} style={styles.zoomButton}>
-                <RotateCcw size={14} color="#9CA3AF" />
-              </Pressable>
-              
-              {/* Note count */}
-              <View style={styles.noteCountBadge}>
-                <Text style={styles.noteCountText}>{filteredNotes.length}/100 notes</Text>
-              </View>
-            </View>
-
             {/* Canvas */}
             <ScrollView
               ref={scrollViewRef}
@@ -555,25 +555,26 @@ export default function App() {
               maximumZoomScale={3}
               minimumZoomScale={0.25}
               bouncesZoom
+              pinchGestureEnabled={true}
             >
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ width: CANVAS_WIDTH * scale, height: CANVAS_HEIGHT * scale }}
               >
-                <View style={[styles.canvasContent, { transform: [{ scale }] }]}>
+                <View style={[styles.canvasContent, { transform: [{ scale }] }, !isDarkMode && styles.canvasContentLight]}>
                   {/* Grid */}
                   <View style={styles.gridContainer}>{renderGrid()}</View>
 
                   {/* Empty State */}
                   {filteredNotes.length === 0 && todos.length === 0 && (
-                    <View style={styles.emptyState}>
+                    <View style={[styles.emptyState, !isDarkMode && styles.emptyStateLight]}>
                       <Text style={styles.emptyStateIcon}>📝</Text>
-                      <Text style={styles.emptyStateTitle}>Your canvas awaits!</Text>
+                      <Text style={[styles.emptyStateTitle, !isDarkMode && styles.emptyStateTitleLight]}>Your canvas awaits!</Text>
                       <Text style={styles.emptyStateSubtitle}>Tap + to add notes</Text>
                     </View>
                   )}
 
-                  {/* Note Cards (dark themed) */}
+                  {/* Note Cards */}
                   {filteredNotes.map((note) => (
                     <Pressable
                       key={note.id}
@@ -584,31 +585,31 @@ export default function App() {
                           { text: 'Delete', style: 'destructive', onPress: () => deleteNote(note.id) },
                         ]);
                       }}
-                      style={[styles.noteCard, { left: note.position.x, top: note.position.y }]}
+                      style={[styles.noteCard, { left: note.position.x, top: note.position.y }, !isDarkMode && styles.noteCardLight]}
                     >
-                      <View style={styles.noteCardHeader}>
+                      <View style={[styles.noteCardHeader, !isDarkMode && styles.noteCardHeaderLight]}>
                         <View style={styles.noteCardDrag}>
-                          <GripVertical size={14} color="#6B7280" />
+                          <GripVertical size={14} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
                         </View>
-                        <Text style={styles.noteCardTitle} numberOfLines={1}>
+                        <Text style={[styles.noteCardTitle, !isDarkMode && styles.noteCardTitleLight]} numberOfLines={1}>
                           {note.title || 'New Note'}
                         </Text>
                         <Pressable onPress={() => deleteNote(note.id)} style={styles.noteCardClose}>
-                          <X size={14} color="#6B7280" />
+                          <X size={14} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
                         </Pressable>
                       </View>
-                      <View style={styles.noteCardBody}>
-                        <Text style={styles.noteCardContent} numberOfLines={6}>
+                      <View style={[styles.noteCardBody, !isDarkMode && styles.noteCardBodyLight]}>
+                        <Text style={[styles.noteCardContent, !isDarkMode && styles.noteCardContentLight]} numberOfLines={6}>
                           {note.content || 'Click to start writing...'}
                         </Text>
                       </View>
-                      <Text style={styles.noteCardWordCount}>
+                      <Text style={[styles.noteCardWordCount, !isDarkMode && styles.noteCardWordCountLight]}>
                         {note.content?.split(/\s+/).filter(Boolean).length || 0} words
                       </Text>
                     </Pressable>
                   ))}
 
-                  {/* Yellow Sticky Note Stickers */}
+                  {/* Yellow Sticky Note Stickers - keep yellow in both modes */}
                   {noteStickers.map((sticker) => (
                     <View
                       key={sticker.id}
@@ -634,15 +635,15 @@ export default function App() {
                   {todos.map((todo) => (
                     <View
                       key={todo.id}
-                      style={[styles.todoCard, { left: todo.position.x, top: todo.position.y }]}
+                      style={[styles.todoCard, { left: todo.position.x, top: todo.position.y }, !isDarkMode && styles.todoCardLight]}
                     >
-                      <View style={styles.todoHeader}>
+                      <View style={[styles.todoHeader, !isDarkMode && styles.todoHeaderLight]}>
                         <View style={styles.todoHeaderLeft}>
                           <CheckSquare size={14} color="#8B5CF6" />
-                          <Text style={styles.todoTitle}>{todo.title || 'Todo List'}</Text>
+                          <Text style={[styles.todoTitle, !isDarkMode && styles.todoTitleLight]}>{todo.title || 'Todo List'}</Text>
                         </View>
                         <View style={styles.todoHeaderRight}>
-                          <Text style={styles.todoCount}>
+                          <Text style={[styles.todoCount, !isDarkMode && styles.todoCountLight]}>
                             {todo.items?.filter(i => i.completed).length || 0}/{todo.items?.length || 0}
                           </Text>
                           <Pressable onPress={() => deleteTodo(todo.id)}>
@@ -660,11 +661,11 @@ export default function App() {
                           }}
                           style={styles.todoItemRow}
                         >
-                          <View style={[styles.todoCheckbox, item.completed && styles.todoCheckboxChecked]}>
+                          <View style={[styles.todoCheckbox, item.completed && styles.todoCheckboxChecked, !isDarkMode && !item.completed && styles.todoCheckboxLight]}>
                             {item.completed && <Text style={styles.todoCheckmark}>✓</Text>}
                           </View>
                           <Text
-                            style={[styles.todoItemText, item.completed && styles.todoItemCompleted]}
+                            style={[styles.todoItemText, item.completed && styles.todoItemCompleted, !isDarkMode && styles.todoItemTextLight]}
                             numberOfLines={1}
                           >
                             {item.text || 'Add a task...'}
@@ -679,52 +680,79 @@ export default function App() {
               </ScrollView>
             </ScrollView>
 
-            {/* Floating Trash Button */}
-            <Pressable 
-              style={styles.trashFloatingButton}
-              onPress={() => setIsTrashOpen(true)}
-            >
-              <Trash2 size={24} color="#EF4444" />
-            </Pressable>
           </View>
         </View>
 
-        {/* ===== BOTTOM DOCK ===== */}
-        <View style={styles.bottomDock}>
-          <Pressable style={styles.dockButton} onPress={() => addNote()}>
-            <View style={styles.dockButtonInner}>
-              <Plus size={22} color="#fff" />
-            </View>
-            <Text style={styles.dockButtonText}>Note</Text>
-          </Pressable>
-          
-          <Pressable style={styles.dockButton} onPress={addTodo}>
-            <View style={styles.dockButtonInner}>
-              <CheckSquare size={22} color="#fff" />
-            </View>
-            <Text style={styles.dockButtonText}>Todo</Text>
-          </Pressable>
-          
-          <Pressable style={styles.dockButton} onPress={() => setShowNewFolderModal(true)}>
-            <View style={[styles.dockButtonInner, styles.dockButtonHighlight]}>
-              <Folder size={22} color="#F59E0B" />
-            </View>
-            <Text style={styles.dockButtonText}>Folder</Text>
-          </Pressable>
-          
-          <Pressable style={styles.dockButton}>
-            <View style={styles.dockButtonInner}>
-              <ImageIcon size={22} color="#fff" />
-            </View>
-            <Text style={styles.dockButtonText}>Image</Text>
-          </Pressable>
-          
-          <Pressable style={styles.dockButton}>
-            <View style={styles.dockButtonInner}>
-              <Table size={22} color="#fff" />
-            </View>
-            <Text style={styles.dockButtonText}>Table</Text>
-          </Pressable>
+        {/* ===== BOTTOM DOCK (Scrollable) ===== */}
+        <View style={[styles.bottomDockContainer, !isDarkMode && styles.bottomDockContainerLight]}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.bottomDockScroll}
+          >
+            <Pressable style={styles.dockButton} onPress={() => addNote()}>
+              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+                <Plus size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+              </View>
+              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Note</Text>
+            </Pressable>
+            
+            <Pressable style={styles.dockButton} onPress={addTodo}>
+              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+                <CheckSquare size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+              </View>
+              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Todo</Text>
+            </Pressable>
+            
+            <Pressable style={styles.dockButton}>
+              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+                <FileText size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+              </View>
+              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Sticker</Text>
+            </Pressable>
+            
+            <Pressable style={styles.dockButton} onPress={() => setShowNewFolderModal(true)}>
+              <View style={[styles.dockButtonInner, styles.dockButtonHighlight, !isDarkMode && styles.dockButtonHighlightLight]}>
+                <Folder size={18} color="#F59E0B" />
+              </View>
+              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Folder</Text>
+            </Pressable>
+            
+            <Pressable style={styles.dockButton}>
+              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+                <ImageIcon size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+              </View>
+              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Image</Text>
+            </Pressable>
+            
+            <Pressable style={styles.dockButton}>
+              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+                <Table size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+              </View>
+              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Table</Text>
+            </Pressable>
+            
+            <Pressable style={styles.dockButton}>
+              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+                <Link size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+              </View>
+              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Source</Text>
+            </Pressable>
+            
+            <Pressable style={styles.dockButton}>
+              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+                <Pencil size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+              </View>
+              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Draw</Text>
+            </Pressable>
+            
+            <Pressable style={styles.dockButton} onPress={() => setIsTrashOpen(true)}>
+              <View style={[styles.dockButtonInner, styles.dockButtonTrash, !isDarkMode && styles.dockButtonTrashLight]}>
+                <Trash2 size={18} color="#EF4444" />
+              </View>
+              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Trash</Text>
+            </Pressable>
+          </ScrollView>
         </View>
 
         {/* ===== NOTE EDITOR MODAL ===== */}
@@ -837,6 +865,60 @@ export default function App() {
           </View>
         </Modal>
 
+        {/* ===== SEARCH MODAL ===== */}
+        <Modal visible={showSearchModal} animationType="fade" transparent>
+          <Pressable style={styles.searchModalOverlay} onPress={() => setShowSearchModal(false)}>
+            <Pressable style={[styles.searchModalContent, !isDarkMode && styles.searchModalContentLight]} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.searchModalHeader}>
+                <Search size={20} color="#8B5CF6" />
+                <TextInput
+                  style={[styles.searchInput, !isDarkMode && styles.searchInputLight]}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Search notes..."
+                  placeholderTextColor={isDarkMode ? "#6b7280" : "#9CA3AF"}
+                  autoFocus
+                />
+                {searchQuery.length > 0 && (
+                  <Pressable onPress={() => setSearchQuery('')}>
+                    <X size={18} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
+                  </Pressable>
+                )}
+              </View>
+              
+              {/* Search Results */}
+              {searchQuery.length > 0 && (
+                <ScrollView style={styles.searchResults} showsVerticalScrollIndicator={false}>
+                  {filteredNotes.length > 0 ? (
+                    filteredNotes.map((note) => (
+                      <Pressable 
+                        key={note.id} 
+                        style={[styles.searchResultItem, !isDarkMode && styles.searchResultItemLight]}
+                        onPress={() => {
+                          setEditingNote(note);
+                          setShowSearchModal(false);
+                          setSearchQuery('');
+                        }}
+                      >
+                        <Text style={[styles.searchResultTitle, !isDarkMode && styles.searchResultTitleLight]} numberOfLines={1}>
+                          {note.title || 'Untitled Note'}
+                        </Text>
+                        <Text style={[styles.searchResultContent, !isDarkMode && styles.searchResultContentLight]} numberOfLines={2}>
+                          {note.content || 'No content'}
+                        </Text>
+                      </Pressable>
+                    ))
+                  ) : (
+                    <Text style={[styles.searchNoResults, !isDarkMode && styles.searchNoResultsLight]}>
+                      No notes found matching "{searchQuery}"
+                    </Text>
+                  )}
+                </ScrollView>
+              )}
+            </Pressable>
+          </Pressable>
+        </Modal>
+
         {/* ===== NAME INPUT MODAL ===== */}
         <Modal visible={showNameInput} animationType="fade" transparent>
           <View style={styles.modalOverlay}>
@@ -920,12 +1002,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 10,
     backgroundColor: '#1e293b',
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
-    gap: 8,
+    gap: 6,
   },
   headerLogo: {
     width: 36,
@@ -942,11 +1024,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   headerIconButton: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerIconButtonDisabled: {
+    opacity: 0.5,
+  },
+  folderDropdownWrapper: {
+    position: 'relative',
+    zIndex: 100,
   },
   folderDropdown: {
     flexDirection: 'row',
@@ -954,56 +1043,111 @@ const styles = StyleSheet.create({
     backgroundColor: '#334155',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 10,
     gap: 6,
+    minWidth: 100,
+  },
+  folderDropdownLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  folderDropdownText: {
+    color: '#e2e8f0',
+    fontSize: 14,
+    fontWeight: '500',
+    maxWidth: 80,
+  },
+  folderDropdownTextLight: {
+    color: '#334155',
+  },
+  folderDropdownMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: 4,
+    backgroundColor: '#1e293b',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+    minWidth: 140,
+    maxHeight: 200,
+    overflow: 'hidden',
+  },
+  folderDropdownMenuLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
+  },
+  folderDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  folderDropdownItemActive: {
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+  },
+  folderDropdownItemText: {
+    color: '#e2e8f0',
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+  },
+  folderDropdownItemTextLight: {
+    color: '#334155',
+  },
+  folderDropdownItemTextActive: {
+    color: '#8B5CF6',
+  },
+  headerZoomControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#334155',
+    borderRadius: 16,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    gap: 2,
     flex: 1,
     marginHorizontal: 4,
   },
-  folderDropdownText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
+  headerZoomButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerZoomText: {
+    color: '#d1d5db',
+    fontSize: 12,
+    fontWeight: '600',
+    minWidth: 36,
+    textAlign: 'center',
+  },
+  headerNoteCount: {
+    backgroundColor: '#334155',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  headerNoteCountText: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontWeight: '600',
   },
 
   // Main content area
   mainContent: {
     flex: 1,
-    flexDirection: 'row',
-  },
-
-  // Left Sidebar
-  sidebar: {
-    width: 56,
-    backgroundColor: '#1e293b',
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRightWidth: 1,
-    borderRightColor: '#334155',
-  },
-  sidebarCollapsed: {
-    width: 0,
-    overflow: 'hidden',
-  },
-  sidebarButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 2,
-  },
-  sidebarButtonActive: {
-    backgroundColor: '#334155',
-  },
-  sidebarButtonHighlight: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-  },
-  sidebarDivider: {
-    width: 32,
-    height: 1,
-    backgroundColor: '#334155',
-    marginVertical: 8,
   },
 
   // Canvas area
@@ -1013,48 +1157,6 @@ const styles = StyleSheet.create({
   },
   canvasScrollView: {
     flex: 1,
-  },
-
-  // Zoom bar - positioned like web
-  zoomBar: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    right: 12,
-    zIndex: 100,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(31, 41, 55, 0.95)',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 4,
-  },
-  zoomButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  zoomText: {
-    color: '#d1d5db',
-    fontSize: 12,
-    fontWeight: '600',
-    minWidth: 40,
-    textAlign: 'center',
-  },
-  noteCountBadge: {
-    marginLeft: 'auto',
-    backgroundColor: '#334155',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  noteCountText: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontWeight: '500',
   },
   
   // Canvas
@@ -1318,38 +1420,47 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
 
-  // Bottom Dock
-  bottomDock: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+  // Bottom Dock (Scrollable) - Compact
+  bottomDockContainer: {
     backgroundColor: '#1e293b',
     borderTopWidth: 1,
     borderTopColor: '#334155',
+    paddingBottom: 20,
+  },
+  bottomDockScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 4,
   },
   dockButton: {
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   dockButtonInner: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     backgroundColor: '#334155',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   dockButtonHighlight: {
     backgroundColor: 'rgba(245, 158, 11, 0.2)',
     borderWidth: 1,
     borderColor: '#F59E0B',
   },
+  dockButtonTrash: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 2,
+    borderColor: '#EF4444',
+  },
   dockButtonText: {
     color: '#9ca3af',
-    fontSize: 11,
+    fontSize: 9,
   },
 
   // Note Editor Modal
@@ -1417,14 +1528,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     paddingTop: 100,
     paddingHorizontal: 20,
-  },
-  folderDropdownMenu: {
-    backgroundColor: '#1e293b',
-    borderRadius: 12,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-    maxWidth: 250,
   },
   folderMenuItem: {
     flexDirection: 'row',
@@ -1560,5 +1663,170 @@ const styles = StyleSheet.create({
   trashRestore: {
     color: '#8b5cf6',
     fontWeight: '600',
+  },
+
+  // ===== LIGHT MODE STYLES =====
+  containerLight: {
+    backgroundColor: '#f8fafc',
+  },
+  headerLight: {
+    backgroundColor: '#ffffff',
+    borderBottomColor: '#e2e8f0',
+  },
+  themeToggleButton: {
+    backgroundColor: '#334155',
+    borderRadius: 6,
+  },
+  themeToggleButtonLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  headerNoteCountLight: {
+    backgroundColor: '#e2e8f0',
+  },
+  headerNoteCountTextLight: {
+    color: '#64748b',
+  },
+  canvasContentLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  emptyStateLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  emptyStateTitleLight: {
+    color: '#1e293b',
+  },
+  noteCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
+  },
+  noteCardHeaderLight: {
+    backgroundColor: '#ffffff',
+    borderBottomColor: '#e2e8f0',
+  },
+  noteCardTitleLight: {
+    color: '#1e293b',
+  },
+  noteCardBodyLight: {
+    backgroundColor: '#f8fafc',
+  },
+  noteCardContentLight: {
+    color: '#475569',
+  },
+  noteCardWordCountLight: {
+    color: '#94a3b8',
+    backgroundColor: '#ffffff',
+  },
+  todoCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
+  },
+  todoHeaderLight: {
+    backgroundColor: '#ffffff',
+    borderBottomColor: '#e2e8f0',
+  },
+  todoTitleLight: {
+    color: '#1e293b',
+  },
+  todoCountLight: {
+    color: '#64748b',
+  },
+  todoCheckboxLight: {
+    borderColor: '#cbd5e1',
+    backgroundColor: '#f8fafc',
+  },
+  todoItemTextLight: {
+    color: '#334155',
+  },
+  bottomDockContainerLight: {
+    backgroundColor: '#ffffff',
+    borderTopColor: '#e2e8f0',
+  },
+  dockButtonInnerLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  dockButtonTextLight: {
+    color: '#64748b',
+  },
+  dockButtonHighlightLight: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+  },
+  dockButtonTrashLight: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  
+  // Search Modal
+  searchModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingTop: 80,
+    paddingHorizontal: 16,
+  },
+  searchModalContent: {
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    padding: 16,
+    maxHeight: '70%',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  searchModalContentLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
+  },
+  searchModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  searchInput: {
+    flex: 1,
+    color: '#e2e8f0',
+    fontSize: 16,
+    paddingVertical: 8,
+  },
+  searchInputLight: {
+    color: '#1e293b',
+  },
+  searchResults: {
+    marginTop: 12,
+    maxHeight: 400,
+  },
+  searchResultItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  searchResultItemLight: {
+    borderBottomColor: '#e2e8f0',
+  },
+  searchResultTitle: {
+    color: '#e2e8f0',
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  searchResultTitleLight: {
+    color: '#1e293b',
+  },
+  searchResultContent: {
+    color: '#9CA3AF',
+    fontSize: 13,
+  },
+  searchResultContentLight: {
+    color: '#64748b',
+  },
+  searchNoResults: {
+    color: '#6B7280',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 24,
+  },
+  searchNoResultsLight: {
+    color: '#94a3b8',
   },
 });
