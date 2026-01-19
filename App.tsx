@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,9 @@ import {
   Dimensions,
   StyleSheet,
   Image,
+  Share,
+  Clipboard,
+  PanResponder,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -108,6 +111,87 @@ const safeSize = (size: any, fallback: { width: number; height: number }) =>
     ? size
     : fallback;
 
+// Draggable wrapper component
+const DraggableItem: React.FC<{
+  children: React.ReactNode;
+  position: { x: number; y: number };
+  onPositionChange: (newPos: { x: number; y: number }) => void;
+  onDragStart: () => void;
+  onDragEnd: (pageX: number, pageY: number) => void;
+  scale: number;
+  style?: any;
+  isDragging: boolean;
+}> = ({ children, position, onPositionChange, onDragStart, onDragEnd, scale, style, isDragging }) => {
+  const startPos = useRef({ x: position.x, y: position.y });
+  const scaleRef = useRef(scale);
+  const onPositionChangeRef = useRef(onPositionChange);
+  const onDragStartRef = useRef(onDragStart);
+  const onDragEndRef = useRef(onDragEnd);
+  
+  // Keep refs updated
+  useEffect(() => {
+    scaleRef.current = scale;
+    onPositionChangeRef.current = onPositionChange;
+    onDragStartRef.current = onDragStart;
+    onDragEndRef.current = onDragEnd;
+  });
+  
+  // Update start position when position changes (while not dragging)
+  useEffect(() => {
+    if (!isDragging) {
+      startPos.current = { x: position.x, y: position.y };
+    }
+  }, [position.x, position.y, isDragging]);
+  
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        startPos.current = { x: position.x, y: position.y };
+        onDragStartRef.current();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const newPosition = {
+          x: startPos.current.x + gestureState.dx / scaleRef.current,
+          y: startPos.current.y + gestureState.dy / scaleRef.current,
+        };
+        onPositionChangeRef.current(newPosition);
+      },
+      onPanResponderRelease: (evt) => {
+        onDragEndRef.current(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
+      },
+      onPanResponderTerminate: (evt) => {
+        onDragEndRef.current(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
+      },
+    })
+  ).current;
+
+  return (
+    <View
+      {...panResponder.panHandlers}
+      style={[
+        style,
+        { left: position.x, top: position.y, position: 'absolute' },
+        isDragging && {
+          opacity: 0.9,
+          shadowColor: '#8B5CF6',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.6,
+          shadowRadius: 12,
+          elevation: 20,
+          borderWidth: 2,
+          borderColor: '#8B5CF6',
+          borderRadius: 8,
+          zIndex: 9999,
+        },
+      ]}
+    >
+      {children}
+    </View>
+  );
+};
+
 export default function App() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -139,12 +223,25 @@ export default function App() {
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [editingSticker, setEditingSticker] = useState<any | null>(null);
+  const [editingStickerTitle, setEditingStickerTitle] = useState('');
+  const [editingStickerContent, setEditingStickerContent] = useState('');
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [showFolderDropdown, setShowFolderDropdown] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [scale, setScale] = useState(1);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [drawings, setDrawings] = useState<any[]>([]);
+  const [currentPath, setCurrentPath] = useState<{x: number, y: number}[]>([]);
+  
+  // Drag and drop state
+  const [draggingItem, setDraggingItem] = useState<{ type: string; id: number } | null>(null);
+  const [isOverTrash, setIsOverTrash] = useState(false);
+  const trashZoneRef = useRef<View>(null);
+  const [trashZoneLayout, setTrashZoneLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
   
   // Undo/Redo history
   const [history, setHistory] = useState<{ notes: Note[], todos: Todo[] }[]>([]);
@@ -211,6 +308,22 @@ export default function App() {
             ...s,
             position: safePosition(s.position),
             rotation: s.rotation ?? 0,
+          }))
+        );
+
+        const loadedNoteStickers = await load('anotequest_notestickers');
+        setNoteStickers(
+          loadedNoteStickers.map((s: any) => ({
+            ...s,
+            position: safePosition(s.position),
+          }))
+        );
+
+        const loadedTables = await load('anotequest_tables');
+        setTables(
+          loadedTables.map((t: any) => ({
+            ...t,
+            position: safePosition(t.position),
           }))
         );
 
@@ -290,6 +403,16 @@ export default function App() {
 
   useEffect(() => {
     if (!isLoaded) return;
+    AsyncStorage.setItem('anotequest_notestickers', JSON.stringify(noteStickers));
+  }, [noteStickers, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    AsyncStorage.setItem('anotequest_tables', JSON.stringify(tables));
+  }, [tables, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
     AsyncStorage.setItem('anotequest_todos', JSON.stringify(todos));
   }, [todos, isLoaded]);
 
@@ -308,8 +431,27 @@ export default function App() {
     AsyncStorage.setItem('anotequest_trash', JSON.stringify(trash));
   }, [trash, isLoaded]);
 
+  // Free tier limit
+  const FREE_NOTE_LIMIT = 100;
+
   // Note functions
   const addNote = useCallback((noteData?: Partial<Note>) => {
+    // Check note limit for free users
+    if (!isPremium && notes.length >= FREE_NOTE_LIMIT) {
+      Alert.alert(
+        'Note Limit Reached',
+        `You've reached the free limit of ${FREE_NOTE_LIMIT} notes. Upgrade to Pro for unlimited notes!`,
+        [
+          { text: 'Maybe Later', style: 'cancel' },
+          { text: 'Upgrade', style: 'default', onPress: () => {
+            // TODO: Navigate to upgrade screen
+            Alert.alert('Coming Soon', 'Pro upgrade will be available soon!');
+          }},
+        ]
+      );
+      return null;
+    }
+    
     saveToHistory();
     const newNote: Note = {
       id: Date.now(),
@@ -324,7 +466,7 @@ export default function App() {
     setEditingNote(newNote);
     setStats((prev) => ({ ...prev, totalNotes: prev.totalNotes + 1, xp: prev.xp + 10 }));
     return newNote;
-  }, [activeFolder, saveToHistory]);
+  }, [activeFolder, saveToHistory, isPremium, notes.length]);
 
   const updateNote = useCallback((id: number, updates: Partial<Note>) => {
     setNotes((prev) =>
@@ -369,6 +511,49 @@ export default function App() {
     setTodos((prev) => prev.filter((t) => t.id !== id));
   }, [saveToHistory]);
 
+  // Note Sticker functions
+  const addNoteSticker = useCallback(() => {
+    saveToHistory();
+    const newSticker = {
+      id: Date.now(),
+      title: 'New Sticker',
+      content: '',
+      position: { x: 180 + Math.random() * 200, y: 180 + Math.random() * 200 },
+      folderId: activeFolder,
+      createdAt: new Date().toISOString(),
+    };
+    setNoteStickers((prev) => [...prev, newSticker]);
+  }, [activeFolder, saveToHistory]);
+
+  const updateNoteSticker = useCallback((id: number, updates: any) => {
+    setNoteStickers((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...updates } : s))
+    );
+  }, []);
+
+  const deleteNoteSticker = useCallback((id: number) => {
+    saveToHistory();
+    setNoteStickers((prev) => prev.filter((s) => s.id !== id));
+  }, [saveToHistory]);
+
+  // Table functions
+  const addTable = useCallback(() => {
+    saveToHistory();
+    const newTable = {
+      id: Date.now(),
+      title: 'New Table',
+      rows: [
+        ['Header 1', 'Header 2', 'Header 3'],
+        ['Cell 1', 'Cell 2', 'Cell 3'],
+        ['Cell 4', 'Cell 5', 'Cell 6'],
+      ],
+      position: { x: 220 + Math.random() * 150, y: 220 + Math.random() * 150 },
+      folderId: activeFolder,
+      createdAt: new Date().toISOString(),
+    };
+    setTables((prev) => [...prev, newTable]);
+  }, [activeFolder, saveToHistory]);
+
   // Folder functions
   const addFolder = useCallback(() => {
     if (!newFolderName.trim()) return;
@@ -381,6 +566,86 @@ export default function App() {
     setNewFolderName('');
     setShowNewFolderModal(false);
   }, [newFolderName]);
+
+  // Export functions
+  const generateExportText = useCallback(() => {
+    let text = `AnoteQuest Notes\n`;
+    text += `==================\n`;
+    text += `User: ${userName}\n`;
+    text += `Exported: ${new Date().toLocaleString()}\n\n`;
+
+    if (notes.length > 0) {
+      text += `📝 NOTES (${notes.length})\n`;
+      text += `${'='.repeat(30)}\n\n`;
+      notes.forEach((note, index) => {
+        text += `[${index + 1}] ${note.title || 'Untitled Note'}\n`;
+        text += `${'-'.repeat(30)}\n`;
+        text += `${note.content || '(No content)'}\n\n`;
+      });
+    }
+
+    if (todos.length > 0) {
+      text += `\n✅ TODOS (${todos.length})\n`;
+      text += `${'='.repeat(30)}\n\n`;
+      todos.forEach((todo, index) => {
+        text += `[${index + 1}] ${todo.title || 'Checklist'}\n`;
+        todo.items?.forEach((item: any) => {
+          text += `  ${item.completed ? '☑' : '☐'} ${item.text || '(empty)'}\n`;
+        });
+        text += '\n';
+      });
+    }
+
+    if (noteStickers.length > 0) {
+      text += `\n📌 STICKERS (${noteStickers.length})\n`;
+      text += `${'='.repeat(30)}\n\n`;
+      noteStickers.forEach((sticker, index) => {
+        text += `[${index + 1}] ${sticker.title || 'Sticker'}\n`;
+        if (sticker.content) text += `${sticker.content}\n`;
+        text += '\n';
+      });
+    }
+
+    if (tables.length > 0) {
+      text += `\n📊 TABLES (${tables.length})\n`;
+      text += `${'='.repeat(30)}\n\n`;
+      tables.forEach((table, index) => {
+        text += `[${index + 1}] ${table.title || 'Table'}\n`;
+        table.rows?.forEach((row: string[]) => {
+          text += `| ${row.join(' | ')} |\n`;
+        });
+        text += '\n';
+      });
+    }
+
+    return text;
+  }, [notes, todos, noteStickers, tables, userName]);
+
+  const exportAsText = useCallback(async () => {
+    try {
+      const text = generateExportText();
+      await Share.share({
+        message: text,
+        title: `AnoteQuest Export - ${userName}`,
+      });
+      setShowExportModal(false);
+    } catch (error) {
+      console.error('Export error:', error);
+      Alert.alert('Export Failed', 'Could not export your notes.');
+    }
+  }, [generateExportText, userName]);
+
+  const copyToClipboard = useCallback(async () => {
+    try {
+      const text = generateExportText();
+      Clipboard.setString(text);
+      Alert.alert('Copied!', 'Your notes have been copied to clipboard.');
+      setShowExportModal(false);
+    } catch (error) {
+      console.error('Copy error:', error);
+      Alert.alert('Copy Failed', 'Could not copy to clipboard.');
+    }
+  }, [generateExportText]);
 
   // Zoom handlers
   const handleZoomIn = useCallback(() => {
@@ -405,6 +670,47 @@ export default function App() {
     setShowNameInput(false);
   }, [nameInputValue]);
 
+  // Check if position is over trash zone
+  const isPositionOverTrash = useCallback((pageX: number, pageY: number) => {
+    const { x, y, width, height } = trashZoneLayout;
+    return pageX >= x && pageX <= x + width && pageY >= y && pageY <= y + height;
+  }, [trashZoneLayout]);
+
+  // Handle item deletion by drag
+  const handleDragDelete = useCallback((type: string, id: number) => {
+    saveToHistory();
+    if (type === 'note') {
+      const noteToDelete = notes.find((n) => n.id === id);
+      if (noteToDelete) {
+        setTrash((prev) => [
+          ...prev,
+          { id: Date.now(), type: 'note', item: noteToDelete, deletedAt: new Date().toISOString() },
+        ]);
+      }
+      setNotes((prev) => prev.filter((n) => n.id !== id));
+    } else if (type === 'sticker') {
+      setNoteStickers((prev) => prev.filter((s) => s.id !== id));
+    } else if (type === 'todo') {
+      setTodos((prev) => prev.filter((t) => t.id !== id));
+    } else if (type === 'table') {
+      setTables((prev) => prev.filter((t) => t.id !== id));
+    }
+    setDraggingItem(null);
+  }, [notes, saveToHistory]);
+
+  // Update item position
+  const updateItemPosition = useCallback((type: string, id: number, newPosition: { x: number, y: number }) => {
+    if (type === 'note') {
+      setNotes((prev) => prev.map((n) => n.id === id ? { ...n, position: newPosition } : n));
+    } else if (type === 'sticker') {
+      setNoteStickers((prev) => prev.map((s) => s.id === id ? { ...s, position: newPosition } : s));
+    } else if (type === 'todo') {
+      setTodos((prev) => prev.map((t) => t.id === id ? { ...t, position: newPosition } : t));
+    } else if (type === 'table') {
+      setTables((prev) => prev.map((t) => t.id === id ? { ...t, position: newPosition } : t));
+    }
+  }, []);
+
   // Filtered notes based on active folder and search
   const filteredNotes = notes.filter((note) => {
     const inFolder = activeFolder === null || note.folderId === activeFolder;
@@ -415,11 +721,16 @@ export default function App() {
     return inFolder && matchesSearch;
   });
 
+  // Filtered stickers based on active folder
+  const filteredStickers = noteStickers.filter((sticker) => {
+    return activeFolder === null || sticker.folderId === activeFolder;
+  });
+
   // Render grid dots
   const renderGrid = () => {
     const dots: React.ReactNode[] = [];
-    const step = 100;
-    const maxDots = 40;
+    const step = 50;
+    const maxDots = 80;
     for (let i = 0; i < maxDots; i++) {
       for (let j = 0; j < maxDots; j++) {
         dots.push(
@@ -534,9 +845,25 @@ export default function App() {
             {isDarkMode ? <Sun size={18} color="#F59E0B" /> : <Moon size={18} color="#64748B" />}
           </Pressable>
           
-          {/* Note count badge */}
-          <View style={[styles.headerNoteCount, !isDarkMode && styles.headerNoteCountLight]}>
-            <Text style={[styles.headerNoteCountText, !isDarkMode && styles.headerNoteCountTextLight]}>{filteredNotes.length}</Text>
+          {/* Export button */}
+          <Pressable style={styles.headerIconButton} onPress={() => setShowExportModal(true)}>
+            <Download size={18} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
+          </Pressable>
+          
+          {/* Note count badge - far right with color coding */}
+          <View style={[
+            styles.headerNoteCount, 
+            !isDarkMode && styles.headerNoteCountLight,
+            notes.length >= 61 && styles.headerNoteCountRed,
+            notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountYellow,
+            notes.length < 40 && styles.headerNoteCountGreen,
+          ]}>
+            <Text style={[
+              styles.headerNoteCountText, 
+              notes.length >= 61 && styles.headerNoteCountTextRed,
+              notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountTextYellow,
+              notes.length < 40 && styles.headerNoteCountTextGreen,
+            ]}>{notes.length}{!isPremium && `/${FREE_NOTE_LIMIT}`}</Text>
           </View>
         </View>
 
@@ -574,82 +901,115 @@ export default function App() {
                     </View>
                   )}
 
-                  {/* Note Cards */}
+                  {/* Note Cards - Draggable */}
                   {filteredNotes.map((note) => (
-                    <Pressable
+                    <DraggableItem
                       key={note.id}
-                      onPress={() => setEditingNote(note)}
-                      onLongPress={() => {
-                        Alert.alert('Delete Note', `Delete "${note.title || 'Untitled'}"?`, [
-                          { text: 'Cancel', style: 'cancel' },
-                          { text: 'Delete', style: 'destructive', onPress: () => deleteNote(note.id) },
-                        ]);
+                      position={note.position}
+                      onPositionChange={(newPos) => updateItemPosition('note', note.id, newPos)}
+                      onDragStart={() => setDraggingItem({ type: 'note', id: note.id })}
+                      onDragEnd={(pageX, pageY) => {
+                        if (isPositionOverTrash(pageX, pageY)) {
+                          handleDragDelete('note', note.id);
+                        }
+                        setDraggingItem(null);
+                        setIsOverTrash(false);
                       }}
-                      style={[styles.noteCard, { left: note.position.x, top: note.position.y }, !isDarkMode && styles.noteCardLight]}
+                      scale={scale}
+                      style={[styles.noteCard, !isDarkMode && styles.noteCardLight]}
+                      isDragging={draggingItem?.type === 'note' && draggingItem?.id === note.id}
                     >
-                      <View style={[styles.noteCardHeader, !isDarkMode && styles.noteCardHeaderLight]}>
-                        <View style={styles.noteCardDrag}>
-                          <GripVertical size={14} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
+                      <Pressable onPress={() => setEditingNote(note)}>
+                        <View style={[styles.noteCardHeader, !isDarkMode && styles.noteCardHeaderLight]}>
+                          <View style={styles.noteCardDrag}>
+                            <GripVertical size={14} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
+                          </View>
+                          <Text style={[styles.noteCardTitle, !isDarkMode && styles.noteCardTitleLight]} numberOfLines={1}>
+                            {note.title || 'New Note'}
+                          </Text>
                         </View>
-                        <Text style={[styles.noteCardTitle, !isDarkMode && styles.noteCardTitleLight]} numberOfLines={1}>
-                          {note.title || 'New Note'}
+                        <View style={[styles.noteCardBody, !isDarkMode && styles.noteCardBodyLight]}>
+                          <Text style={[styles.noteCardContent, !isDarkMode && styles.noteCardContentLight]} numberOfLines={6}>
+                            {note.content || 'Click to start writing...'}
+                          </Text>
+                        </View>
+                        <Text style={[styles.noteCardWordCount, !isDarkMode && styles.noteCardWordCountLight]}>
+                          {note.content?.split(/\s+/).filter(Boolean).length || 0} words
                         </Text>
-                        <Pressable onPress={() => deleteNote(note.id)} style={styles.noteCardClose}>
-                          <X size={14} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
-                        </Pressable>
-                      </View>
-                      <View style={[styles.noteCardBody, !isDarkMode && styles.noteCardBodyLight]}>
-                        <Text style={[styles.noteCardContent, !isDarkMode && styles.noteCardContentLight]} numberOfLines={6}>
-                          {note.content || 'Click to start writing...'}
-                        </Text>
-                      </View>
-                      <Text style={[styles.noteCardWordCount, !isDarkMode && styles.noteCardWordCountLight]}>
-                        {note.content?.split(/\s+/).filter(Boolean).length || 0} words
-                      </Text>
-                    </Pressable>
+                      </Pressable>
+                    </DraggableItem>
                   ))}
 
-                  {/* Yellow Sticky Note Stickers - keep yellow in both modes */}
-                  {noteStickers.map((sticker) => (
-                    <View
+                  {/* Yellow Sticky Note Stickers - Draggable */}
+                  {filteredStickers.map((sticker) => (
+                    <DraggableItem
                       key={sticker.id}
-                      style={[styles.stickyNote, { left: sticker.position?.x || 200, top: sticker.position?.y || 200 }]}
+                      position={sticker.position || { x: 200, y: 200 }}
+                      onPositionChange={(newPos) => updateItemPosition('sticker', sticker.id, newPos)}
+                      onDragStart={() => setDraggingItem({ type: 'sticker', id: sticker.id })}
+                      onDragEnd={(pageX, pageY) => {
+                        if (isPositionOverTrash(pageX, pageY)) {
+                          handleDragDelete('sticker', sticker.id);
+                        }
+                        setDraggingItem(null);
+                        setIsOverTrash(false);
+                      }}
+                      scale={scale}
+                      style={styles.stickyNoteContainer}
+                      isDragging={draggingItem?.type === 'sticker' && draggingItem?.id === sticker.id}
                     >
-                      {/* Pushpin */}
-                      <View style={styles.pushpin}>
-                        <View style={styles.pushpinHead} />
-                        <View style={styles.pushpinPoint} />
-                      </View>
-                      {/* Fold effect */}
-                      <View style={styles.stickyFold} />
-                      <Text style={styles.stickyTitle} numberOfLines={1}>
-                        {sticker.title || ''}
-                      </Text>
-                      <Text style={styles.stickyContent} numberOfLines={4}>
-                        {sticker.content || ''}
-                      </Text>
-                    </View>
+                      <Pressable
+                        onPress={() => {
+                          setEditingStickerTitle(sticker.title || '');
+                          setEditingStickerContent(sticker.content || '');
+                          setEditingSticker(sticker);
+                        }}
+                      >
+                        {/* Sticker image */}
+                        <Image 
+                          source={require('./assets/notesticker.png')} 
+                          style={styles.stickyNoteImage}
+                          resizeMode="contain"
+                        />
+                        {/* Text overlay */}
+                        <View style={styles.stickyNoteTextOverlay}>
+                          <Text style={styles.stickyTitle} numberOfLines={1}>
+                            {sticker.title || 'Tap to edit'}
+                          </Text>
+                          <Text style={styles.stickyContent} numberOfLines={4}>
+                            {sticker.content || ''}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    </DraggableItem>
                   ))}
 
-                  {/* Todo Cards */}
+                  {/* Todo Cards - Draggable */}
                   {todos.map((todo) => (
-                    <View
+                    <DraggableItem
                       key={todo.id}
-                      style={[styles.todoCard, { left: todo.position.x, top: todo.position.y }, !isDarkMode && styles.todoCardLight]}
+                      position={todo.position}
+                      onPositionChange={(newPos) => updateItemPosition('todo', todo.id, newPos)}
+                      onDragStart={() => setDraggingItem({ type: 'todo', id: todo.id })}
+                      onDragEnd={(pageX, pageY) => {
+                        if (isPositionOverTrash(pageX, pageY)) {
+                          handleDragDelete('todo', todo.id);
+                        }
+                        setDraggingItem(null);
+                        setIsOverTrash(false);
+                      }}
+                      scale={scale}
+                      style={[styles.todoCard, !isDarkMode && styles.todoCardLight]}
+                      isDragging={draggingItem?.type === 'todo' && draggingItem?.id === todo.id}
                     >
                       <View style={[styles.todoHeader, !isDarkMode && styles.todoHeaderLight]}>
                         <View style={styles.todoHeaderLeft}>
                           <CheckSquare size={14} color="#8B5CF6" />
                           <Text style={[styles.todoTitle, !isDarkMode && styles.todoTitleLight]}>{todo.title || 'Todo List'}</Text>
                         </View>
-                        <View style={styles.todoHeaderRight}>
-                          <Text style={[styles.todoCount, !isDarkMode && styles.todoCountLight]}>
-                            {todo.items?.filter(i => i.completed).length || 0}/{todo.items?.length || 0}
-                          </Text>
-                          <Pressable onPress={() => deleteTodo(todo.id)}>
-                            <X size={14} color="#ef4444" />
-                          </Pressable>
-                        </View>
+                        <Text style={[styles.todoCount, !isDarkMode && styles.todoCountLight]}>
+                          {todo.items?.filter(i => i.completed).length || 0}/{todo.items?.length || 0}
+                        </Text>
                       </View>
                       {todo.items?.slice(0, 5).map((item, idx) => (
                         <Pressable
@@ -672,7 +1032,72 @@ export default function App() {
                           </Text>
                         </Pressable>
                       ))}
+                    </DraggableItem>
+                  ))}
+
+                  {/* Tables - Draggable */}
+                  {tables.map((table) => (
+                    <DraggableItem
+                      key={table.id}
+                      position={table.position || { x: 200, y: 200 }}
+                      onPositionChange={(newPos) => updateItemPosition('table', table.id, newPos)}
+                      onDragStart={() => setDraggingItem({ type: 'table', id: table.id })}
+                      onDragEnd={(pageX, pageY) => {
+                        if (isPositionOverTrash(pageX, pageY)) {
+                          handleDragDelete('table', table.id);
+                        }
+                        setDraggingItem(null);
+                        setIsOverTrash(false);
+                      }}
+                      scale={scale}
+                      style={[styles.tableCard, !isDarkMode && styles.tableCardLight]}
+                      isDragging={draggingItem?.type === 'table' && draggingItem?.id === table.id}
+                    >
+                      <View style={[styles.tableHeader, !isDarkMode && styles.tableHeaderLight]}>
+                        <Text style={[styles.tableTitle, !isDarkMode && styles.tableTitleLight]} numberOfLines={1}>
+                          {table.title || 'Table'}
+                        </Text>
+                      </View>
+                      <View style={styles.tableContent}>
+                        {table.rows?.map((row: string[], rowIndex: number) => (
+                          <View key={rowIndex} style={[styles.tableRow, rowIndex === 0 && styles.tableHeaderRow]}>
+                            {row.map((cell: string, cellIndex: number) => (
+                              <View key={cellIndex} style={[styles.tableCell, rowIndex === 0 && styles.tableHeaderCell]}>
+                                <Text style={[styles.tableCellText, rowIndex === 0 && styles.tableHeaderCellText, !isDarkMode && styles.tableCellTextLight]} numberOfLines={1}>
+                                  {cell}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        ))}
+                      </View>
+                    </DraggableItem>
+                  ))}
+
+                  {/* Drawing paths */}
+                  {drawings.map((path, pathIndex) => (
+                    <View key={pathIndex} style={styles.drawingPath}>
+                      {path.points.map((point: {x: number, y: number}, pointIndex: number) => (
+                        <View
+                          key={pointIndex}
+                          style={[
+                            styles.drawingDot,
+                            { left: point.x - 3, top: point.y - 3 }
+                          ]}
+                        />
+                      ))}
                     </View>
+                  ))}
+
+                  {/* Current drawing path */}
+                  {currentPath.map((point, index) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.drawingDot,
+                        { left: point.x - 3, top: point.y - 3 }
+                      ]}
+                    />
                   ))}
 
 
@@ -682,6 +1107,70 @@ export default function App() {
 
           </View>
         </View>
+
+        {/* Drawing Mode Overlay */}
+        {isDrawingMode && (
+          <View 
+            style={styles.drawingOverlay}
+            onStartShouldSetResponder={() => true}
+            onMoveShouldSetResponder={() => true}
+            onResponderGrant={(evt) => {
+              const { locationX, locationY } = evt.nativeEvent;
+              setCurrentPath([{ x: locationX, y: locationY }]);
+            }}
+            onResponderMove={(evt) => {
+              const { locationX, locationY } = evt.nativeEvent;
+              setCurrentPath(prev => [...prev, { x: locationX, y: locationY }]);
+            }}
+            onResponderRelease={() => {
+              if (currentPath.length > 0) {
+                setDrawings(prev => [...prev, { points: currentPath, color: '#F59E0B' }]);
+                setCurrentPath([]);
+              }
+            }}
+          >
+            <View style={styles.drawingModeIndicator}>
+              <Pencil size={16} color="#F59E0B" />
+              <Text style={styles.drawingModeText}>Drawing Mode - Tap outside to exit</Text>
+              <Pressable onPress={() => setIsDrawingMode(false)} style={styles.drawingModeClose}>
+                <X size={16} color="#fff" />
+              </Pressable>
+            </View>
+            
+            {/* Render current drawing */}
+            {currentPath.map((point, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.drawingDot,
+                  { left: point.x - 3, top: point.y - 3, backgroundColor: '#F59E0B' }
+                ]}
+              />
+            ))}
+            
+            {/* Render saved drawings */}
+            {drawings.map((path, pathIndex) => (
+              path.points.map((point: {x: number, y: number}, pointIndex: number) => (
+                <View
+                  key={`${pathIndex}-${pointIndex}`}
+                  style={[
+                    styles.drawingDot,
+                    { left: point.x - 3, top: point.y - 3, backgroundColor: path.color }
+                  ]}
+                />
+              ))
+            ))}
+            
+            {/* Clear drawings button */}
+            <Pressable 
+              style={styles.clearDrawingsBtn}
+              onPress={() => setDrawings([])}
+            >
+              <Trash2 size={16} color="#EF4444" />
+              <Text style={styles.clearDrawingsText}>Clear</Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* ===== BOTTOM DOCK (Scrollable) ===== */}
         <View style={[styles.bottomDockContainer, !isDarkMode && styles.bottomDockContainerLight]}>
@@ -704,7 +1193,7 @@ export default function App() {
               <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Todo</Text>
             </Pressable>
             
-            <Pressable style={styles.dockButton}>
+            <Pressable style={styles.dockButton} onPress={addNoteSticker}>
               <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
                 <FileText size={18} color={isDarkMode ? "#fff" : "#64748b"} />
               </View>
@@ -725,7 +1214,7 @@ export default function App() {
               <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Image</Text>
             </Pressable>
             
-            <Pressable style={styles.dockButton}>
+            <Pressable style={styles.dockButton} onPress={addTable}>
               <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
                 <Table size={18} color={isDarkMode ? "#fff" : "#64748b"} />
               </View>
@@ -739,21 +1228,46 @@ export default function App() {
               <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Source</Text>
             </Pressable>
             
-            <Pressable style={styles.dockButton}>
-              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
-                <Pencil size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+            <Pressable style={styles.dockButton} onPress={() => setIsDrawingMode(!isDrawingMode)}>
+              <View style={[styles.dockButtonInner, isDrawingMode && styles.dockButtonActive, !isDarkMode && styles.dockButtonInnerLight]}>
+                <Pencil size={18} color={isDrawingMode ? "#F59E0B" : (isDarkMode ? "#fff" : "#64748b")} />
               </View>
               <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Draw</Text>
             </Pressable>
             
-            <Pressable style={styles.dockButton} onPress={() => setIsTrashOpen(true)}>
-              <View style={[styles.dockButtonInner, styles.dockButtonTrash, !isDarkMode && styles.dockButtonTrashLight]}>
-                <Trash2 size={18} color="#EF4444" />
-              </View>
-              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Trash</Text>
-            </Pressable>
+            <View
+              ref={trashZoneRef}
+              onLayout={(event) => {
+                event.target.measure((x, y, width, height, pageX, pageY) => {
+                  setTrashZoneLayout({ x: pageX, y: pageY, width, height });
+                });
+              }}
+            >
+              <Pressable style={styles.dockButton} onPress={() => setIsTrashOpen(true)}>
+                <View style={[
+                  styles.dockButtonInner, 
+                  styles.dockButtonTrash, 
+                  !isDarkMode && styles.dockButtonTrashLight,
+                  isOverTrash && styles.dockButtonTrashActive,
+                ]}>
+                  <Trash2 size={18} color="#EF4444" />
+                </View>
+                <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>
+                  {draggingItem ? 'Drop here' : 'Trash'}
+                </Text>
+              </Pressable>
+            </View>
           </ScrollView>
         </View>
+
+        {/* Drag indicator when dragging */}
+        {draggingItem && (
+          <View style={styles.dragIndicator}>
+            <Text style={styles.dragIndicatorText}>
+              Drag to 🗑️ Trash to delete
+            </Text>
+          </View>
+        )}
 
         {/* ===== NOTE EDITOR MODAL ===== */}
         <Modal visible={editingNote !== null} animationType="slide" transparent>
@@ -799,6 +1313,58 @@ export default function App() {
                   </Text>
                 </View>
               )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* ===== STICKER EDITOR MODAL ===== */}
+        <Modal visible={editingSticker !== null} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.noteEditorModal, { backgroundColor: '#FEF3C7' }]}>
+              <View style={[styles.noteEditorHeader, { backgroundColor: '#FDE68A' }]}>
+                <View style={styles.noteEditorDragHandle}>
+                  <GripVertical size={16} color="#92400E" />
+                </View>
+                <Text style={[styles.noteEditorTitle, { color: '#92400E' }]}>
+                  Edit Sticker
+                </Text>
+                <Pressable 
+                  onPress={() => {
+                    if (editingSticker) {
+                      updateNoteSticker(editingSticker.id, { 
+                        title: editingStickerTitle, 
+                        content: editingStickerContent 
+                      });
+                    }
+                    setEditingSticker(null);
+                  }} 
+                  style={styles.noteEditorClose}
+                >
+                  <X size={20} color="#92400E" />
+                </Pressable>
+              </View>
+              <View style={styles.noteEditorContent}>
+                <TextInput
+                  style={[styles.noteTitleInput, { color: '#92400E', borderBottomColor: '#FCD34D' }]}
+                  value={editingStickerTitle}
+                  onChangeText={(text) => {
+                    setEditingStickerTitle(text);
+                  }}
+                  placeholder="Sticker title..."
+                  placeholderTextColor="#B45309"
+                />
+                <TextInput
+                  style={[styles.noteContentInput, { color: '#78350F' }]}
+                  value={editingStickerContent}
+                  onChangeText={(text) => {
+                    setEditingStickerContent(text);
+                  }}
+                  placeholder="Write your note here..."
+                  placeholderTextColor="#B45309"
+                  multiline
+                  textAlignVertical="top"
+                />
+              </View>
             </View>
           </View>
         </Modal>
@@ -915,6 +1481,49 @@ export default function App() {
                   )}
                 </ScrollView>
               )}
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* ===== EXPORT MODAL ===== */}
+        <Modal visible={showExportModal} animationType="fade" transparent>
+          <Pressable style={styles.modalOverlay} onPress={() => setShowExportModal(false)}>
+            <Pressable style={[styles.exportModalContent, !isDarkMode && styles.exportModalContentLight]} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.exportModalHeader}>
+                <Download size={24} color="#8B5CF6" />
+                <Text style={[styles.exportModalTitle, !isDarkMode && styles.exportModalTitleLight]}>Export Your Notes</Text>
+                <Pressable onPress={() => setShowExportModal(false)} style={styles.exportModalClose}>
+                  <X size={20} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
+                </Pressable>
+              </View>
+              
+              <Text style={[styles.exportModalSubtitle, !isDarkMode && styles.exportModalSubtitleLight]}>
+                Export {notes.length} notes, {todos.length} todos, {noteStickers.length} stickers, and {tables.length} tables
+              </Text>
+              
+              <View style={styles.exportOptions}>
+                <Pressable style={[styles.exportOption, !isDarkMode && styles.exportOptionLight]} onPress={exportAsText}>
+                  <View style={styles.exportOptionIcon}>
+                    <FileText size={24} color="#8B5CF6" />
+                  </View>
+                  <View style={styles.exportOptionInfo}>
+                    <Text style={[styles.exportOptionTitle, !isDarkMode && styles.exportOptionTitleLight]}>Share as Text</Text>
+                    <Text style={[styles.exportOptionDesc, !isDarkMode && styles.exportOptionDescLight]}>Share your notes via any app</Text>
+                  </View>
+                  <ArrowRight size={20} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
+                </Pressable>
+                
+                <Pressable style={[styles.exportOption, !isDarkMode && styles.exportOptionLight]} onPress={copyToClipboard}>
+                  <View style={styles.exportOptionIcon}>
+                    <FileText size={24} color="#F59E0B" />
+                  </View>
+                  <View style={styles.exportOptionInfo}>
+                    <Text style={[styles.exportOptionTitle, !isDarkMode && styles.exportOptionTitleLight]}>Copy to Clipboard</Text>
+                    <Text style={[styles.exportOptionDesc, !isDarkMode && styles.exportOptionDescLight]}>Copy all notes as text</Text>
+                  </View>
+                  <ArrowRight size={20} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
+                </Pressable>
+              </View>
             </Pressable>
           </Pressable>
         </Modal>
@@ -1139,10 +1748,37 @@ const styles = StyleSheet.create({
     minWidth: 24,
     alignItems: 'center',
   },
+  headerNoteCountLight: {
+    backgroundColor: '#e2e8f0',
+  },
+  headerNoteCountGreen: {
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    borderWidth: 1,
+    borderColor: '#22C55E',
+  },
+  headerNoteCountYellow: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  headerNoteCountRed: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+  },
   headerNoteCountText: {
     color: '#9CA3AF',
     fontSize: 11,
     fontWeight: '600',
+  },
+  headerNoteCountTextGreen: {
+    color: '#22C55E',
+  },
+  headerNoteCountTextYellow: {
+    color: '#F59E0B',
+  },
+  headerNoteCountTextRed: {
+    color: '#EF4444',
   },
 
   // Main content area
@@ -1262,7 +1898,28 @@ const styles = StyleSheet.create({
     borderTopColor: '#334155',
   },
   
-  // Sticky Note - yellow post-it style (for note stickers)
+  // Sticky Note - using notesticker.png image
+  stickyNoteContainer: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stickyNoteImage: {
+    width: 160,
+    height: 160,
+    position: 'absolute',
+  },
+  stickyNoteTextOverlay: {
+    position: 'absolute',
+    top: 25,
+    left: 15,
+    right: 15,
+    bottom: 25,
+    padding: 8,
+  },
+  // Legacy sticky note styles (keeping for backwards compatibility)
   stickyNote: {
     position: 'absolute',
     width: 160,
@@ -1310,20 +1967,110 @@ const styles = StyleSheet.create({
   },
   stickyTitle: {
     color: '#1f2937',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   stickyContent: {
     color: '#374151',
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 16,
     flex: 1,
   },
   stickyWordCount: {
     color: '#6B7280',
     fontSize: 10,
     marginTop: 8,
+  },
+  stickerDeleteBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  
+  // Table card styles
+  tableCard: {
+    position: 'absolute',
+    minWidth: 220,
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  tableCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#334155',
+    borderBottomWidth: 1,
+    borderBottomColor: '#475569',
+  },
+  tableHeaderLight: {
+    backgroundColor: '#f1f5f9',
+    borderBottomColor: '#e2e8f0',
+  },
+  tableTitle: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  tableTitleLight: {
+    color: '#1e293b',
+  },
+  tableDeleteBtn: {
+    padding: 4,
+  },
+  tableContent: {
+    padding: 2,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  tableHeaderRow: {
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+  },
+  tableCell: {
+    flex: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRightWidth: 1,
+    borderRightColor: '#334155',
+  },
+  tableHeaderCell: {
+    backgroundColor: 'transparent',
+  },
+  tableCellText: {
+    color: '#94a3b8',
+    fontSize: 11,
+  },
+  tableHeaderCellText: {
+    color: '#F59E0B',
+    fontWeight: '600',
+  },
+  tableCellTextLight: {
+    color: '#475569',
   },
   
   // Todo card - dark themed like web
@@ -1453,14 +2200,55 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F59E0B',
   },
+  dockButtonActive: {
+    backgroundColor: 'rgba(245, 158, 11, 0.3)',
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+  },
   dockButtonTrash: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
     borderWidth: 2,
     borderColor: '#EF4444',
   },
+  dockButtonTrashActive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.4)',
+    borderWidth: 3,
+    borderColor: '#EF4444',
+    transform: [{ scale: 1.1 }],
+  },
   dockButtonText: {
     color: '#9ca3af',
     fontSize: 9,
+  },
+  
+  // Dragging styles
+  draggingItem: {
+    opacity: 0.8,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 20,
+    borderWidth: 2,
+    borderColor: '#8B5CF6',
+  },
+  dragIndicator: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#8B5CF6',
+    zIndex: 1000,
+  },
+  dragIndicatorText: {
+    color: '#e2e8f0',
+    fontSize: 14,
+    fontWeight: '600',
   },
 
   // Note Editor Modal
@@ -1680,12 +2468,6 @@ const styles = StyleSheet.create({
   themeToggleButtonLight: {
     backgroundColor: '#f1f5f9',
   },
-  headerNoteCountLight: {
-    backgroundColor: '#e2e8f0',
-  },
-  headerNoteCountTextLight: {
-    color: '#64748b',
-  },
   canvasContentLight: {
     backgroundColor: '#f1f5f9',
   },
@@ -1828,5 +2610,152 @@ const styles = StyleSheet.create({
   },
   searchNoResultsLight: {
     color: '#94a3b8',
+  },
+  
+  // Drawing styles
+  drawingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    zIndex: 1000,
+  },
+  drawingModeIndicator: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  drawingModeText: {
+    color: '#fff',
+    fontSize: 14,
+    flex: 1,
+  },
+  drawingModeClose: {
+    padding: 4,
+  },
+  drawingDot: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#F59E0B',
+  },
+  drawingPath: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  clearDrawingsBtn: {
+    position: 'absolute',
+    bottom: 100,
+    right: 20,
+    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#EF4444',
+  },
+  clearDrawingsText: {
+    color: '#EF4444',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  
+  // Export Modal styles
+  exportModalContent: {
+    backgroundColor: '#1e293b',
+    borderRadius: 16,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  exportModalContentLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
+  },
+  exportModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 12,
+  },
+  exportModalTitle: {
+    color: '#e2e8f0',
+    fontSize: 20,
+    fontWeight: '700',
+    flex: 1,
+  },
+  exportModalTitleLight: {
+    color: '#1e293b',
+  },
+  exportModalClose: {
+    padding: 4,
+  },
+  exportModalSubtitle: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    marginBottom: 20,
+  },
+  exportModalSubtitleLight: {
+    color: '#64748b',
+  },
+  exportOptions: {
+    gap: 12,
+  },
+  exportOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#334155',
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+  },
+  exportOptionLight: {
+    backgroundColor: '#f1f5f9',
+  },
+  exportOptionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exportOptionInfo: {
+    flex: 1,
+  },
+  exportOptionTitle: {
+    color: '#e2e8f0',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  exportOptionTitleLight: {
+    color: '#1e293b',
+  },
+  exportOptionDesc: {
+    color: '#9CA3AF',
+    fontSize: 13,
+  },
+  exportOptionDescLight: {
+    color: '#64748b',
   },
 });
