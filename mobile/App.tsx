@@ -643,6 +643,7 @@ const CanvasWithGestures: React.FC<any> = ({
               position={source.position || { x: 200, y: 200 }}
               onPositionChange={(newPos) => updateItemPosition('source', source.id, newPos)}
               onDragStart={() => setDraggingItem({ type: 'source', id: source.id })}
+              onDragUpdate={(pageX, pageY) => setIsOverTrash(isPositionOverTrash(pageX, pageY))}
               onDragEnd={(pageX, pageY) => {
                 if (isPositionOverTrash(pageX, pageY)) {
                   deleteSource(source.id);
