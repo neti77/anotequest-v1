@@ -1174,26 +1174,68 @@ export default function App() {
     setTables((prev) => [...prev, newTable]);
   }, [activeFolder, saveToHistory]);
 
-  // Image functions
+  // Image functions - uses expo-image-picker
   const addImage = useCallback(async () => {
-    // For now, create a placeholder - full image picker would need expo-image-picker
+    // Request permission
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant photo library access to add images.');
+      return;
+    }
+    
+    // Show options
     Alert.alert(
       'Add Image',
-      'Image picker requires additional setup. For now, a placeholder will be created.',
+      'Choose image source',
       [
         { text: 'Cancel', style: 'cancel' },
         { 
-          text: 'Add Placeholder', 
-          onPress: () => {
-            const newImage = {
-              id: Date.now(),
-              data: null, // Would be base64 data
-              position: { x: 200 + Math.random() * 150, y: 200 + Math.random() * 150 },
-              size: { width: 200, height: 150 },
-              folderId: activeFolder,
-              createdAt: new Date().toISOString(),
-            };
-            setImages((prev) => [...prev, newImage]);
+          text: 'Take Photo', 
+          onPress: async () => {
+            const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
+            if (cameraStatus.status !== 'granted') {
+              Alert.alert('Permission Required', 'Please grant camera access.');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              quality: 0.7,
+              base64: true,
+            });
+            if (!result.canceled && result.assets[0]) {
+              const asset = result.assets[0];
+              const newImage = {
+                id: Date.now(),
+                data: `data:image/jpeg;base64,${asset.base64}`,
+                position: { x: 50 + Math.random() * 100, y: 50 + Math.random() * 100 },
+                size: { width: 200, height: 150 },
+                folderId: activeFolder,
+                createdAt: new Date().toISOString(),
+              };
+              setImages((prev) => [...prev, newImage]);
+            }
+          }
+        },
+        { 
+          text: 'Choose from Library', 
+          onPress: async () => {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              quality: 0.7,
+              base64: true,
+            });
+            if (!result.canceled && result.assets[0]) {
+              const asset = result.assets[0];
+              const newImage = {
+                id: Date.now(),
+                data: `data:image/jpeg;base64,${asset.base64}`,
+                position: { x: 50 + Math.random() * 100, y: 50 + Math.random() * 100 },
+                size: { width: 200, height: 150 },
+                folderId: activeFolder,
+                createdAt: new Date().toISOString(),
+              };
+              setImages((prev) => [...prev, newImage]);
+            }
           }
         },
       ]
