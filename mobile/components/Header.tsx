@@ -152,25 +152,25 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <StyledView className="h-14 border-b border-gray-700 bg-gray-800/90 px-4 flex-row items-center justify-between">
+    <StyledView className="h-16 border-b border-slate-700/60 bg-slate-900/95 px-4 flex-row items-center justify-between">
       {/* Logo & Title */}
-      <StyledView className="flex-row items-center gap-2">
+      <StyledView className="flex-row items-center gap-2.5">
         <StyledText className="text-2xl">📝</StyledText>
-        <StyledText className="text-lg font-bold text-amber-500">AnoteQuest</StyledText>
+        <StyledText className="text-lg font-extrabold text-amber-400 tracking-wide">AnoteQuest</StyledText>
       </StyledView>
 
       {/* Center - Search, Undo/Redo */}
-      <StyledView className="flex-row items-center gap-2">
+      <StyledView className="flex-row items-center gap-2.5">
         {/* Search */}
         {showSearch ? (
-          <StyledView className="flex-row items-center gap-1 bg-gray-700/50 rounded-md px-2 py-1">
-            <Search size={16} color="#9CA3AF" />
+          <StyledView className="flex-row items-center gap-1.5 bg-slate-700/60 rounded-lg px-3 py-1.5 border border-slate-600/40">
+            <Search size={16} color="#94a3b8" />
             <StyledTextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search..."
-              placeholderTextColor="#6B7280"
-              className="h-7 w-24 text-white text-sm"
+              placeholderTextColor="#64748b"
+              className="h-8 w-28 text-slate-100 text-sm font-medium"
               autoFocus
             />
             <StyledPressable
@@ -178,26 +178,26 @@ export const Header: React.FC<HeaderProps> = ({
                 setShowSearch(false);
                 setSearchQuery('');
               }}
-              className="p-1"
+              className="p-1.5 rounded-md bg-slate-600/40"
             >
-              <X size={14} color="#9CA3AF" />
+              <X size={14} color="#94a3b8" />
             </StyledPressable>
           </StyledView>
         ) : (
           <StyledPressable
             onPress={() => setShowSearch(true)}
-            className="w-8 h-8 items-center justify-center rounded-md"
+            className="w-9 h-9 items-center justify-center rounded-lg bg-slate-700/50"
           >
-            <Search size={18} color="#9CA3AF" />
+            <Search size={18} color="#94a3b8" />
           </StyledPressable>
         )}
 
         {/* Undo/Redo */}
-        <StyledView className="flex-row items-center gap-0.5 bg-gray-700/30 rounded-md p-0.5">
+        <StyledView className="flex-row items-center gap-1 bg-slate-700/50 rounded-lg p-1">
           <StyledPressable
             onPress={onUndo}
             disabled={!canUndo}
-            className={`w-7 h-7 items-center justify-center rounded-md ${!canUndo ? 'opacity-40' : ''}`}
+            className={`w-8 h-8 items-center justify-center rounded-md ${!canUndo ? 'opacity-35' : ''}`}
           >
             <Undo2 size={16} color={canUndo ? '#D1D5DB' : '#6B7280'} />
           </StyledPressable>
