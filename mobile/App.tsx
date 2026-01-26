@@ -59,12 +59,24 @@ import {
 
 // Canvas fills whole view - no minimum, grows with content
 const CANVAS_PADDING = 200;
+const NOTE_WIDTH = 230;
+const INITIAL_CANVAS_SIZE = NOTE_WIDTH * 6; // Start with space for ~6 notes
 
 // Drawing colors
 const DRAWING_COLORS = [
   '#3b82f6', '#ef4444', '#22c55e', '#eab308', '#8b5cf6', '#f97316',
   '#ec4899', '#14b8a6', '#000000', '#6b7280', '#ffffff'
 ];
+
+// Helper to convert points array to SVG path string
+const pointsToPath = (points: {x: number, y: number}[]): string => {
+  if (points.length < 2) return '';
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length; i++) {
+    d += ` L ${points[i].x} ${points[i].y}`;
+  }
+  return d;
+};
 
 // Types
 interface Note {
