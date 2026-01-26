@@ -509,6 +509,7 @@ const CanvasWithGestures: React.FC<any> = ({
               position={sticker.position || { x: 200, y: 200 }}
               onPositionChange={(newPos) => updateItemPosition('sticker', sticker.id, newPos)}
               onDragStart={() => setDraggingItem({ type: 'sticker', id: sticker.id })}
+              onDragUpdate={(pageX, pageY) => setIsOverTrash(isPositionOverTrash(pageX, pageY))}
               onDragEnd={(pageX, pageY) => {
                 if (isPositionOverTrash(pageX, pageY)) {
                   handleDragDelete('sticker', sticker.id);
