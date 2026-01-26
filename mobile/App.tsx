@@ -549,6 +549,7 @@ const CanvasWithGestures: React.FC<any> = ({
               position={todo.position}
               onPositionChange={(newPos) => updateItemPosition('todo', todo.id, newPos)}
               onDragStart={() => setDraggingItem({ type: 'todo', id: todo.id })}
+              onDragUpdate={(pageX, pageY) => setIsOverTrash(isPositionOverTrash(pageX, pageY))}
               onDragEnd={(pageX, pageY) => {
                 if (isPositionOverTrash(pageX, pageY)) {
                   handleDragDelete('todo', todo.id);
