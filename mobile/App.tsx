@@ -1616,57 +1616,74 @@ export default function App() {
           </View>
         </View>
 
-        {/* Drawing Mode Toolbar - like frontend with pen/eraser/colors */}
+        {/* Vertical Drawing Toolbar - Draggable like frontend */}
         {isDrawingMode && (
-          <View style={styles.drawingToolbar}>
-            {/* Pen/Eraser Toggle */}
-            <View style={styles.drawingToolGroup}>
-              <Pressable
-                style={[styles.drawingToolButton, !isEraser && styles.drawingToolButtonActive]}
-                onPress={() => setIsEraser(false)}
-              >
-                <Pencil size={18} color={!isEraser ? "#fff" : "#94a3b8"} />
-              </Pressable>
-              <Pressable
-                style={[styles.drawingToolButton, isEraser && styles.drawingToolButtonActive]}
-                onPress={() => setIsEraser(true)}
-              >
-                <Eraser size={18} color={isEraser ? "#fff" : "#94a3b8"} />
-              </Pressable>
+          <View 
+            style={[
+              styles.verticalDrawingToolbar,
+              { left: drawingToolbarPosition.x, top: drawingToolbarPosition.y }
+            ]}
+            {...{
+              onStartShouldSetResponder: () => true,
+              onMoveShouldSetResponder: () => true,
+              onResponderMove: (e: any) => {
+                setDrawingToolbarPosition({
+                  x: Math.max(0, Math.min(windowWidth - 60, e.nativeEvent.pageX - 30)),
+                  y: Math.max(100, Math.min(windowHeight - 400, e.nativeEvent.pageY - 20)),
+                });
+              },
+            }}
+          >
+            {/* Drag Handle */}
+            <View style={styles.drawingToolbarHandle}>
+              <GripVertical size={16} color="#64748b" />
             </View>
             
-            {/* Color Palette */}
-            <View style={styles.drawingColorPalette}>
-              {DRAWING_COLORS.map((color) => (
-                <Pressable
-                  key={color}
-                  style={[
-                    styles.drawingColorOption,
-                    { backgroundColor: color, borderColor: color === '#ffffff' ? '#94a3b8' : color },
-                    drawingColor === color && styles.drawingColorOptionActive,
-                  ]}
-                  onPress={() => { setDrawingColor(color); setIsEraser(false); }}
-                />
-              ))}
-            </View>
+            {/* Close Button */}
+            <Pressable style={styles.verticalDrawingCloseButton} onPress={() => setIsDrawingMode(false)}>
+              <X size={16} color="#fff" />
+            </Pressable>
+            
+            {/* Pen/Eraser Toggle */}
+            <View style={styles.verticalToolDivider} />
+            <Pressable
+              style={[styles.verticalDrawingToolButton, !isEraser && styles.verticalDrawingToolButtonActive]}
+              onPress={() => setIsEraser(false)}
+            >
+              <Pencil size={20} color={!isEraser ? "#fff" : "#94a3b8"} />
+            </Pressable>
+            <Pressable
+              style={[styles.verticalDrawingToolButton, isEraser && styles.verticalDrawingToolButtonActive]}
+              onPress={() => setIsEraser(true)}
+            >
+              <Eraser size={20} color={isEraser ? "#fff" : "#94a3b8"} />
+            </Pressable>
             
             {/* Brush Size */}
-            <View style={styles.drawingBrushSize}>
-              {[2, 4, 8, 12].map((size) => (
-                <Pressable
-                  key={size}
-                  style={[styles.drawingBrushButton, brushSize === size && styles.drawingBrushButtonActive]}
-                  onPress={() => setBrushSize(size)}
-                >
-                  <View style={[styles.drawingBrushDot, { width: size + 4, height: size + 4, borderRadius: (size + 4) / 2 }]} />
-                </Pressable>
-              ))}
-            </View>
+            <View style={styles.verticalToolDivider} />
+            {[2, 4, 8, 12].map((size) => (
+              <Pressable
+                key={size}
+                style={[styles.verticalBrushButton, brushSize === size && styles.verticalBrushButtonActive]}
+                onPress={() => setBrushSize(size)}
+              >
+                <View style={[styles.verticalBrushDot, { width: size + 2, height: size + 2, borderRadius: (size + 2) / 2 }]} />
+              </Pressable>
+            ))}
             
-            {/* Close */}
-            <Pressable style={styles.drawingCloseButton} onPress={() => setIsDrawingMode(false)}>
-              <X size={20} color="#fff" />
-            </Pressable>
+            {/* Color Palette */}
+            <View style={styles.verticalToolDivider} />
+            {DRAWING_COLORS.map((color) => (
+              <Pressable
+                key={color}
+                style={[
+                  styles.verticalColorOption,
+                  { backgroundColor: color, borderColor: color === '#ffffff' ? '#64748b' : 'transparent' },
+                  drawingColor === color && styles.verticalColorOptionActive,
+                ]}
+                onPress={() => { setDrawingColor(color); setIsEraser(false); }}
+              />
+            ))}
           </View>
         )}
             
@@ -1688,12 +1705,22 @@ export default function App() {
           isOverTrash={isOverTrash}
         />
 
-        {/* Drag indicator when dragging */}
+        {/* Floating Trash Zone when dragging */}
         {draggingItem && (
-          <View style={styles.dragIndicator}>
-            <Text style={styles.dragIndicatorText}>
-              Drag to 🗑️ Trash to delete
-            </Text>
+          <View 
+            style={styles.floatingTrashZone}
+            onLayout={(event) => {
+              event.target.measure((x, y, width, height, pageX, pageY) => {
+                setTrashZoneLayout({ x: pageX, y: pageY, width, height });
+              });
+            }}
+          >
+            <View style={[styles.floatingTrashInner, isOverTrash && styles.floatingTrashActive]}>
+              <Trash2 size={28} color={isOverTrash ? "#fff" : "#ef4444"} />
+              <Text style={[styles.floatingTrashText, isOverTrash && { color: '#fff' }]}>
+                {isOverTrash ? 'Release to delete' : 'Drop here to delete'}
+              </Text>
+            </View>
           </View>
         )}
 
