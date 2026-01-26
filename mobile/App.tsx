@@ -831,15 +831,17 @@ export default function App() {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const maxHistoryLength = 50;
 
-  // Calculate dynamic canvas size based on content - fills view and grows
+  // Calculate dynamic canvas size based on content - starts small, grows when items are near edges
   useEffect(() => {
-    let maxX = windowWidth;
-    let maxY = windowHeight;
+    // Start with initial size
+    let maxX = INITIAL_CANVAS_SIZE;
+    let maxY = INITIAL_CANVAS_SIZE;
     
     const consider = (item: any, defaultWidth: number, defaultHeight: number) => {
       if (!item || !item.position) return;
       const width = item.size?.width || defaultWidth;
       const height = item.size?.height || defaultHeight;
+      // Only expand canvas if item is near the edge
       maxX = Math.max(maxX, item.position.x + width + CANVAS_PADDING);
       maxY = Math.max(maxY, item.position.y + height + CANVAS_PADDING);
     };
@@ -852,15 +854,19 @@ export default function App() {
     const folderSources = sources.filter(s => activeFolder === null || s.folderId === activeFolder);
     const folderImages = images.filter(i => activeFolder === null || i.folderId === activeFolder);
     
-    folderNotes.forEach(note => consider(note, 230, 200));
+    folderNotes.forEach(note => consider(note, NOTE_WIDTH, 200));
     folderStickers.forEach(sticker => consider(sticker, 170, 170));
     folderTables.forEach(table => consider(table, 240, 150));
     folderTodos.forEach(todo => consider(todo, 210, 200));
     folderSources.forEach(source => consider(source, 220, 100));
     folderImages.forEach(image => consider(image, 200, 150));
     
-    setCanvasSize({ width: maxX, height: maxY });
-  }, [notes, noteStickers, tables, todos, sources, images, activeFolder, windowWidth, windowHeight]);
+    // Only update if canvas needs to grow (never shrink)
+    setCanvasSize(prev => ({
+      width: Math.max(prev.width, maxX),
+      height: Math.max(prev.height, maxY),
+    }));
+  }, [notes, noteStickers, tables, todos, sources, images, activeFolder]);
 
   // Save current state to history
   const saveToHistory = useCallback(() => {
