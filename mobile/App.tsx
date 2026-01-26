@@ -124,12 +124,13 @@ const DraggableItem: React.FC<{
   position: { x: number; y: number };
   onPositionChange: (newPos: { x: number; y: number }) => void;
   onDragStart: () => void;
+  onDragUpdate?: (pageX: number, pageY: number) => void;
   onDragEnd: (pageX: number, pageY: number) => void;
   scale: number;
   style?: any;
   isDragging: boolean;
   itemType?: string;
-}> = ({ children, position, onPositionChange, onDragStart, onDragEnd, scale, style, isDragging, itemType }) => {
+}> = ({ children, position, onPositionChange, onDragStart, onDragUpdate, onDragEnd, scale, style, isDragging, itemType }) => {
   // Use shared values for 60fps animations on UI thread
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -164,6 +165,10 @@ const DraggableItem: React.FC<{
       translateY.value = e.translationY / scale;
       pageXRef.value = e.absoluteX;
       pageYRef.value = e.absoluteY;
+      // Notify parent of position during drag (for trash zone detection)
+      if (onDragUpdate) {
+        runOnJS(onDragUpdate)(e.absoluteX, e.absoluteY);
+      }
     })
     .onEnd(() => {
       'worklet';
