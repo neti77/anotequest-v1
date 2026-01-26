@@ -278,10 +278,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ))}
             </StyledView>
           ) : (
-            <StyledView className="items-center py-12">
-              <StyledText className="text-5xl mb-3">🖼️</StyledText>
-              <StyledText className="text-gray-400 text-sm">No images yet</StyledText>
-              <StyledText className="text-gray-500 text-xs mt-1">Add images to your notes</StyledText>
+            <StyledView className="items-center py-14">
+              <StyledText className="text-5xl mb-4">🖼️</StyledText>
+              <StyledText className="text-slate-400 text-sm font-medium">No images yet</StyledText>
+              <StyledText className="text-slate-500 text-xs mt-1.5">Add images to your notes</StyledText>
             </StyledView>
           )}
         </StyledScrollView>
@@ -291,29 +291,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <Modal visible={deleteModalVisible} transparent animationType="fade">
         <StyledPressable
           onPress={() => setDeleteModalVisible(false)}
-          className="flex-1 bg-black/60 items-center justify-center px-6"
+          className="flex-1 bg-black/70 items-center justify-center px-6"
         >
           <StyledPressable
             onPress={(e) => e.stopPropagation()}
-            className="bg-gray-800 rounded-2xl p-6 w-full max-w-sm"
+            className="bg-slate-900 rounded-2xl p-7 w-full max-w-sm border border-slate-700/60 shadow-xl"
           >
-            <StyledText className="text-white text-lg font-bold mb-2">Delete Folder?</StyledText>
-            <StyledText className="text-gray-400 text-sm mb-6">
+            <StyledText className="text-slate-100 text-lg font-bold mb-3 tracking-wide">Delete Folder?</StyledText>
+            <StyledText className="text-slate-400 text-sm mb-7 leading-5">
               This will remove the folder "{folderToDelete?.name}" but keep all notes.
             </StyledText>
-            <StyledView className="flex-row gap-3">
+            <StyledView className="flex-row gap-3.5">
               <StyledPressable
                 onPress={() => {
                   setDeleteModalVisible(false);
                   setFolderToDelete(null);
                 }}
-                className="flex-1 bg-gray-700 py-3 rounded-xl"
+                className="flex-1 bg-slate-700/70 py-3.5 rounded-xl border border-slate-600/40"
               >
-                <StyledText className="text-gray-300 font-medium text-center">Cancel</StyledText>
+                <StyledText className="text-slate-300 font-semibold text-center">Cancel</StyledText>
               </StyledPressable>
               <StyledPressable
                 onPress={confirmDeleteFolder}
-                className="flex-1 bg-red-600 py-3 rounded-xl"
+                className="flex-1 bg-red-500 py-3.5 rounded-xl shadow-sm"
               >
                 <StyledText className="text-white font-bold text-center">Delete</StyledText>
               </StyledPressable>
