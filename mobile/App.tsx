@@ -442,10 +442,11 @@ const CanvasWithGestures: React.FC<any> = ({
         <Animated.View style={[
           styles.canvasContent,
           !isDarkMode && styles.canvasContentLight,
+          { width: canvasSize.width, height: canvasSize.height },
           animatedStyle,
         ]}>
           {/* Grid */}
-          <View style={styles.gridContainer}>{renderGrid()}</View>
+          <View style={[styles.gridContainer, { width: canvasSize.width, height: canvasSize.height }]}>{renderGrid()}</View>
 
           {/* Empty State */}
           {filteredNotes.length === 0 && todos.length === 0 && (
@@ -473,8 +474,9 @@ const CanvasWithGestures: React.FC<any> = ({
               scale={scale}
               style={[styles.noteCard, !isDarkMode && styles.noteCardLight]}
               isDragging={draggingItem?.type === 'note' && draggingItem?.id === note.id}
+              itemType="note"
             >
-              <Pressable onPress={() => setEditingNote(note)}>
+              <Pressable onPress={() => setViewingNote(note)}>
                 <View style={[styles.noteCardHeader, !isDarkMode && styles.noteCardHeaderLight]}>
                   <View style={styles.noteCardDrag}>
                     <GripVertical size={14} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
@@ -485,7 +487,7 @@ const CanvasWithGestures: React.FC<any> = ({
                 </View>
                 <View style={[styles.noteCardBody, !isDarkMode && styles.noteCardBodyLight]}>
                   <Text style={[styles.noteCardContent, !isDarkMode && styles.noteCardContentLight]} numberOfLines={6}>
-                    {note.content || 'Click to start writing...'}
+                    {note.content || 'Tap to view...'}
                   </Text>
                 </View>
                 <Text style={[styles.noteCardWordCount, !isDarkMode && styles.noteCardWordCountLight]}>
@@ -512,14 +514,9 @@ const CanvasWithGestures: React.FC<any> = ({
               scale={scale}
               style={styles.stickyNoteContainer}
               isDragging={draggingItem?.type === 'sticker' && draggingItem?.id === sticker.id}
+              itemType="sticker"
             >
-              <Pressable
-                onPress={() => {
-                  setEditingStickerTitle(sticker.title || '');
-                  setEditingStickerContent(sticker.content || '');
-                  setEditingSticker(sticker);
-                }}
-              >
+              <Pressable onPress={() => setViewingSticker(sticker)}>
                 {/* Sticker image */}
                 <Image 
                   source={require('./assets/notesticker.png')} 
@@ -529,7 +526,7 @@ const CanvasWithGestures: React.FC<any> = ({
                 {/* Text overlay */}
                 <View style={styles.stickyNoteTextOverlay}>
                   <Text style={styles.stickyTitle} numberOfLines={1}>
-                    {sticker.title || 'Tap to edit'}
+                    {sticker.title || 'Tap to view'}
                   </Text>
                   <Text style={styles.stickyContent} numberOfLines={4}>
                     {sticker.content || ''}
@@ -556,6 +553,7 @@ const CanvasWithGestures: React.FC<any> = ({
               scale={scale}
               style={[styles.todoCard, !isDarkMode && styles.todoCardLight]}
               isDragging={draggingItem?.type === 'todo' && draggingItem?.id === todo.id}
+              itemType="todo"
             >
               <View style={[styles.todoHeader, !isDarkMode && styles.todoHeaderLight]}>
                 <View style={styles.todoHeaderLeft}>
