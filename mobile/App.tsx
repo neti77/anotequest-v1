@@ -1594,40 +1594,78 @@ export default function App() {
               todos={todos}
               filteredStickers={filteredStickers}
               tables={tables}
+              sources={sources}
+              images={images}
               drawings={drawings}
               currentPath={currentPath}
+              canvasSize={canvasSize}
               updateItemPosition={updateItemPosition}
               setDraggingItem={setDraggingItem}
               isPositionOverTrash={isPositionOverTrash}
               handleDragDelete={handleDragDelete}
               setIsOverTrash={setIsOverTrash}
-              setEditingNote={setEditingNote}
+              setViewingNote={setViewingNote}
               updateTodo={updateTodo}
-              setEditingStickerTitle={setEditingStickerTitle}
-              setEditingStickerContent={setEditingStickerContent}
-              setEditingSticker={setEditingSticker}
+              setViewingSticker={setViewingSticker}
+              deleteSource={deleteSource}
+              deleteImage={deleteImage}
             />
           </View>
         </View>
 
-        {/* Drawing Mode Overlay */}
+        {/* Drawing Mode Toolbar - like frontend with pen/eraser/colors */}
         {isDrawingMode && (
-          <View 
-            style={styles.drawingOverlay}
-            onStartShouldSetResponder={() => true}
-            onMoveShouldSetResponder={() => true}
-            onResponderGrant={(evt) => {
-              const { locationX, locationY } = evt.nativeEvent;
-              setCurrentPath([{ x: locationX, y: locationY }]);
-            }}
-            onResponderMove={(evt) => {
-              const { locationX, locationY } = evt.nativeEvent;
-              setCurrentPath(prev => [...prev, { x: locationX, y: locationY }]);
-            }}
-            onResponderRelease={() => {
-              if (currentPath.length > 0) {
-                setDrawings(prev => [...prev, { points: currentPath, color: '#F59E0B' }]);
-                setCurrentPath([]);
+          <View style={styles.drawingToolbar}>
+            {/* Pen/Eraser Toggle */}
+            <View style={styles.drawingToolGroup}>
+              <Pressable
+                style={[styles.drawingToolButton, !isEraser && styles.drawingToolButtonActive]}
+                onPress={() => setIsEraser(false)}
+              >
+                <Pencil size={18} color={!isEraser ? "#fff" : "#94a3b8"} />
+              </Pressable>
+              <Pressable
+                style={[styles.drawingToolButton, isEraser && styles.drawingToolButtonActive]}
+                onPress={() => setIsEraser(true)}
+              >
+                <Eraser size={18} color={isEraser ? "#fff" : "#94a3b8"} />
+              </Pressable>
+            </View>
+            
+            {/* Color Palette */}
+            <View style={styles.drawingColorPalette}>
+              {DRAWING_COLORS.map((color) => (
+                <Pressable
+                  key={color}
+                  style={[
+                    styles.drawingColorOption,
+                    { backgroundColor: color, borderColor: color === '#ffffff' ? '#94a3b8' : color },
+                    drawingColor === color && styles.drawingColorOptionActive,
+                  ]}
+                  onPress={() => { setDrawingColor(color); setIsEraser(false); }}
+                />
+              ))}
+            </View>
+            
+            {/* Brush Size */}
+            <View style={styles.drawingBrushSize}>
+              {[2, 4, 8, 12].map((size) => (
+                <Pressable
+                  key={size}
+                  style={[styles.drawingBrushButton, brushSize === size && styles.drawingBrushButtonActive]}
+                  onPress={() => setBrushSize(size)}
+                >
+                  <View style={[styles.drawingBrushDot, { width: size + 4, height: size + 4, borderRadius: (size + 4) / 2 }]} />
+                </Pressable>
+              ))}
+            </View>
+            
+            {/* Close */}
+            <Pressable style={styles.drawingCloseButton} onPress={() => setIsDrawingMode(false)}>
+              <X size={20} color="#fff" />
+            </Pressable>
+          </View>
+        )}
               }
             }}
           >
