@@ -680,7 +680,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#0a0f1a',
     overflow: 'hidden',
   },
   canvasWrapper: {
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
   canvasContent: {
     width: CANVAS_WIDTH,
     height: CANVAS_HEIGHT,
-    backgroundColor: '#1f2937',
+    backgroundColor: '#0c1222',
     transformOrigin: 'top left',
   },
   gridContainer: {
@@ -703,261 +703,317 @@ const styles = StyleSheet.create({
   gridDot: {
     position: 'absolute',
     borderRadius: 1,
-    backgroundColor: 'rgba(75, 85, 99, 0.4)',
+    backgroundColor: 'rgba(71, 85, 105, 0.35)',
   },
   
-  // Zoom controls
+  // Zoom controls - polished
   zoomControls: {
     position: 'absolute',
-    top: 8,
+    top: 12,
     left: '50%',
-    marginLeft: -80,
+    marginLeft: -85,
     zIndex: 40,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(31, 41, 55, 0.9)',
-    borderRadius: 24,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: 6,
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    borderRadius: 26,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.6)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   zoomButton: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 16,
+    borderRadius: 18,
+    backgroundColor: 'rgba(51, 65, 85, 0.4)',
   },
   zoomText: {
-    color: '#d1d5db',
-    fontSize: 12,
-    fontWeight: '500',
-    width: 48,
+    color: '#e2e8f0',
+    fontSize: 13,
+    fontWeight: '700',
+    width: 52,
     textAlign: 'center',
+    letterSpacing: 0.2,
   },
   zoomDivider: {
     width: 1,
-    height: 20,
-    backgroundColor: '#4b5563',
-    marginHorizontal: 4,
+    height: 24,
+    backgroundColor: 'rgba(71, 85, 105, 0.5)',
+    marginHorizontal: 6,
   },
   
-  // Note limit badge
+  // Note limit badge - polished
   noteLimitBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 12,
+    right: 12,
     zIndex: 40,
-    backgroundColor: 'rgba(31, 41, 55, 0.8)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  noteLimitText: {
-    color: '#9ca3af',
-    fontSize: 12,
-  },
-  
-  // Trash zone
-  trashZone: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    zIndex: 50,
-    width: 56,
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 16,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
-  },
-  
-  // Empty state
-  emptyState: {
-    position: 'absolute',
-    top: CANVAS_HEIGHT / 2 - 100,
-    left: CANVAS_WIDTH / 2 - 100,
-    width: 200,
-    alignItems: 'center',
-  },
-  emptyStateIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyStateTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  emptyStateSubtitle: {
-    color: '#9ca3af',
-    fontSize: 14,
-  },
-  
-  // Note card
-  noteCard: {
-    flex: 1,
-    backgroundColor: '#fef3c7',
-    borderRadius: 12,
-    padding: 12,
-    minHeight: 120,
-    borderWidth: 2,
-    borderColor: '#fde68a',
+    borderColor: 'rgba(51, 65, 85, 0.6)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
   },
+  noteLimitText: {
+    color: '#94a3b8',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  
+  // Trash zone - polished
+  trashZone: {
+    position: 'absolute',
+    bottom: 28,
+    right: 28,
+    zIndex: 50,
+    width: 62,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 2,
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  
+  // Empty state - polished
+  emptyState: {
+    position: 'absolute',
+    top: CANVAS_HEIGHT / 2 - 120,
+    left: CANVAS_WIDTH / 2 - 110,
+    width: 220,
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    padding: 30,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.5)',
+  },
+  emptyStateIcon: {
+    fontSize: 52,
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    color: '#f1f5f9',
+    fontSize: 19,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  emptyStateSubtitle: {
+    color: '#94a3b8',
+    fontSize: 15,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  
+  // Note card - refined yellow sticky style
+  noteCard: {
+    flex: 1,
+    backgroundColor: '#fef3c7',
+    borderRadius: 14,
+    padding: 14,
+    minHeight: 130,
+    borderWidth: 2,
+    borderColor: '#fcd34d',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
   noteTitle: {
     color: '#1f2937',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 6,
+    letterSpacing: 0.2,
   },
   noteContent: {
     color: '#4b5563',
-    fontSize: 14,
+    fontSize: 15,
+    lineHeight: 22,
+    letterSpacing: 0.1,
   },
   
-  // Todo card
+  // Todo card - refined
   todoCard: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: '#e2e8f0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
   },
   todoTitle: {
-    color: '#1f2937',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    color: '#1e293b',
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 10,
+    letterSpacing: 0.2,
   },
   todoItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   todoCheckbox: {
-    fontSize: 16,
-    marginRight: 8,
+    fontSize: 18,
+    marginRight: 10,
   },
   todoItemText: {
     flex: 1,
-    fontSize: 14,
-    color: '#374151',
+    fontSize: 15,
+    color: '#334155',
+    letterSpacing: 0.1,
   },
   todoItemCompleted: {
-    color: '#9ca3af',
+    color: '#94a3b8',
     textDecorationLine: 'line-through',
   },
   todoMore: {
-    color: '#9ca3af',
-    fontSize: 12,
-    marginTop: 4,
+    color: '#94a3b8',
+    fontSize: 13,
+    marginTop: 6,
+    fontWeight: '500',
   },
   
-  // Sticker item
+  // Sticker item - polished
   stickerItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stickerEmoji: {
-    fontSize: 32,
+    fontSize: 36,
   },
   
-  // Image card
+  // Image card - polished
   imageCard: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#d1d5db',
+    borderColor: '#e2e8f0',
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
   },
   imagePlaceholderIcon: {
-    fontSize: 32,
+    fontSize: 36,
   },
   imagePlaceholderText: {
-    color: '#6b7280',
-    fontSize: 12,
-  },
-  
-  // Table card
-  tableCard: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#d1d5db',
-    flex: 1,
-  },
-  tableHeader: {
-    backgroundColor: '#f3f4f6',
-    padding: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  tableHeaderText: {
-    color: '#374151',
-    fontSize: 14,
+    color: '#64748b',
+    fontSize: 13,
     fontWeight: '500',
   },
+  
+  // Table card - polished
+  tableCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    flex: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  tableHeader: {
+    backgroundColor: '#f8fafc',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  tableHeaderText: {
+    color: '#334155',
+    fontSize: 15,
+    fontWeight: '700',
+  },
   tableBody: {
-    padding: 8,
+    padding: 10,
   },
   tableRow: {
     flexDirection: 'row',
   },
   tableCell: {
     flex: 1,
-    padding: 4,
+    padding: 6,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#e2e8f0',
   },
   tableCellText: {
-    fontSize: 12,
-    color: '#4b5563',
+    fontSize: 13,
+    color: '#475569',
+    letterSpacing: 0.1,
   },
   
-  // Source card
+  // Source card - polished
   sourceCard: {
     backgroundColor: '#eff6ff',
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 2,
     borderColor: '#bfdbfe',
     flex: 1,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
   sourceTitle: {
     color: '#2563eb',
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   sourceUrl: {
     color: '#60a5fa',
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: 13,
+    marginTop: 6,
+    fontWeight: '500',
   },
   
-  // Selected styles
+  // Selected styles - polished
   selectedNoteCard: {
-    borderColor: '#8B5CF6',
+    borderColor: '#a78bfa',
+    borderWidth: 2.5,
+    shadowColor: '#8b5cf6',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
   selectedNoteSticker: {
-    borderColor: '#8b5cf6',
+    borderColor: '#a78bfa',
+    borderWidth: 2.5,
   },
 });
 
