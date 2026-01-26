@@ -23,6 +23,8 @@ import { GestureHandlerRootView, Gesture, GestureDetector } from 'react-native-g
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CanvasInteractionProvider } from './contexts/CanvasInteractionContext';
+import * as ImagePicker from 'expo-image-picker';
+import Svg, { Path } from 'react-native-svg';
 import {
   Plus,
   FileText,
