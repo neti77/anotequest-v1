@@ -231,6 +231,8 @@ const BottomDock: React.FC<{
   addTodo: () => void;
   addNoteSticker: () => void;
   addTable: () => void;
+  addImage: () => void;
+  addSource: () => void;
   isDrawingMode: boolean;
   setIsDrawingMode: (val: boolean) => void;
   setShowNewFolderModal: (val: boolean) => void;
@@ -244,6 +246,8 @@ const BottomDock: React.FC<{
   addTodo,
   addNoteSticker,
   addTable,
+  addImage,
+  addSource,
   isDrawingMode,
   setIsDrawingMode,
   setShowNewFolderModal,
@@ -267,56 +271,56 @@ const BottomDock: React.FC<{
       >
         <Pressable style={styles.dockButton} onPress={() => addNote()}>
           <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
-            <Plus size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+            <Plus size={16} color={isDarkMode ? "#fff" : "#64748b"} />
           </View>
           <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Note</Text>
         </Pressable>
         
         <Pressable style={styles.dockButton} onPress={addTodo}>
           <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
-            <CheckSquare size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+            <CheckSquare size={16} color={isDarkMode ? "#fff" : "#64748b"} />
           </View>
           <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Todo</Text>
         </Pressable>
         
         <Pressable style={styles.dockButton} onPress={addNoteSticker}>
           <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
-            <FileText size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+            <FileText size={16} color={isDarkMode ? "#fff" : "#64748b"} />
           </View>
           <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Sticker</Text>
         </Pressable>
         
         <Pressable style={styles.dockButton} onPress={() => setShowNewFolderModal(true)}>
           <View style={[styles.dockButtonInner, styles.dockButtonHighlight, !isDarkMode && styles.dockButtonHighlightLight]}>
-            <Folder size={18} color="#F59E0B" />
+            <Folder size={16} color="#F59E0B" />
           </View>
           <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Folder</Text>
         </Pressable>
         
-        <Pressable style={styles.dockButton}>
+        <Pressable style={styles.dockButton} onPress={addImage}>
           <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
-            <ImageIcon size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+            <ImageIcon size={16} color={isDarkMode ? "#fff" : "#64748b"} />
           </View>
           <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Image</Text>
         </Pressable>
         
         <Pressable style={styles.dockButton} onPress={addTable}>
           <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
-            <Table size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+            <Table size={16} color={isDarkMode ? "#fff" : "#64748b"} />
           </View>
           <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Table</Text>
         </Pressable>
         
-        <Pressable style={styles.dockButton}>
+        <Pressable style={styles.dockButton} onPress={addSource}>
           <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
-            <Link size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+            <Link size={16} color={isDarkMode ? "#fff" : "#64748b"} />
           </View>
           <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Source</Text>
         </Pressable>
         
         <Pressable style={styles.dockButton} onPress={() => setIsDrawingMode(!isDrawingMode)}>
           <View style={[styles.dockButtonInner, isDrawingMode && styles.dockButtonActive, !isDarkMode && styles.dockButtonInnerLight]}>
-            <Pencil size={18} color={isDrawingMode ? "#F59E0B" : (isDarkMode ? "#fff" : "#64748b")} />
+            <Pencil size={16} color={isDrawingMode ? "#F59E0B" : (isDarkMode ? "#fff" : "#64748b")} />
           </View>
           <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Draw</Text>
         </Pressable>
@@ -336,7 +340,7 @@ const BottomDock: React.FC<{
               !isDarkMode && styles.dockButtonTrashLight,
               isOverTrash && styles.dockButtonTrashActive,
             ]}>
-              <Trash2 size={18} color="#EF4444" />
+              <Trash2 size={16} color="#EF4444" />
             </View>
             <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>
               Trash
