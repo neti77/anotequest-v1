@@ -2076,6 +2076,41 @@ export default function App() {
           </Pressable>
         </Modal>
 
+        {/* ===== SOURCE MODAL ===== */}
+        <Modal visible={showSourceModal} animationType="fade" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.nameModalContent}>
+              <Text style={styles.nameModalTitle}>Add Source</Text>
+              <Text style={styles.nameModalSubtitle}>Add a link or reference</Text>
+              <TextInput
+                style={styles.nameInput}
+                value={newSourceTitle}
+                onChangeText={setNewSourceTitle}
+                placeholder="Title (optional)..."
+                placeholderTextColor="#6b7280"
+                autoFocus
+              />
+              <TextInput
+                style={styles.nameInput}
+                value={newSourceUrl}
+                onChangeText={setNewSourceUrl}
+                placeholder="URL or reference..."
+                placeholderTextColor="#6b7280"
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+              <View style={styles.modalButtonRow}>
+                <Pressable style={styles.modalCancelButton} onPress={() => { setShowSourceModal(false); setNewSourceTitle(''); setNewSourceUrl(''); }}>
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable style={styles.nameSubmitButton} onPress={createSource}>
+                  <Text style={styles.nameSubmitText}>Add</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         {/* ===== NAME INPUT MODAL ===== */}
         <Modal visible={showNameInput} animationType="fade" transparent>
           <View style={styles.modalOverlay}>
