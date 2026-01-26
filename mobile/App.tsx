@@ -129,7 +129,8 @@ const DraggableItem: React.FC<{
   scale: number;
   style?: any;
   isDragging: boolean;
-}> = ({ children, position, onPositionChange, onDragStart, onDragEnd, scale, style, isDragging }) => {
+  itemType?: string;
+}> = ({ children, position, onPositionChange, onDragStart, onDragEnd, scale, style, isDragging, itemType }) => {
   // Use shared values for 60fps animations on UI thread
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -167,10 +168,11 @@ const DraggableItem: React.FC<{
     })
     .onEnd(() => {
       'worklet';
-      // Commit final position
+      // Commit final position immediately without spring
       const finalX = startX.value + translateX.value;
       const finalY = startY.value + translateY.value;
       
+      // Update shared values synchronously
       startX.value = finalX;
       startY.value = finalY;
       translateX.value = 0;
@@ -182,13 +184,24 @@ const DraggableItem: React.FC<{
       runOnJS(onDragEnd)(pageXRef.value, pageYRef.value);
     });
   
-  // Animated style - runs on UI thread
+  // Animated style - runs on UI thread (no spring, direct values)
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: translateX.value },
       { translateY: translateY.value },
     ],
   }));
+
+  // Drag indicator style - purple glow for all items
+  const dragStyle = isDragging ? {
+    opacity: 0.95,
+    shadowColor: '#8b5cf6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 16,
+    elevation: 15,
+    zIndex: 9999,
+  } : {};
 
   return (
     <GestureDetector gesture={panGesture}>
@@ -197,17 +210,11 @@ const DraggableItem: React.FC<{
           style,
           { left: position.x, top: position.y, position: 'absolute' },
           animatedStyle,
+          dragStyle,
           isDragging && {
-            opacity: 0.9,
-            shadowColor: '#f6665c',
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.6,
-            shadowRadius: 12,
-            elevation: 0,
-            borderWidth: 2,
-            borderColor: '#f6665c',
-            borderRadius: 8,
-            zIndex: 0,
+            borderWidth: 2.5,
+            borderColor: '#a78bfa',
+            borderRadius: itemType === 'sticker' ? 4 : 16,
           },
         ]}
       >
