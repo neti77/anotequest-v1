@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Image,
 } from 'react-native';
+import NoteStickerVisual from './NoteStickerVisual';
 import { Gesture, GestureDetector, GestureUpdateEvent, PanGestureHandlerEventPayload } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -41,13 +42,14 @@ interface Sticker {
 
 interface NoteStickerProps {
   sticker: Sticker;
-  updateNoteSticker: (id: number, updates: Partial<Sticker>) => void;
-  deleteNoteSticker: (id: number) => void;
+  updateNoteSticker?: (id: number, updates: Partial<Sticker>) => void;
+  deleteNoteSticker?: (id: number) => void;
   zoom?: number;
   shouldDeleteOnDrop?: (x: number, y: number) => boolean;
   isSelected?: boolean;
   onMultiDrag?: (deltaX: number, deltaY: number) => void;
   selectedCount?: number;
+  onPositionChange?: (position: Position) => void;
 }
 
 // Convert points array to SVG path string
@@ -69,10 +71,10 @@ export const NoteSticker: React.FC<NoteStickerProps> = React.memo(({
   isSelected = false,
   onMultiDrag,
   selectedCount = 0,
+  onPositionChange,
 }) => {
-  const [isDrawingMode, setIsDrawingMode] = useState(false);
-  const [currentPath, setCurrentPath] = useState<Position[]>([]);
-
+  const width = sticker.size?.width || 200;
+  const height = sticker.size?.height || 160;
   // Animated values for dragging
   const translateX = useSharedValue(sticker.position.x);
   const translateY = useSharedValue(sticker.position.y);
@@ -80,8 +82,6 @@ export const NoteSticker: React.FC<NoteStickerProps> = React.memo(({
   const offsetY = useSharedValue(0);
   const isDragging = useSharedValue(false);
   const lastPosRef = useRef({ x: sticker.position.x, y: sticker.position.y });
-  const containerRef = useRef<View>(null);
-  const containerLayout = useRef({ x: 0, y: 0, width: 0, height: 0 });
 
   // Update position when sticker prop changes
   useEffect(() => {
@@ -90,18 +90,56 @@ export const NoteSticker: React.FC<NoteStickerProps> = React.memo(({
     lastPosRef.current = { x: sticker.position.x, y: sticker.position.y };
   }, [sticker.position.x, sticker.position.y]);
 
-  const width = sticker.size?.width || 200;
-  const height = sticker.size?.height || 160;
+  // Drawing logic preserved
+  const [isDrawingMode, setIsDrawingMode] = useState(false);
+  const [currentPath, setCurrentPath] = useState<Position[]>([]);
+  const finishPath = () => {
+    if (currentPath.length > 1) {
+      const newPath: PathData = {
+        points: currentPath,
+        color: '#111827',
+        size: 2,
+      };
+      const paths = [...(sticker.paths || []), newPath];
+      updateNoteSticker?.(sticker.id, { paths });
+    }
+    setCurrentPath([]);
+    setIsDrawingMode(false);
+  };
+  // Drawing gesture
+  const drawGesture = Gesture.Pan()
+    .enabled(isDrawingMode)
+    .onStart((e) => {
+      const pos = { x: e.x, y: e.y };
+      setCurrentPath([pos]);
+    })
+    .onUpdate((e) => {
+      const pos = { x: e.x, y: e.y };
+      setCurrentPath((prev) => [...prev, pos]);
+    })
+    .onEnd(() => {
+      runOnJS(finishPath)();
+    });
+  // Double tap to toggle drawing mode
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => {
+      runOnJS(setIsDrawingMode)(true);
+    });
+  // Combine gestures (only pass gestures, not undefined)
+  const composedGesture = isDrawingMode
+    ? Gesture.Race(drawGesture, doubleTapGesture)
+    : doubleTapGesture;
 
-  // Position update callback
+  // Update position callback
   const updatePosition = (x: number, y: number) => {
-    updateNoteSticker(sticker.id, { position: { x, y } });
+    updateNoteSticker?.(sticker.id, { position: { x, y } });
   };
 
   // Check trash drop
   const checkTrashDrop = (x: number, y: number) => {
     if (shouldDeleteOnDrop && shouldDeleteOnDrop(x, y)) {
-      deleteNoteSticker(sticker.id);
+      deleteNoteSticker?.(sticker.id);
     }
   };
 
@@ -112,22 +150,7 @@ export const NoteSticker: React.FC<NoteStickerProps> = React.memo(({
     }
   };
 
-  // Finish drawing path
-  const finishPath = () => {
-    if (currentPath.length > 1) {
-      const newPath: PathData = {
-        points: currentPath,
-        color: '#111827',
-        size: 2,
-      };
-      const paths = [...(sticker.paths || []), newPath];
-      updateNoteSticker(sticker.id, { paths });
-    }
-    setCurrentPath([]);
-    setIsDrawingMode(false);
-  };
-
-  // Pan gesture for dragging (when not in drawing mode)
+  // Pan gesture for dragging
   const panGesture = Gesture.Pan()
     .enabled(!isDrawingMode)
     .onStart(() => {
@@ -141,6 +164,8 @@ export const NoteSticker: React.FC<NoteStickerProps> = React.memo(({
 
       translateX.value = newX;
       translateY.value = newY;
+
+      runOnJS(onPositionChange ?? (() => {}))({ x: newX, y: newY });
 
       // Multi-drag support
       const deltaX = newX - lastPosRef.current.x;
@@ -159,34 +184,6 @@ export const NoteSticker: React.FC<NoteStickerProps> = React.memo(({
       runOnJS(checkTrashDrop)(e.absoluteX, e.absoluteY);
     });
 
-  // Drawing gesture (when in drawing mode)
-  const drawGesture = Gesture.Pan()
-    .enabled(isDrawingMode)
-    .onStart((e) => {
-      const pos = { x: e.x, y: e.y };
-      setCurrentPath([pos]);
-    })
-    .onUpdate((e) => {
-      const pos = { x: e.x, y: e.y };
-      setCurrentPath((prev) => [...prev, pos]);
-    })
-    .onEnd(() => {
-      runOnJS(finishPath)();
-    });
-
-  // Double tap to toggle drawing mode
-  const doubleTapGesture = Gesture.Tap()
-    .numberOfTaps(2)
-    .onEnd(() => {
-      runOnJS(setIsDrawingMode)(true);
-    });
-
-  // Combine gestures
-  const composedGesture = Gesture.Race(
-    isDrawingMode ? drawGesture : panGesture,
-    doubleTapGesture
-  );
-
   // Animated style
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -194,73 +191,52 @@ export const NoteSticker: React.FC<NoteStickerProps> = React.memo(({
       { translateY: translateY.value },
       { scale: isDragging.value ? 1.02 : 1 },
     ],
-    zIndex: isDragging.value ? 100 : 40,
+    zIndex: isDragging.value ? 100 : 10,
   }));
 
+  // Match NoteCard structure: Animated.View with border, background, selection, gesture
+  const colorScheme = { bg: '#fef08a', border: '#eab308' };
+  const stickerSize = sticker.size || { width: 200, height: 160 };
   return (
-    <GestureDetector gesture={composedGesture}>
-      <Animated.View
-        ref={containerRef}
-        style={[
-          styles.container,
-          {
-            width,
-            height,
-          },
-          animatedStyle,
-          isSelected && styles.selected,
-        ]}
-        onLayout={(e) => {
-          containerLayout.current = e.nativeEvent.layout;
-        }}
-      >
-        {/* Yellow sticky note background */}
-        <View style={styles.stickyBackground}>
-          <View style={styles.stickyInner} />
-        </View>
-
-        {/* Drawing surface using SVG */}
-        <View style={styles.drawingSurface}>
-          <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
-            {/* Render saved paths */}
-            {(sticker.paths || []).map((p, idx) => (
-              <Path
-                key={idx}
-                d={pointsToPath(p.points)}
-                stroke={p.color || '#111827'}
-                strokeWidth={p.size || 2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            ))}
-            {/* Render current drawing path */}
-            {currentPath.length > 0 && (
-              <Path
-                d={pointsToPath(currentPath)}
-                stroke="#111827"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            )}
-          </Svg>
-        </View>
-
-        {/* Drawing mode indicator */}
+    <GestureDetector gesture={Gesture.Race(panGesture, composedGesture)}>
+      
+        
+<Animated.View
+  style={[
+    {
+      position: 'absolute', // 🔥 REQUIRED
+      width: stickerSize.width,
+      height: stickerSize.height,
+      backgroundColor: colorScheme.bg,
+    },
+    animatedStyle,
+  ]}
+>
+          
+        <NoteStickerVisual
+          color="yellow"
+          paths={
+            [
+              ...(sticker.paths || []).map((p) => ({
+                d: pointsToPath(p.points),
+                color: p.color,
+                strokeWidth: p.size,
+              })),
+              ...(currentPath.length > 0
+                ? [{ d: pointsToPath(currentPath), color: '#111827', strokeWidth: 2 }]
+                : []),
+            ]
+          }
+          isSelected={isSelected}
+        />
         {isDrawingMode && (
           <View style={styles.drawingIndicator}>
             <Text style={styles.drawingIndicatorText}>✏️ Drawing...</Text>
           </View>
         )}
-
-        {/* Resize handle - TODO: implement resize gesture */}
         <View style={styles.resizeHandle}>
           <Maximize2 size={12} color="#B45309" />
         </View>
-
-        {/* Hint text */}
         {!isDrawingMode && (sticker.paths?.length === 0 || !sticker.paths) && (
           <View style={styles.hintContainer}>
             <Text style={styles.hintText}>Double-tap to draw</Text>
@@ -272,23 +248,18 @@ export const NoteSticker: React.FC<NoteStickerProps> = React.memo(({
 });
 
 const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-  },
-  selected: {
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#A855F7',
-  },
+  // container and selected styles now handled inline
   stickyBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FEF3C7',
-    borderRadius: 4,
+   position: 'absolute',
+    borderRadius: 12,
+    borderWidth: 2,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   stickyInner: {
     position: 'absolute',

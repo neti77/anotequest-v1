@@ -36,7 +36,6 @@ export const NoteStickerVisual: React.FC<NoteStickerVisualProps> = ({
       style={[
         styles.container,
         { backgroundColor: colorScheme.bg },
-        isSelected && styles.selected,
         style,
       ]}
     >
@@ -83,10 +82,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  selected: {
-    borderWidth: 2,
-    borderColor: '#8b5cf6',
-  },
+  // Removed selection border; handled by DraggableCanvasItem
   fold: {
     position: 'absolute',
     top: 0,
@@ -99,6 +95,12 @@ const styles = StyleSheet.create({
     borderLeftColor: '#eab308',
     opacity: 0.5,
   },
+
+  selected: {
+    borderColor: '#8b5cf6',
+    borderWidth: 3,
+  },
+
   drawingArea: {
     flex: 1,
     margin: 8,

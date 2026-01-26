@@ -290,7 +290,7 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({
               width: noteSize.width,
               height: noteSize.height,
               backgroundColor: colorScheme.bg,
-              borderColor: isSelected ? '#A855F7' : colorScheme.border,
+              borderColor: isSelected ? '#8B5CF6' : colorScheme.border, // Change selection outline to purple
             },
             animatedStyle,
           ]}
@@ -441,7 +441,7 @@ export const NoteCard: React.FC<NoteCardProps> = React.memo(({
             </Pressable>
             <Text style={styles.readerTitle} numberOfLines={1}>{title}</Text>
             <Pressable onPress={handleCopyAll}>
-              <Copy size={20} color="#A855F7" />
+              <Copy size={20} color="#f76555" />
             </Pressable>
           </View>
 

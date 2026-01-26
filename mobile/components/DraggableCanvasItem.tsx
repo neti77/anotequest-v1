@@ -3,10 +3,16 @@ import {
   View, 
   StyleSheet, 
   ViewStyle, 
-  PanResponder,
-  Animated,
   Pressable,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
+import { useCanvasInteraction } from '../contexts/CanvasInteractionContext';
 
 interface Position {
   x: number;
@@ -30,14 +36,17 @@ interface DraggableCanvasItemProps {
   onDragEnd?: (id: number, type: string, position: Position) => void;
   onTap?: (id: number, type: string) => void;
   onLongPress?: (id: number, type: string) => void;
+  onDragActiveChange?: (isDragging: boolean) => void;
   isSelected?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
+  dragTouchZone?: 'full' | 'edges'; // 'full' for images/stickers, 'edges' for notes/todos/tables
 }
 
 /**
  * DraggableCanvasItem - A wrapper component for draggable canvas items.
- * Uses React Native's PanResponder for basic drag support.
+ * Uses React Native's PanResponder for gesture support.
+ * Prevents canvas scrolling when dragging items.
  */
 export const DraggableCanvasItem: React.FC<DraggableCanvasItemProps> = ({
   id,
@@ -51,107 +60,119 @@ export const DraggableCanvasItem: React.FC<DraggableCanvasItemProps> = ({
   onDragEnd,
   onTap,
   onLongPress,
+  onDragActiveChange,
   isSelected = false,
   disabled = false,
   style,
+  dragTouchZone = 'edges',
 }) => {
-  // Current position state
+  const { setIsDraggingItem } = useCanvasInteraction();
   const [currentPosition, setCurrentPosition] = useState(position);
   const positionRef = useRef(position);
   
-  // Animated values for smooth drag
-  const pan = useRef(new Animated.ValueXY(position)).current;
-  const scale = useRef(new Animated.Value(1)).current;
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
   
-  // Track if we're dragging vs tapping
   const isDragging = useRef(false);
-  const dragDistance = useRef(0);
+  const startPosition = useRef({ x: 0, y: 0 });
 
-  // Update position when prop changes
   React.useEffect(() => {
     if (!isDragging.current) {
-      pan.setValue(position);
+      translateX.value = 0;
+      translateY.value = 0;
       positionRef.current = position;
       setCurrentPosition(position);
     }
   }, [position.x, position.y]);
 
-  // Create pan responder
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => !disabled,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Only capture if moved more than 5px
-        return !disabled && (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5);
-      },
-      onPanResponderGrant: () => {
-        isDragging.current = false;
-        dragDistance.current = 0;
-        pan.setOffset({
-          x: positionRef.current.x,
-          y: positionRef.current.y,
-        });
-        pan.setValue({ x: 0, y: 0 });
-        
-        // Scale up slightly
-        Animated.spring(scale, {
-          toValue: 1.05,
-          useNativeDriver: true,
-        }).start();
-      },
-      onPanResponderMove: (_, gestureState) => {
-        dragDistance.current = Math.sqrt(
-          gestureState.dx * gestureState.dx + gestureState.dy * gestureState.dy
-        );
-        
-        if (dragDistance.current > 5) {
-          if (!isDragging.current) {
-            isDragging.current = true;
-            onDragStart?.(id, type);
-          }
-          pan.setValue({ x: gestureState.dx, y: gestureState.dy });
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        pan.flattenOffset();
-        
-        // Scale back
-        Animated.spring(scale, {
-          toValue: 1,
-          useNativeDriver: true,
-        }).start();
-        
-        if (isDragging.current) {
-          // Snap to grid (10px)
-          const newX = Math.round((positionRef.current.x + gestureState.dx) / 10) * 10;
-          const newY = Math.round((positionRef.current.y + gestureState.dy) / 10) * 10;
-          
-          const newPosition = { x: newX, y: newY };
-          positionRef.current = newPosition;
-          setCurrentPosition(newPosition);
-          
-          Animated.spring(pan, {
-            toValue: newPosition,
-            useNativeDriver: true,
-          }).start();
-          
-          onPositionChange?.(id, newPosition);
-          onDragEnd?.(id, type, newPosition);
-        }
-        
-        isDragging.current = false;
-      },
-    })
-  ).current;
+  const isTouchInDragZone = useCallback((x: number, y: number) => {
+    if (dragTouchZone === 'full') return true;
+    
+    const edgeThreshold = 40;
+    const sideThreshold = 20;
+    const width = size?.width || 200;
+    const height = size?.height || 150;
+    
+    if (y < edgeThreshold) return true;
+    if (x < sideThreshold || x > width - sideThreshold) return true;
+    
+    return false;
+  }, [size, dragTouchZone]);
 
-  // Handle tap
+  const handleDragStart = useCallback(() => {
+    isDragging.current = true;
+    setIsDraggingItem(true);
+    onDragActiveChange?.(true);
+    onDragStart?.(id, type);
+  }, [id, type, onDragStart, onDragActiveChange, setIsDraggingItem]);
+
+  const handleDragEnd = useCallback((finalX: number, finalY: number) => {
+    const newX = Math.round(finalX / 10) * 10;
+    const newY = Math.round(finalY / 10) * 10;
+    const newPosition = { x: newX, y: newY };
+    // Update position immediately
+    positionRef.current = newPosition;
+    setCurrentPosition(newPosition);
+    // Notify parent
+    onPositionChange?.(id, newPosition);
+    onDragEnd?.(id, type, newPosition);
+    // End drag state
+    isDragging.current = false;
+    setIsDraggingItem(false);
+    onDragActiveChange?.(false);
+    // Instantly reset translation
+    translateX.value = 0;
+    translateY.value = 0;
+  }, [id, type, onPositionChange, onDragEnd, onDragActiveChange, setIsDraggingItem, translateX, translateY]);
+
+  // ⚠️ Gesture arbitration is critical — item drag must block canvas pan.
+
+const panGesture = Gesture.Pan()
+  .enabled(!isDragging.current) // Ensure item drag blocks canvas pan
+  .onStart((event) => {
+    startPosition.current = { x: positionRef.current.x, y: positionRef.current.y };
+
+    if (isTouchInDragZone(event.x, event.y)) {
+      runOnJS(handleDragStart)();
+    }
+  })
+  .onUpdate((event) => {
+    if (isDragging.current) {
+      translateX.value = event.translationX;
+      translateY.value = event.translationY;
+    }
+  })
+  .onEnd((event) => {
+    if (isDragging.current) {
+      const finalX = startPosition.current.x + event.translationX;
+      const finalY = startPosition.current.y + event.translationY;
+      runOnJS(handleDragEnd)(finalX, finalY);
+    }
+  })
+  .onFinalize(() => {
+    if (isDragging.current) {
+      translateX.value = 0;
+      translateY.value = 0;
+      isDragging.current = false;
+      runOnJS(setIsDraggingItem)(false);
+      runOnJS(onDragActiveChange ?? (() => {}))(false);
+    }
+  });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { rotate: `${rotation}deg` },
+    ],
+  }));
+
   const handlePress = useCallback(() => {
-    if (!isDragging.current && dragDistance.current < 5) {
+    if (!isDragging.current) {
       onTap?.(id, type);
     }
   }, [id, type, onTap]);
 
-  // Handle long press
   const handleLongPress = useCallback(() => {
     if (!isDragging.current) {
       onLongPress?.(id, type);
@@ -159,50 +180,51 @@ export const DraggableCanvasItem: React.FC<DraggableCanvasItemProps> = ({
   }, [id, type, onLongPress]);
 
   return (
-    <Animated.View
-      {...panResponder.panHandlers}
-      style={[
-        styles.container,
-        size && { width: size.width, height: size.height },
-        isSelected && styles.selected,
-        style,
-        {
-          transform: [
-            { translateX: pan.x },
-            { translateY: pan.y },
-            { rotate: `${rotation}deg` },
-            { scale: scale },
-          ],
-        },
-      ]}
-    >
-      <Pressable
-        onPress={handlePress}
-        onLongPress={handleLongPress}
-        delayLongPress={500}
-        style={styles.pressable}
+    <GestureDetector gesture={panGesture}>
+      <Animated.View
+        style={[
+          styles.container,
+          {
+            left: currentPosition.x,
+            top: currentPosition.y,
+            width: size?.width,
+            height: size?.height,
+            borderWidth: isSelected ? 2 : 0,
+            borderRadius: 8,
+            borderColor: isSelected ? '#8b5cf6' : 'transparent',
+            borderStyle: 'solid',
+          },
+          animatedStyle,
+          style,
+        ]}
       >
-        {children}
-      </Pressable>
-    </Animated.View>
+        <Pressable
+          onPress={handlePress}
+          onLongPress={handleLongPress}
+          delayLongPress={500}
+          style={styles.pressable}
+        >
+          {children}
+        </Pressable>
+      </Animated.View>
+    </GestureDetector>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    shadowColor: '#000',
+    shadowColor: '#8b5cf6',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 8,
   },
   pressable: {
-    flex: 1,
+    width: '100%',
+    height: '100%',
   },
-  selected: {
-    // Selection indicator handled by child component
-  },
+  // Removed selected style; now handled inline on Animated.View
 });
 
 export default DraggableCanvasItem;

@@ -8,7 +8,6 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
-  SafeAreaView,
   StatusBar,
   Pressable,
   Dimensions,
@@ -17,9 +16,13 @@ import {
   Share,
   Clipboard,
   PanResponder,
+  useWindowDimensions,
 } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaView, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GestureHandlerRootView, Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CanvasInteractionProvider } from './contexts/CanvasInteractionContext';
 import {
   Plus,
   FileText,
@@ -50,8 +53,6 @@ import {
   Redo2,
   GripVertical,
 } from 'lucide-react-native';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Canvas configuration
 const CANVAS_WIDTH = 4000;
@@ -111,7 +112,7 @@ const safeSize = (size: any, fallback: { width: number; height: number }) =>
     ? size
     : fallback;
 
-// Draggable wrapper component
+// Draggable wrapper component using Gesture API
 const DraggableItem: React.FC<{
   children: React.ReactNode;
   position: { x: number; y: number };
@@ -122,77 +123,525 @@ const DraggableItem: React.FC<{
   style?: any;
   isDragging: boolean;
 }> = ({ children, position, onPositionChange, onDragStart, onDragEnd, scale, style, isDragging }) => {
-  const startPos = useRef({ x: position.x, y: position.y });
-  const scaleRef = useRef(scale);
-  const onPositionChangeRef = useRef(onPositionChange);
-  const onDragStartRef = useRef(onDragStart);
-  const onDragEndRef = useRef(onDragEnd);
+  // Use shared values for 60fps animations on UI thread
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const startX = useSharedValue(position.x);
+  const startY = useSharedValue(position.y);
+  const pageXRef = useSharedValue(0);
+  const pageYRef = useSharedValue(0);
+  const isGestureActive = useSharedValue(false);
   
-  // Keep refs updated
+  // Update start position when prop changes (but NOT while dragging)
   useEffect(() => {
-    scaleRef.current = scale;
-    onPositionChangeRef.current = onPositionChange;
-    onDragStartRef.current = onDragStart;
-    onDragEndRef.current = onDragEnd;
-  });
-  
-  // Update start position when position changes (while not dragging)
-  useEffect(() => {
-    if (!isDragging) {
-      startPos.current = { x: position.x, y: position.y };
+    if (!isGestureActive.value) {
+      startX.value = position.x;
+      startY.value = position.y;
+      translateX.value = 0;
+      translateY.value = 0;
     }
-  }, [position.x, position.y, isDragging]);
+  }, [position.x, position.y]);
   
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        startPos.current = { x: position.x, y: position.y };
-        onDragStartRef.current();
-      },
-      onPanResponderMove: (_, gestureState) => {
-        const newPosition = {
-          x: startPos.current.x + gestureState.dx / scaleRef.current,
-          y: startPos.current.y + gestureState.dy / scaleRef.current,
-        };
-        onPositionChangeRef.current(newPosition);
-      },
-      onPanResponderRelease: (evt) => {
-        onDragEndRef.current(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-      },
-      onPanResponderTerminate: (evt) => {
-        onDragEndRef.current(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-      },
+  // Pan gesture with world-space scale compensation
+  const panGesture = Gesture.Pan()
+    .minDistance(5)
+    .onStart(() => {
+      'worklet';
+      isGestureActive.value = true;
+      runOnJS(onDragStart)();
     })
-  ).current;
+    .onUpdate((e) => {
+      'worklet';
+      // All drag math in worklet (UI thread) - compensate for canvas scale
+      translateX.value = e.translationX / scale;
+      translateY.value = e.translationY / scale;
+      pageXRef.value = e.absoluteX;
+      pageYRef.value = e.absoluteY;
+    })
+    .onEnd(() => {
+      'worklet';
+      // Commit final position
+      const finalX = startX.value + translateX.value;
+      const finalY = startY.value + translateY.value;
+      
+      startX.value = finalX;
+      startY.value = finalY;
+      translateX.value = 0;
+      translateY.value = 0;
+      isGestureActive.value = false;
+      
+      // Update parent with final position
+      runOnJS(onPositionChange)({ x: finalX, y: finalY });
+      runOnJS(onDragEnd)(pageXRef.value, pageYRef.value);
+    });
+  
+  // Animated style - runs on UI thread
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
+  }));
 
   return (
-    <View
-      {...panResponder.panHandlers}
-      style={[
-        style,
-        { left: position.x, top: position.y, position: 'absolute' },
-        isDragging && {
-          opacity: 0.9,
-          shadowColor: '#8B5CF6',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.6,
-          shadowRadius: 12,
-          elevation: 20,
-          borderWidth: 2,
-          borderColor: '#8B5CF6',
-          borderRadius: 8,
-          zIndex: 9999,
-        },
-      ]}
-    >
-      {children}
+    <GestureDetector gesture={panGesture}>
+      <Animated.View
+        style={[
+          style,
+          { left: position.x, top: position.y, position: 'absolute' },
+          animatedStyle,
+          isDragging && {
+            opacity: 0.9,
+            shadowColor: '#f6665c',
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.6,
+            shadowRadius: 12,
+            elevation: 0,
+            borderWidth: 2,
+            borderColor: '#f6665c',
+            borderRadius: 8,
+            zIndex: 0,
+          },
+        ]}
+      >
+        {children}
+      </Animated.View>
+    </GestureDetector>
+  );
+};
+
+// BottomDock component with safe area insets
+const BottomDock: React.FC<{
+  isDarkMode: boolean;
+  addNote: () => void;
+  addTodo: () => void;
+  addNoteSticker: () => void;
+  addTable: () => void;
+  isDrawingMode: boolean;
+  setIsDrawingMode: (val: boolean) => void;
+  setShowNewFolderModal: (val: boolean) => void;
+  setIsTrashOpen: (val: boolean) => void;
+  trashZoneRef: any;
+  setTrashZoneLayout: (layout: any) => void;
+  isOverTrash: boolean;
+}> = ({
+  isDarkMode,
+  addNote,
+  addTodo,
+  addNoteSticker,
+  addTable,
+  isDrawingMode,
+  setIsDrawingMode,
+  setShowNewFolderModal,
+  setIsTrashOpen,
+  trashZoneRef,
+  setTrashZoneLayout,
+  isOverTrash,
+}) => {
+  const insets = useSafeAreaInsets();
+  
+  return (
+    <View style={[
+      styles.bottomDockContainer,
+      !isDarkMode && styles.bottomDockContainerLight,
+      { paddingBottom: Math.max(insets.bottom, 8) }
+    ]}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.bottomDockScroll}
+      >
+        <Pressable style={styles.dockButton} onPress={() => addNote()}>
+          <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+            <Plus size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+          </View>
+          <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Note</Text>
+        </Pressable>
+        
+        <Pressable style={styles.dockButton} onPress={addTodo}>
+          <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+            <CheckSquare size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+          </View>
+          <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Todo</Text>
+        </Pressable>
+        
+        <Pressable style={styles.dockButton} onPress={addNoteSticker}>
+          <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+            <FileText size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+          </View>
+          <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Sticker</Text>
+        </Pressable>
+        
+        <Pressable style={styles.dockButton} onPress={() => setShowNewFolderModal(true)}>
+          <View style={[styles.dockButtonInner, styles.dockButtonHighlight, !isDarkMode && styles.dockButtonHighlightLight]}>
+            <Folder size={18} color="#F59E0B" />
+          </View>
+          <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Folder</Text>
+        </Pressable>
+        
+        <Pressable style={styles.dockButton}>
+          <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+            <ImageIcon size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+          </View>
+          <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Image</Text>
+        </Pressable>
+        
+        <Pressable style={styles.dockButton} onPress={addTable}>
+          <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+            <Table size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+          </View>
+          <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Table</Text>
+        </Pressable>
+        
+        <Pressable style={styles.dockButton}>
+          <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+            <Link size={18} color={isDarkMode ? "#fff" : "#64748b"} />
+          </View>
+          <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Source</Text>
+        </Pressable>
+        
+        <Pressable style={styles.dockButton} onPress={() => setIsDrawingMode(!isDrawingMode)}>
+          <View style={[styles.dockButtonInner, isDrawingMode && styles.dockButtonActive, !isDarkMode && styles.dockButtonInnerLight]}>
+            <Pencil size={18} color={isDrawingMode ? "#F59E0B" : (isDarkMode ? "#fff" : "#64748b")} />
+          </View>
+          <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Draw</Text>
+        </Pressable>
+        
+        <View
+          ref={trashZoneRef}
+          onLayout={(event) => {
+            event.target.measure((x, y, width, height, pageX, pageY) => {
+              setTrashZoneLayout({ x: pageX, y: pageY, width, height });
+            });
+          }}
+        >
+          <Pressable style={styles.dockButton} onPress={() => setIsTrashOpen(true)}>
+            <View style={[
+              styles.dockButtonInner, 
+              styles.dockButtonTrash, 
+              !isDarkMode && styles.dockButtonTrashLight,
+              isOverTrash && styles.dockButtonTrashActive,
+            ]}>
+              <Trash2 size={18} color="#EF4444" />
+            </View>
+            <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>
+              Trash
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
     </View>
   );
 };
 
+// Canvas with Gesture-based pan and pinch zoom
+const CanvasWithGestures: React.FC<any> = ({
+  scale,
+  setScale,
+  draggingItem,
+  isDarkMode,
+  renderGrid,
+  filteredNotes,
+  todos,
+  filteredStickers,
+  tables,
+  drawings,
+  currentPath,
+  updateItemPosition,
+  setDraggingItem,
+  isPositionOverTrash,
+  handleDragDelete,
+  setIsOverTrash,
+  setEditingNote,
+  updateTodo,
+  setEditingStickerTitle,
+  setEditingStickerContent,
+  setEditingSticker,
+}) => {
+  // Shared values for canvas pan
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+  
+  // Shared values for pinch zoom
+  const scaleValue = useSharedValue(scale);
+  const savedScale = useSharedValue(scale);
+  
+  // Update scale when prop changes
+  useEffect(() => {
+    scaleValue.value = scale;
+    savedScale.value = scale;
+  }, [scale]);
+  
+  // Pan gesture - only active when NOT dragging item
+  const panGesture = Gesture.Pan()
+    .minDistance(12)
+    .enabled(!draggingItem)
+    .onUpdate((e) => {
+      'worklet';
+      translateX.value = savedTranslateX.value + e.translationX;
+      translateY.value = savedTranslateY.value + e.translationY;
+    })
+    .onEnd(() => {
+      'worklet';
+      savedTranslateX.value = translateX.value;
+      savedTranslateY.value = translateY.value;
+    });
+  
+  // Pinch gesture for zoom
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((e) => {
+      'worklet';
+      const newScale = savedScale.value * e.scale;
+      // Clamp between 0.25x and 3x
+      scaleValue.value = Math.max(0.25, Math.min(3, newScale));
+    })
+    .onEnd(() => {
+      'worklet';
+      savedScale.value = scaleValue.value;
+      runOnJS(setScale)(scaleValue.value);
+    });
+  
+  // Combine gestures - pan and pinch can happen simultaneously
+  const composedGesture = Gesture.Simultaneous(panGesture, pinchGesture);
+  
+  // Animated style for canvas container
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scaleValue.value },
+    ],
+  }));
+  
+  return (
+    <GestureDetector gesture={composedGesture}>
+      <Animated.View style={[styles.canvasScrollView, { flex: 1 }]}>
+        <Animated.View style={[
+          styles.canvasContent,
+          !isDarkMode && styles.canvasContentLight,
+          animatedStyle,
+        ]}>
+          {/* Grid */}
+          <View style={styles.gridContainer}>{renderGrid()}</View>
+
+          {/* Empty State */}
+          {filteredNotes.length === 0 && todos.length === 0 && (
+            <View style={[styles.emptyState, !isDarkMode && styles.emptyStateLight]}>
+              <Text style={styles.emptyStateIcon}>📝</Text>
+              <Text style={[styles.emptyStateTitle, !isDarkMode && styles.emptyStateTitleLight]}>Your canvas awaits!</Text>
+              <Text style={styles.emptyStateSubtitle}>Tap + to add notes</Text>
+            </View>
+          )}
+
+          {/* Note Cards - Draggable */}
+          {filteredNotes.map((note: any) => (
+            <DraggableItem
+              key={note.id}
+              position={note.position}
+              onPositionChange={(newPos) => updateItemPosition('note', note.id, newPos)}
+              onDragStart={() => setDraggingItem({ type: 'note', id: note.id })}
+              onDragEnd={(pageX, pageY) => {
+                if (isPositionOverTrash(pageX, pageY)) {
+                  handleDragDelete('note', note.id);
+                }
+                setDraggingItem(null);
+                setIsOverTrash(false);
+              }}
+              scale={scale}
+              style={[styles.noteCard, !isDarkMode && styles.noteCardLight]}
+              isDragging={draggingItem?.type === 'note' && draggingItem?.id === note.id}
+            >
+              <Pressable onPress={() => setEditingNote(note)}>
+                <View style={[styles.noteCardHeader, !isDarkMode && styles.noteCardHeaderLight]}>
+                  <View style={styles.noteCardDrag}>
+                    <GripVertical size={14} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
+                  </View>
+                  <Text style={[styles.noteCardTitle, !isDarkMode && styles.noteCardTitleLight]} numberOfLines={1}>
+                    {note.title || 'New Note'}
+                  </Text>
+                </View>
+                <View style={[styles.noteCardBody, !isDarkMode && styles.noteCardBodyLight]}>
+                  <Text style={[styles.noteCardContent, !isDarkMode && styles.noteCardContentLight]} numberOfLines={6}>
+                    {note.content || 'Click to start writing...'}
+                  </Text>
+                </View>
+                <Text style={[styles.noteCardWordCount, !isDarkMode && styles.noteCardWordCountLight]}>
+                  {note.content?.split(/\s+/).filter(Boolean).length || 0} words
+                </Text>
+              </Pressable>
+            </DraggableItem>
+          ))}
+
+          {/* Yellow Sticky Note Stickers - Draggable */}
+          {filteredStickers.map((sticker: any) => (
+            <DraggableItem
+              key={sticker.id}
+              position={sticker.position || { x: 200, y: 200 }}
+              onPositionChange={(newPos) => updateItemPosition('sticker', sticker.id, newPos)}
+              onDragStart={() => setDraggingItem({ type: 'sticker', id: sticker.id })}
+              onDragEnd={(pageX, pageY) => {
+                if (isPositionOverTrash(pageX, pageY)) {
+                  handleDragDelete('sticker', sticker.id);
+                }
+                setDraggingItem(null);
+                setIsOverTrash(false);
+              }}
+              scale={scale}
+              style={styles.stickyNoteContainer}
+              isDragging={draggingItem?.type === 'sticker' && draggingItem?.id === sticker.id}
+            >
+              <Pressable
+                onPress={() => {
+                  setEditingStickerTitle(sticker.title || '');
+                  setEditingStickerContent(sticker.content || '');
+                  setEditingSticker(sticker);
+                }}
+              >
+                {/* Sticker image */}
+                <Image 
+                  source={require('./assets/notesticker.png')} 
+                  style={styles.stickyNoteImage}
+                  resizeMode="contain"
+                />
+                {/* Text overlay */}
+                <View style={styles.stickyNoteTextOverlay}>
+                  <Text style={styles.stickyTitle} numberOfLines={1}>
+                    {sticker.title || 'Tap to edit'}
+                  </Text>
+                  <Text style={styles.stickyContent} numberOfLines={4}>
+                    {sticker.content || ''}
+                  </Text>
+                </View>
+              </Pressable>
+            </DraggableItem>
+          ))}
+
+          {/* Todo Cards - Draggable */}
+          {todos.map((todo: any) => (
+            <DraggableItem
+              key={todo.id}
+              position={todo.position}
+              onPositionChange={(newPos) => updateItemPosition('todo', todo.id, newPos)}
+              onDragStart={() => setDraggingItem({ type: 'todo', id: todo.id })}
+              onDragEnd={(pageX, pageY) => {
+                if (isPositionOverTrash(pageX, pageY)) {
+                  handleDragDelete('todo', todo.id);
+                }
+                setDraggingItem(null);
+                setIsOverTrash(false);
+              }}
+              scale={scale}
+              style={[styles.todoCard, !isDarkMode && styles.todoCardLight]}
+              isDragging={draggingItem?.type === 'todo' && draggingItem?.id === todo.id}
+            >
+              <View style={[styles.todoHeader, !isDarkMode && styles.todoHeaderLight]}>
+                <View style={styles.todoHeaderLeft}>
+                  <CheckSquare size={14} color="#8B5CF6" />
+                  <Text style={[styles.todoTitle, !isDarkMode && styles.todoTitleLight]}>{todo.title || 'Todo List'}</Text>
+                </View>
+                <Text style={[styles.todoCount, !isDarkMode && styles.todoCountLight]}>
+                  {todo.items?.filter((i: any) => i.completed).length || 0}/{todo.items?.length || 0}
+                </Text>
+              </View>
+              {todo.items?.slice(0, 5).map((item: any, idx: number) => (
+                <Pressable
+                  key={idx}
+                  onPress={() => {
+                    const newItems = [...todo.items];
+                    newItems[idx] = { ...item, completed: !item.completed };
+                    updateTodo(todo.id, { items: newItems });
+                  }}
+                  style={styles.todoItemRow}
+                >
+                  <View style={[styles.todoCheckbox, item.completed && styles.todoCheckboxChecked, !isDarkMode && !item.completed && styles.todoCheckboxLight]}>
+                    {item.completed && <Text style={styles.todoCheckmark}>✓</Text>}
+                  </View>
+                  <Text
+                    style={[styles.todoItemText, item.completed && styles.todoItemCompleted, !isDarkMode && styles.todoItemTextLight]}
+                    numberOfLines={1}
+                  >
+                    {item.text || 'Add a task...'}
+                  </Text>
+                </Pressable>
+              ))}
+            </DraggableItem>
+          ))}
+
+          {/* Tables - Draggable */}
+          {tables.map((table: any) => (
+            <DraggableItem
+              key={table.id}
+              position={table.position || { x: 200, y: 200 }}
+              onPositionChange={(newPos) => updateItemPosition('table', table.id, newPos)}
+              onDragStart={() => setDraggingItem({ type: 'table', id: table.id })}
+              onDragEnd={(pageX, pageY) => {
+                if (isPositionOverTrash(pageX, pageY)) {
+                  handleDragDelete('table', table.id);
+                }
+                setDraggingItem(null);
+                setIsOverTrash(false);
+              }}
+              scale={scale}
+              style={[styles.tableCard, !isDarkMode && styles.tableCardLight]}
+              isDragging={draggingItem?.type === 'table' && draggingItem?.id === table.id}
+            >
+              <View style={[styles.tableHeader, !isDarkMode && styles.tableHeaderLight]}>
+                <Text style={[styles.tableTitle, !isDarkMode && styles.tableTitleLight]} numberOfLines={1}>
+                  {table.title || 'Table'}
+                </Text>
+              </View>
+              <View style={styles.tableContent}>
+                {table.rows?.map((row: string[], rowIndex: number) => (
+                  <View key={rowIndex} style={[styles.tableRow, rowIndex === 0 && styles.tableHeaderRow]}>
+                    {row.map((cell: string, cellIndex: number) => (
+                      <View key={cellIndex} style={[styles.tableCell, rowIndex === 0 && styles.tableHeaderCell]}>
+                        <Text style={[styles.tableCellText, rowIndex === 0 && styles.tableHeaderCellText, !isDarkMode && styles.tableCellTextLight]} numberOfLines={1}>
+                          {cell}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ))}
+              </View>
+            </DraggableItem>
+          ))}
+
+          {/* Drawing paths */}
+          {drawings.map((path: any, pathIndex: number) => (
+            <View key={pathIndex} style={styles.drawingPath}>
+              {path.points.map((point: {x: number, y: number}, pointIndex: number) => (
+                <View
+                  key={pointIndex}
+                  style={[
+                    styles.drawingDot,
+                    { left: point.x - 3, top: point.y - 3 }
+                  ]}
+                />
+              ))}
+            </View>
+          ))}
+
+          {/* Current drawing path */}
+          {currentPath.map((point: {x: number, y: number}, index: number) => (
+            <View
+              key={index}
+              style={[
+                styles.drawingDot,
+                { left: point.x - 3, top: point.y - 3 }
+              ]}
+            />
+          ))}
+        </Animated.View>
+      </Animated.View>
+    </GestureDetector>
+  );
+};
+
 export default function App() {
+  const { width: windowWidth } = useWindowDimensions();
+  const headerScale = Math.min(windowWidth / 390, 1.2); // Base on iPhone 12 Pro, max 1.2x
   const [notes, setNotes] = useState<Note[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [activeFolder, setActiveFolder] = useState<number | null>(null);
@@ -764,31 +1213,39 @@ export default function App() {
     : 'All Notes';
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView style={[styles.container, !isDarkMode && styles.containerLight]}>
-        <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <CanvasInteractionProvider>
+          <SafeAreaView style={[styles.container, !isDarkMode && styles.containerLight]} edges={['top', 'left', 'right']}>
+          <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
 
         {/* ===== HEADER ===== */}
         <View style={[styles.header, !isDarkMode && styles.headerLight]}>
           {/* Logo */}
-          <View style={styles.headerLogo}>
-            <Image source={require('./assets/logo.png')} style={styles.logoImage} />
+          <View style={[styles.headerLogo, { width: 30 * headerScale, height: 30 * headerScale, borderRadius: 6 * headerScale }]}>
+            <Image source={require('./assets/logo.png')} style={[styles.logoImage, { width: 30 * headerScale, height: 30 * headerScale, borderRadius: 6 * headerScale }]} resizeMode="contain" />
           </View>
           
-          {/* Spacer */}
-          <View style={{ flex: 1 }} />
+          <View style={{ width: 8 }} />
           
           {/* Folder Dropdown */}
           <View style={styles.folderDropdownWrapper}>
             <Pressable 
-              style={[styles.folderDropdown, !isDarkMode && styles.folderDropdownLight]}
+              style={[styles.folderDropdown, !isDarkMode && styles.folderDropdownLight, {
+                paddingHorizontal: 10 * headerScale,
+                paddingVertical: 6 * headerScale,
+                borderRadius: 8 * headerScale,
+                gap: 4 * headerScale,
+                minWidth: 80 * headerScale,
+                maxWidth: 140 * headerScale,
+              }]}
               onPress={() => setShowFolderDropdown(!showFolderDropdown)}
             >
-              <Folder size={14} color="#8B5CF6" />
-              <Text style={[styles.folderDropdownText, !isDarkMode && styles.folderDropdownTextLight]} numberOfLines={1}>
+              <Folder size={Math.round(14 * headerScale)} color="#8B5CF6" />
+              <Text style={[styles.folderDropdownText, !isDarkMode && styles.folderDropdownTextLight, { fontSize: 13 * headerScale }]} numberOfLines={1}>
                 {activeFolderName}
               </Text>
-              <ChevronDown size={12} color={isDarkMode ? "#6B7280" : "#9CA3AF"} style={showFolderDropdown && { transform: [{ rotate: '180deg' }] }} />
+              <ChevronDown size={Math.round(12 * headerScale)} color={isDarkMode ? "#6B7280" : "#9CA3AF"} style={showFolderDropdown && { transform: [{ rotate: '180deg' }] }} />
             </Pressable>
             
             {/* Dropdown Menu */}
@@ -815,55 +1272,62 @@ export default function App() {
             )}
           </View>
           
-          {/* Spacer */}
+          {/* Flexible spacer */}
           <View style={{ flex: 1 }} />
           
           {/* Middle: Search, Undo, Redo */}
-          <Pressable style={styles.headerIconButton} onPress={() => setShowSearchModal(true)}>
-            <Search size={18} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
-          </Pressable>
-          <Pressable 
-            style={[styles.headerIconButton, historyIndex <= 0 && styles.headerIconButtonDisabled]} 
-            onPress={handleUndo}
-            disabled={historyIndex <= 0}
-          >
-            <Undo2 size={18} color={historyIndex > 0 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
-          </Pressable>
-          <Pressable 
-            style={[styles.headerIconButton, historyIndex >= history.length - 1 && styles.headerIconButtonDisabled]} 
-            onPress={handleRedo}
-            disabled={historyIndex >= history.length - 1}
-          >
-            <Redo2 size={18} color={historyIndex < history.length - 1 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Pressable style={[styles.headerIconButton, { width: 28 * headerScale, height: 28 * headerScale, borderRadius: 6 * headerScale }]} onPress={() => setShowSearchModal(true)}>
+              <Search size={Math.round(16 * headerScale)} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
+            </Pressable>
+            <Pressable 
+              style={[styles.headerIconButton, { width: 28 * headerScale, height: 28 * headerScale, borderRadius: 6 * headerScale }, historyIndex <= 0 && styles.headerIconButtonDisabled]} 
+              onPress={handleUndo}
+              disabled={historyIndex <= 0}
+            >
+              <Undo2 size={Math.round(16 * headerScale)} color={historyIndex > 0 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
+            </Pressable>
+            <Pressable 
+              style={[styles.headerIconButton, { width: 28 * headerScale, height: 28 * headerScale, borderRadius: 6 * headerScale }, historyIndex >= history.length - 1 && styles.headerIconButtonDisabled]} 
+              onPress={handleRedo}
+              disabled={historyIndex >= history.length - 1}
+            >
+              <Redo2 size={Math.round(16 * headerScale)} color={historyIndex < history.length - 1 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
+            </Pressable>
+          </View>
           
-          {/* Right: Theme toggle + Note count */}
-          <Pressable 
-            style={[styles.headerIconButton, styles.themeToggleButton, !isDarkMode && styles.themeToggleButtonLight]} 
-            onPress={() => setIsDarkMode(!isDarkMode)}
-          >
-            {isDarkMode ? <Sun size={18} color="#F59E0B" /> : <Moon size={18} color="#64748B" />}
-          </Pressable>
+          {/* Flexible spacer */}
+          <View style={{ flex: 1 }} />
           
-          {/* Export button */}
-          <Pressable style={styles.headerIconButton} onPress={() => setShowExportModal(true)}>
-            <Download size={18} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
-          </Pressable>
-          
-          {/* Note count badge - far right with color coding */}
-          <View style={[
-            styles.headerNoteCount, 
-            !isDarkMode && styles.headerNoteCountLight,
-            notes.length >= 61 && styles.headerNoteCountRed,
-            notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountYellow,
-            notes.length < 40 && styles.headerNoteCountGreen,
-          ]}>
-            <Text style={[
-              styles.headerNoteCountText, 
-              notes.length >= 61 && styles.headerNoteCountTextRed,
-              notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountTextYellow,
-              notes.length < 40 && styles.headerNoteCountTextGreen,
-            ]}>{notes.length}{!isPremium && `/${FREE_NOTE_LIMIT}`}</Text>
+          {/* Right: Theme toggle + Export + Note count */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Pressable 
+              style={[styles.headerIconButton, { width: 28 * headerScale, height: 28 * headerScale, borderRadius: 6 * headerScale }, styles.themeToggleButton, !isDarkMode && styles.themeToggleButtonLight]} 
+              onPress={() => setIsDarkMode(!isDarkMode)}
+            >
+              {isDarkMode ? <Sun size={Math.round(16 * headerScale)} color="#F59E0B" /> : <Moon size={Math.round(16 * headerScale)} color="#64748B" />}
+            </Pressable>
+            
+            <Pressable style={[styles.headerIconButton, { width: 28 * headerScale, height: 28 * headerScale, borderRadius: 6 * headerScale }]} onPress={() => setShowExportModal(true)}>
+              <Download size={Math.round(16 * headerScale)} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
+            </Pressable>
+            
+            <View style={[
+              { paddingHorizontal: 6 * headerScale, paddingVertical: 3 * headerScale, borderRadius: 8 * headerScale, minWidth: 20 * headerScale },
+              styles.headerNoteCount, 
+              !isDarkMode && styles.headerNoteCountLight,
+              notes.length >= 61 && styles.headerNoteCountRed,
+              notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountYellow,
+              notes.length < 40 && styles.headerNoteCountGreen,
+            ]}>
+              <Text style={[
+                styles.headerNoteCountText,
+                { fontSize: 11 * headerScale },
+                notes.length >= 61 && styles.headerNoteCountTextRed,
+                notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountTextYellow,
+                notes.length < 40 && styles.headerNoteCountTextGreen,
+              ]}>{notes.length}{!isPremium && `/${FREE_NOTE_LIMIT}`}</Text>
+            </View>
           </View>
         </View>
 
@@ -871,240 +1335,30 @@ export default function App() {
         <View style={styles.mainContent}>
           {/* ===== CANVAS AREA ===== */}
           <View style={styles.canvasArea}>
-            {/* Canvas */}
-            <ScrollView
-              ref={scrollViewRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              showsVerticalScrollIndicator={false}
-              style={styles.canvasScrollView}
-              contentContainerStyle={{ width: CANVAS_WIDTH * scale, height: CANVAS_HEIGHT * scale }}
-              maximumZoomScale={3}
-              minimumZoomScale={0.25}
-              bouncesZoom
-              pinchGestureEnabled={true}
-            >
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ width: CANVAS_WIDTH * scale, height: CANVAS_HEIGHT * scale }}
-              >
-                <View style={[styles.canvasContent, { transform: [{ scale }] }, !isDarkMode && styles.canvasContentLight]}>
-                  {/* Grid */}
-                  <View style={styles.gridContainer}>{renderGrid()}</View>
-
-                  {/* Empty State */}
-                  {filteredNotes.length === 0 && todos.length === 0 && (
-                    <View style={[styles.emptyState, !isDarkMode && styles.emptyStateLight]}>
-                      <Text style={styles.emptyStateIcon}>📝</Text>
-                      <Text style={[styles.emptyStateTitle, !isDarkMode && styles.emptyStateTitleLight]}>Your canvas awaits!</Text>
-                      <Text style={styles.emptyStateSubtitle}>Tap + to add notes</Text>
-                    </View>
-                  )}
-
-                  {/* Note Cards - Draggable */}
-                  {filteredNotes.map((note) => (
-                    <DraggableItem
-                      key={note.id}
-                      position={note.position}
-                      onPositionChange={(newPos) => updateItemPosition('note', note.id, newPos)}
-                      onDragStart={() => setDraggingItem({ type: 'note', id: note.id })}
-                      onDragEnd={(pageX, pageY) => {
-                        if (isPositionOverTrash(pageX, pageY)) {
-                          handleDragDelete('note', note.id);
-                        }
-                        setDraggingItem(null);
-                        setIsOverTrash(false);
-                      }}
-                      scale={scale}
-                      style={[styles.noteCard, !isDarkMode && styles.noteCardLight]}
-                      isDragging={draggingItem?.type === 'note' && draggingItem?.id === note.id}
-                    >
-                      <Pressable onPress={() => setEditingNote(note)}>
-                        <View style={[styles.noteCardHeader, !isDarkMode && styles.noteCardHeaderLight]}>
-                          <View style={styles.noteCardDrag}>
-                            <GripVertical size={14} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
-                          </View>
-                          <Text style={[styles.noteCardTitle, !isDarkMode && styles.noteCardTitleLight]} numberOfLines={1}>
-                            {note.title || 'New Note'}
-                          </Text>
-                        </View>
-                        <View style={[styles.noteCardBody, !isDarkMode && styles.noteCardBodyLight]}>
-                          <Text style={[styles.noteCardContent, !isDarkMode && styles.noteCardContentLight]} numberOfLines={6}>
-                            {note.content || 'Click to start writing...'}
-                          </Text>
-                        </View>
-                        <Text style={[styles.noteCardWordCount, !isDarkMode && styles.noteCardWordCountLight]}>
-                          {note.content?.split(/\s+/).filter(Boolean).length || 0} words
-                        </Text>
-                      </Pressable>
-                    </DraggableItem>
-                  ))}
-
-                  {/* Yellow Sticky Note Stickers - Draggable */}
-                  {filteredStickers.map((sticker) => (
-                    <DraggableItem
-                      key={sticker.id}
-                      position={sticker.position || { x: 200, y: 200 }}
-                      onPositionChange={(newPos) => updateItemPosition('sticker', sticker.id, newPos)}
-                      onDragStart={() => setDraggingItem({ type: 'sticker', id: sticker.id })}
-                      onDragEnd={(pageX, pageY) => {
-                        if (isPositionOverTrash(pageX, pageY)) {
-                          handleDragDelete('sticker', sticker.id);
-                        }
-                        setDraggingItem(null);
-                        setIsOverTrash(false);
-                      }}
-                      scale={scale}
-                      style={styles.stickyNoteContainer}
-                      isDragging={draggingItem?.type === 'sticker' && draggingItem?.id === sticker.id}
-                    >
-                      <Pressable
-                        onPress={() => {
-                          setEditingStickerTitle(sticker.title || '');
-                          setEditingStickerContent(sticker.content || '');
-                          setEditingSticker(sticker);
-                        }}
-                      >
-                        {/* Sticker image */}
-                        <Image 
-                          source={require('./assets/notesticker.png')} 
-                          style={styles.stickyNoteImage}
-                          resizeMode="contain"
-                        />
-                        {/* Text overlay */}
-                        <View style={styles.stickyNoteTextOverlay}>
-                          <Text style={styles.stickyTitle} numberOfLines={1}>
-                            {sticker.title || 'Tap to edit'}
-                          </Text>
-                          <Text style={styles.stickyContent} numberOfLines={4}>
-                            {sticker.content || ''}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    </DraggableItem>
-                  ))}
-
-                  {/* Todo Cards - Draggable */}
-                  {todos.map((todo) => (
-                    <DraggableItem
-                      key={todo.id}
-                      position={todo.position}
-                      onPositionChange={(newPos) => updateItemPosition('todo', todo.id, newPos)}
-                      onDragStart={() => setDraggingItem({ type: 'todo', id: todo.id })}
-                      onDragEnd={(pageX, pageY) => {
-                        if (isPositionOverTrash(pageX, pageY)) {
-                          handleDragDelete('todo', todo.id);
-                        }
-                        setDraggingItem(null);
-                        setIsOverTrash(false);
-                      }}
-                      scale={scale}
-                      style={[styles.todoCard, !isDarkMode && styles.todoCardLight]}
-                      isDragging={draggingItem?.type === 'todo' && draggingItem?.id === todo.id}
-                    >
-                      <View style={[styles.todoHeader, !isDarkMode && styles.todoHeaderLight]}>
-                        <View style={styles.todoHeaderLeft}>
-                          <CheckSquare size={14} color="#8B5CF6" />
-                          <Text style={[styles.todoTitle, !isDarkMode && styles.todoTitleLight]}>{todo.title || 'Todo List'}</Text>
-                        </View>
-                        <Text style={[styles.todoCount, !isDarkMode && styles.todoCountLight]}>
-                          {todo.items?.filter(i => i.completed).length || 0}/{todo.items?.length || 0}
-                        </Text>
-                      </View>
-                      {todo.items?.slice(0, 5).map((item, idx) => (
-                        <Pressable
-                          key={idx}
-                          onPress={() => {
-                            const newItems = [...todo.items];
-                            newItems[idx] = { ...item, completed: !item.completed };
-                            updateTodo(todo.id, { items: newItems });
-                          }}
-                          style={styles.todoItemRow}
-                        >
-                          <View style={[styles.todoCheckbox, item.completed && styles.todoCheckboxChecked, !isDarkMode && !item.completed && styles.todoCheckboxLight]}>
-                            {item.completed && <Text style={styles.todoCheckmark}>✓</Text>}
-                          </View>
-                          <Text
-                            style={[styles.todoItemText, item.completed && styles.todoItemCompleted, !isDarkMode && styles.todoItemTextLight]}
-                            numberOfLines={1}
-                          >
-                            {item.text || 'Add a task...'}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </DraggableItem>
-                  ))}
-
-                  {/* Tables - Draggable */}
-                  {tables.map((table) => (
-                    <DraggableItem
-                      key={table.id}
-                      position={table.position || { x: 200, y: 200 }}
-                      onPositionChange={(newPos) => updateItemPosition('table', table.id, newPos)}
-                      onDragStart={() => setDraggingItem({ type: 'table', id: table.id })}
-                      onDragEnd={(pageX, pageY) => {
-                        if (isPositionOverTrash(pageX, pageY)) {
-                          handleDragDelete('table', table.id);
-                        }
-                        setDraggingItem(null);
-                        setIsOverTrash(false);
-                      }}
-                      scale={scale}
-                      style={[styles.tableCard, !isDarkMode && styles.tableCardLight]}
-                      isDragging={draggingItem?.type === 'table' && draggingItem?.id === table.id}
-                    >
-                      <View style={[styles.tableHeader, !isDarkMode && styles.tableHeaderLight]}>
-                        <Text style={[styles.tableTitle, !isDarkMode && styles.tableTitleLight]} numberOfLines={1}>
-                          {table.title || 'Table'}
-                        </Text>
-                      </View>
-                      <View style={styles.tableContent}>
-                        {table.rows?.map((row: string[], rowIndex: number) => (
-                          <View key={rowIndex} style={[styles.tableRow, rowIndex === 0 && styles.tableHeaderRow]}>
-                            {row.map((cell: string, cellIndex: number) => (
-                              <View key={cellIndex} style={[styles.tableCell, rowIndex === 0 && styles.tableHeaderCell]}>
-                                <Text style={[styles.tableCellText, rowIndex === 0 && styles.tableHeaderCellText, !isDarkMode && styles.tableCellTextLight]} numberOfLines={1}>
-                                  {cell}
-                                </Text>
-                              </View>
-                            ))}
-                          </View>
-                        ))}
-                      </View>
-                    </DraggableItem>
-                  ))}
-
-                  {/* Drawing paths */}
-                  {drawings.map((path, pathIndex) => (
-                    <View key={pathIndex} style={styles.drawingPath}>
-                      {path.points.map((point: {x: number, y: number}, pointIndex: number) => (
-                        <View
-                          key={pointIndex}
-                          style={[
-                            styles.drawingDot,
-                            { left: point.x - 3, top: point.y - 3 }
-                          ]}
-                        />
-                      ))}
-                    </View>
-                  ))}
-
-                  {/* Current drawing path */}
-                  {currentPath.map((point, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.drawingDot,
-                        { left: point.x - 3, top: point.y - 3 }
-                      ]}
-                    />
-                  ))}
-
-
-                </View>
-              </ScrollView>
-            </ScrollView>
-
+            {/* Canvas with Gesture-based pan/zoom */}
+            <CanvasWithGestures
+              scale={scale}
+              setScale={setScale}
+              draggingItem={draggingItem}
+              isDarkMode={isDarkMode}
+              renderGrid={renderGrid}
+              filteredNotes={filteredNotes}
+              todos={todos}
+              filteredStickers={filteredStickers}
+              tables={tables}
+              drawings={drawings}
+              currentPath={currentPath}
+              updateItemPosition={updateItemPosition}
+              setDraggingItem={setDraggingItem}
+              isPositionOverTrash={isPositionOverTrash}
+              handleDragDelete={handleDragDelete}
+              setIsOverTrash={setIsOverTrash}
+              setEditingNote={setEditingNote}
+              updateTodo={updateTodo}
+              setEditingStickerTitle={setEditingStickerTitle}
+              setEditingStickerContent={setEditingStickerContent}
+              setEditingSticker={setEditingSticker}
+            />
           </View>
         </View>
 
@@ -1173,92 +1427,20 @@ export default function App() {
         )}
 
         {/* ===== BOTTOM DOCK (Scrollable) ===== */}
-        <View style={[styles.bottomDockContainer, !isDarkMode && styles.bottomDockContainerLight]}>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.bottomDockScroll}
-          >
-            <Pressable style={styles.dockButton} onPress={() => addNote()}>
-              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
-                <Plus size={18} color={isDarkMode ? "#fff" : "#64748b"} />
-              </View>
-              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Note</Text>
-            </Pressable>
-            
-            <Pressable style={styles.dockButton} onPress={addTodo}>
-              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
-                <CheckSquare size={18} color={isDarkMode ? "#fff" : "#64748b"} />
-              </View>
-              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Todo</Text>
-            </Pressable>
-            
-            <Pressable style={styles.dockButton} onPress={addNoteSticker}>
-              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
-                <FileText size={18} color={isDarkMode ? "#fff" : "#64748b"} />
-              </View>
-              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Sticker</Text>
-            </Pressable>
-            
-            <Pressable style={styles.dockButton} onPress={() => setShowNewFolderModal(true)}>
-              <View style={[styles.dockButtonInner, styles.dockButtonHighlight, !isDarkMode && styles.dockButtonHighlightLight]}>
-                <Folder size={18} color="#F59E0B" />
-              </View>
-              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Folder</Text>
-            </Pressable>
-            
-            <Pressable style={styles.dockButton}>
-              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
-                <ImageIcon size={18} color={isDarkMode ? "#fff" : "#64748b"} />
-              </View>
-              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Image</Text>
-            </Pressable>
-            
-            <Pressable style={styles.dockButton} onPress={addTable}>
-              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
-                <Table size={18} color={isDarkMode ? "#fff" : "#64748b"} />
-              </View>
-              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Table</Text>
-            </Pressable>
-            
-            <Pressable style={styles.dockButton}>
-              <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
-                <Link size={18} color={isDarkMode ? "#fff" : "#64748b"} />
-              </View>
-              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Source</Text>
-            </Pressable>
-            
-            <Pressable style={styles.dockButton} onPress={() => setIsDrawingMode(!isDrawingMode)}>
-              <View style={[styles.dockButtonInner, isDrawingMode && styles.dockButtonActive, !isDarkMode && styles.dockButtonInnerLight]}>
-                <Pencil size={18} color={isDrawingMode ? "#F59E0B" : (isDarkMode ? "#fff" : "#64748b")} />
-              </View>
-              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Draw</Text>
-            </Pressable>
-            
-            <View
-              ref={trashZoneRef}
-              onLayout={(event) => {
-                event.target.measure((x, y, width, height, pageX, pageY) => {
-                  setTrashZoneLayout({ x: pageX, y: pageY, width, height });
-                });
-              }}
-            >
-              <Pressable style={styles.dockButton} onPress={() => setIsTrashOpen(true)}>
-                <View style={[
-                  styles.dockButtonInner, 
-                  styles.dockButtonTrash, 
-                  !isDarkMode && styles.dockButtonTrashLight,
-                  isOverTrash && styles.dockButtonTrashActive,
-                ]}>
-                  <Trash2 size={18} color="#EF4444" />
-                </View>
-                <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>
-                  {draggingItem ? 'Drop here' : 'Trash'}
-                </Text>
-              </Pressable>
-            </View>
-          </ScrollView>
-        </View>
+        <BottomDock 
+          isDarkMode={isDarkMode}
+          addNote={addNote}
+          addTodo={addTodo}
+          addNoteSticker={addNoteSticker}
+          addTable={addTable}
+          isDrawingMode={isDrawingMode}
+          setIsDrawingMode={setIsDrawingMode}
+          setShowNewFolderModal={setShowNewFolderModal}
+          setIsTrashOpen={setIsTrashOpen}
+          trashZoneRef={trashZoneRef}
+          setTrashZoneLayout={setTrashZoneLayout}
+          isOverTrash={isOverTrash}
+        />
 
         {/* Drag indicator when dragging */}
         {draggingItem && (
@@ -1585,8 +1767,10 @@ export default function App() {
             </View>
           </View>
         </Modal>
-      </SafeAreaView>
-    </GestureHandlerRootView>
+        </SafeAreaView>
+        </CanvasInteractionProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
 
@@ -1611,31 +1795,23 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     backgroundColor: '#1e293b',
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
-    gap: 6,
+    zIndex: 1000,
+    elevation: 1000,
   },
   headerLogo: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   logoImage: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
   },
   headerIconButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1650,20 +1826,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#334155',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 6,
-    minWidth: 100,
   },
   folderDropdownLight: {
     backgroundColor: '#f1f5f9',
   },
   folderDropdownText: {
     color: '#e2e8f0',
-    fontSize: 14,
     fontWeight: '500',
-    maxWidth: 80,
+    flex: 1,
   },
   folderDropdownTextLight: {
     color: '#334155',
@@ -2172,7 +2342,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e293b',
     borderTopWidth: 1,
     borderTopColor: '#334155',
-    paddingBottom: 20,
   },
   bottomDockScroll: {
     flexDirection: 'row',

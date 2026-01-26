@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,19 @@ import {
   Dimensions,
   Alert,
   StyleSheet,
-  ScrollView,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDecay,
+  withSpring,
+} from 'react-native-reanimated';
 import { ZoomIn, ZoomOut, RotateCcw, Trash2 } from 'lucide-react-native';
+import { DraggableCanvasItem } from './DraggableCanvasItem';
+import NoteSticker from './NoteSticker';
+import { useCanvasInteraction } from '../contexts/CanvasInteractionContext';
+import type { JSX } from 'react';
 
 // Types
 interface Position {
@@ -118,6 +128,9 @@ interface CanvasProps {
   onNoteClick?: (note: Note) => void;
   readerModeNoteId?: number | null;
   onReaderModeClosed?: () => void;
+  shouldDeleteOnDrop?: (x: number, y: number) => boolean;
+  onMultiDrag?: (deltaX: number, deltaY: number) => void;
+  selectedCount?: number;
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -170,9 +183,47 @@ export const Canvas: React.FC<CanvasProps> = ({
   onNoteClick,
   readerModeNoteId,
   onReaderModeClosed,
+  shouldDeleteOnDrop,
+  onMultiDrag,
+  selectedCount,
 }) => {
-  const scrollViewRef = useRef<ScrollView>(null);
+  const { isDraggingItem } = useCanvasInteraction();
   const [scale, setScale] = useState(1);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [isDraggingItemLocal, setIsDraggingItemLocal] = useState(false);
+  const [canvasWidth, setCanvasWidth] = useState(CANVAS_WIDTH);
+  const [canvasHeight, setCanvasHeight] = useState(CANVAS_HEIGHT);
+  const [selectedPosition, setSelectedPosition] = useState({ x: 0, y: 0 });
+
+  // Update selected position with animation
+  const updateSelectedPosition = useCallback((position: { x: number; y: number }) => {
+    setSelectedPosition(position);
+    selectionX.value = position.x;
+    selectionY.value = position.y;
+  }, []);
+
+  // Update selected position when selection changes
+  useEffect(() => {
+    if (selectedType === 'noteSticker' && selectedId) {
+      const id = parseInt(selectedId.split('-')[1]);
+      const sticker = noteStickers.find(s => s.id === id);
+      if (sticker) {
+        setSelectedPosition(sticker.position);
+        selectionX.value = sticker.position.x;
+        selectionY.value = sticker.position.y;
+      }
+    }
+  }, [selectedId, selectedType, noteStickers]);
+
+  const offsetX = useSharedValue(0);
+  const offsetY = useSharedValue(0);
+  const startX = useSharedValue(0);
+  const startY = useSharedValue(0);
+
+  // Selection overlay animation
+  const selectionX = useSharedValue(0);
+  const selectionY = useSharedValue(0);
 
   // Zoom handlers
   const handleZoomIn = useCallback(() => {
@@ -185,185 +236,331 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   const resetZoom = useCallback(() => {
     setScale(1);
-    scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: true });
-  }, []);
+    offsetX.value = withSpring(0);
+    offsetY.value = withSpring(0);
+  }, [offsetX, offsetY]);
+
+  const panGesture = Gesture.Pan()
+    .enabled(!isDraggingItem) // Disable canvas dragging when an item is being dragged
+    .onStart(() => {
+      startX.value = offsetX.value;
+      startY.value = offsetY.value;
+    })
+    .onUpdate((event) => {
+      offsetX.value = startX.value + event.translationX;
+      offsetY.value = startY.value + event.translationY;
+    })
+    .onEnd((event) => {
+      offsetX.value = withDecay({
+        velocity: event.velocityX,
+        deceleration: 0.998,
+      });
+      offsetY.value = withDecay({
+        velocity: event.velocityY,
+        deceleration: 0.998,
+      });
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: offsetX.value },
+      { translateY: offsetY.value },
+      { scale },
+    ],
+  }));
+
+  const handleDragNearEdge = useCallback((x: number, y: number) => {
+    const buffer = 100; // Distance from edge to trigger expansion
+    const growthAmount = 500; // Amount to grow the canvas
+
+    if (x > canvasWidth - buffer) {
+      setCanvasWidth((prev) => prev + growthAmount);
+    }
+    if (y > canvasHeight - buffer) {
+      setCanvasHeight((prev) => prev + growthAmount);
+    }
+  }, [canvasWidth, canvasHeight]);
 
   // Render a note card
-  const renderNoteCard = (note: Note) => (
-    <Pressable
-      key={note.id}
-      onPress={() => onNoteClick?.(note)}
-      onLongPress={() => {
-        Alert.alert('Delete Note', `Delete "${note.title}"?`, [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: () => deleteNote(note.id) },
-        ]);
-      }}
-      style={[
-        styles.noteCard,
-        {
-          left: note.position.x,
-          top: note.position.y,
-          width: note.size?.width || 280,
-        },
-      ]}
-    >
-      <Text style={styles.noteTitle} numberOfLines={1}>
-        {note.title || 'Untitled'}
-      </Text>
-      <Text style={styles.noteContent} numberOfLines={4}>
-        {note.content || 'Tap to edit...'}
-      </Text>
-    </Pressable>
-  );
+  const renderNoteCard = (note: Note) => {
+    const isSelected = selectedId === `note-${note.id}` && (isDraggingItemLocal || !isDraggingItem);
+    return (
+      <DraggableCanvasItem
+        key={note.id}
+        id={note.id}
+        type="note"
+        position={note.position}
+        size={note.size || { width: 280, height: 120 }}
+        isSelected={isSelected}
+        onTap={() => {
+          setSelectedId(`note-${note.id}`);
+          setSelectedType('note');
+          onNoteClick?.(note);
+        }}
+        onDragStart={() => {
+          setSelectedId(`note-${note.id}`);
+          setSelectedType('note');
+        }}
+        onDragActiveChange={setIsDraggingItemLocal}
+        onPositionChange={(id, position) => {
+          updateNote(id, { position });
+        }}
+        dragTouchZone="edges"
+      >
+        <Pressable
+          onPress={() => {
+            setSelectedId(`note-${note.id}`);
+            setSelectedType('note');
+            onNoteClick?.(note);
+          }}
+          onLongPress={() => {
+            Alert.alert('Delete Note', `Delete "${note.title}"?`, [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Delete', style: 'destructive', onPress: () => deleteNote(note.id) },
+            ]);
+          }}
+          style={[styles.noteCard, isSelected && styles.selectedNoteCard]}
+        >
+          <Text style={styles.noteTitle} numberOfLines={1}>
+            {note.title || 'Untitled'}
+          </Text>
+          <Text style={styles.noteContent} numberOfLines={4}>
+            {note.content || 'Tap to edit...'}
+          </Text>
+        </Pressable>
+      </DraggableCanvasItem>
+    );
+  };
 
   // Render a todo item
   const renderTodoItem = (todo: Todo) => (
-    <View
+    <DraggableCanvasItem
       key={todo.id}
-      style={[
-        styles.todoCard,
-        {
-          left: todo.position.x,
-          top: todo.position.y,
-          width: todo.size?.width || 240,
-        },
-      ]}
+      id={todo.id}
+      type="todo"
+      position={todo.position}
+      size={todo.size || { width: 240, height: 150 }}
+      isSelected={selectedId === `todo-${todo.id}` && !isDraggingItem}
+      onTap={() => {
+        setSelectedId(`todo-${todo.id}`);
+        setSelectedType('todo');
+      }}
+      onDragStart={() => {
+        setSelectedId(`todo-${todo.id}`);
+        setSelectedType('todo');
+      }}
+      onDragActiveChange={setIsDraggingItemLocal}
+      onPositionChange={(id, position) => {
+        updateTodo?.(id, { position });
+      }}
+      dragTouchZone="edges"
     >
-      <Text style={styles.todoTitle}>{todo.title}</Text>
-      {todo.items?.slice(0, 5).map((item, idx) => (
-        <Pressable
-          key={idx}
-          onPress={() => {
-            if (updateTodo) {
-              const newItems = [...todo.items];
-              newItems[idx] = { ...item, completed: !item.completed };
-              updateTodo(todo.id, { items: newItems });
-            }
-          }}
-          style={styles.todoItemRow}
-        >
-          <Text style={styles.todoCheckbox}>{item.completed ? '✅' : '⬜'}</Text>
-          <Text
-            style={[styles.todoItemText, item.completed && styles.todoItemCompleted]}
-            numberOfLines={1}
+      <View style={styles.todoCard}>
+        <Text style={styles.todoTitle}>{todo.title}</Text>
+        {todo.items?.slice(0, 5).map((item, idx) => (
+          <Pressable
+            key={idx}
+            onPress={() => {
+              if (updateTodo) {
+                const newItems = [...todo.items];
+                newItems[idx] = { ...item, completed: !item.completed };
+                updateTodo(todo.id, { items: newItems });
+              }
+            }}
+            style={styles.todoItemRow}
           >
-            {item.text || 'New item...'}
-          </Text>
-        </Pressable>
-      ))}
-      {todo.items?.length > 5 && (
-        <Text style={styles.todoMore}>+{todo.items.length - 5} more items</Text>
-      )}
-    </View>
+            <Text style={styles.todoCheckbox}>{item.completed ? '✅' : '⬜'}</Text>
+            <Text
+              style={[styles.todoItemText, item.completed && styles.todoItemCompleted]}
+              numberOfLines={1}
+            >
+              {item.text || 'New item...'}
+            </Text>
+          </Pressable>
+        ))}
+        {todo.items?.length > 5 && (
+          <Text style={styles.todoMore}>+{todo.items.length - 5} more items</Text>
+        )}
+      </View>
+    </DraggableCanvasItem>
   );
 
   // Render sticker
-  const renderSticker = (sticker: Sticker) => (
-    <Pressable
-      key={sticker.id}
-      onLongPress={() => {
-        if (deleteSticker) {
-          Alert.alert('Delete Sticker', 'Delete this sticker?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: () => deleteSticker(sticker.id) },
-          ]);
-        }
-      }}
-      style={[
-        styles.stickerItem,
-        {
-          left: sticker.position.x,
-          top: sticker.position.y,
-          width: sticker.size?.width || 60,
-          height: sticker.size?.height || 60,
-          transform: [{ rotate: `${sticker.rotation || 0}deg` }],
-        },
-      ]}
-    >
-      <Text style={styles.stickerEmoji}>{sticker.type || '⭐'}</Text>
-    </Pressable>
-  );
+  const renderSticker = (sticker: Sticker) => {
+    const isSelected = selectedId === `sticker-${sticker.id}` && !isDraggingItem;
+    return (
+      <DraggableCanvasItem
+        key={sticker.id}
+        id={sticker.id}
+        type="sticker"
+        position={sticker.position}
+        size={sticker.size || { width: 60, height: 60 }}
+        rotation={sticker.rotation}
+        isSelected={isSelected}
+        onTap={() => {
+          setSelectedId(`sticker-${sticker.id}`);
+          setSelectedType('sticker');
+        }}
+        onDragStart={() => {
+          setSelectedId(`sticker-${sticker.id}`);
+          setSelectedType('sticker');
+        }}
+        onDragActiveChange={setIsDraggingItemLocal}
+        onPositionChange={(id, position) => {
+          updateSticker?.(id, { position });
+        }}
+        dragTouchZone="full"
+      >
+        <Pressable
+          onLongPress={() => {
+            if (deleteSticker) {
+              Alert.alert('Delete Sticker', 'Delete this sticker?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: () => deleteSticker(sticker.id) },
+              ]);
+            }
+          }}
+          style={[styles.stickerItem, isSelected && styles.selectedNoteSticker]}
+        >
+          <Text style={styles.stickerEmoji}>{sticker.type || '⭐'}</Text>
+        </Pressable>
+      </DraggableCanvasItem>
+    );
+  };
 
   // Render image
   const renderImage = (image: Image) => (
-    <View
+    <DraggableCanvasItem
       key={image.id}
-      style={[
-        styles.imageCard,
-        {
-          left: image.position.x,
-          top: image.position.y,
-          width: image.size?.width || 200,
-          height: image.size?.height || 150,
-        },
-      ]}
+      id={image.id}
+      type="image"
+      position={image.position}
+      size={image.size || { width: 200, height: 150 }}
+      isSelected={selectedId === `image-${image.id}` && !isDraggingItem}
+      onTap={() => {
+        setSelectedId(`image-${image.id}`);
+        setSelectedType('image');
+      }}
+      onDragStart={() => {
+        setSelectedId(`image-${image.id}`);
+        setSelectedType('image');
+      }}
+      onDragActiveChange={setIsDraggingItemLocal}
+      onPositionChange={(id, position) => {
+        deleteImage?.(id);
+        addImage?.({ ...image, position });
+      }}
+      dragTouchZone="full"
     >
-      <Text style={styles.imagePlaceholderIcon}>🖼️</Text>
-      <Text style={styles.imagePlaceholderText}>Image</Text>
-    </View>
+      <View style={styles.imageCard}>
+        <Text style={styles.imagePlaceholderIcon}>🖼️</Text>
+        <Text style={styles.imagePlaceholderText}>Image</Text>
+      </View>
+    </DraggableCanvasItem>
   );
 
   // Render table
   const renderTable = (table: Table) => (
-    <View
+    <DraggableCanvasItem
       key={table.id}
-      style={[
-        styles.tableCard,
-        {
-          left: table.position.x,
-          top: table.position.y,
-          width: table.size?.width || 300,
-        },
-      ]}
+      id={table.id}
+      type="table"
+      position={table.position}
+      size={table.size || { width: 300, height: 200 }}
+      isSelected={selectedId === `table-${table.id}` && !isDraggingItem}
+      onTap={() => {
+        setSelectedId(`table-${table.id}`);
+        setSelectedType('table');
+      }}
+      onDragStart={() => {
+        setSelectedId(`table-${table.id}`);
+        setSelectedType('table');
+      }}
+      onDragActiveChange={setIsDraggingItemLocal}
+      onPositionChange={(id, position) => {
+        updateTable?.(id, { position });
+      }}
+      dragTouchZone="edges"
     >
-      <View style={styles.tableHeader}>
-        <Text style={styles.tableHeaderText}>📊 Table</Text>
+      <View style={styles.tableCard}>
+        <View style={styles.tableHeader}>
+          <Text style={styles.tableHeaderText}>📊 Table</Text>
+        </View>
+        <View style={styles.tableBody}>
+          {table.data?.slice(0, 3).map((row, rowIdx) => (
+            <View key={rowIdx} style={styles.tableRow}>
+              {row.slice(0, 3).map((cell, colIdx) => (
+                <View key={colIdx} style={styles.tableCell}>
+                  <Text style={styles.tableCellText} numberOfLines={1}>
+                    {cell || '-'}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
       </View>
-      <View style={styles.tableBody}>
-        {table.data?.slice(0, 3).map((row, rowIdx) => (
-          <View key={rowIdx} style={styles.tableRow}>
-            {row.slice(0, 3).map((cell, colIdx) => (
-              <View key={colIdx} style={styles.tableCell}>
-                <Text style={styles.tableCellText} numberOfLines={1}>
-                  {cell || '-'}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ))}
-      </View>
-    </View>
+    </DraggableCanvasItem>
   );
 
   // Render source
   const renderSource = (source: Source) => (
-    <Pressable
+    <DraggableCanvasItem
       key={source.id}
-      onLongPress={() => {
-        if (deleteSource) {
-          Alert.alert('Delete Source', 'Delete this source?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: () => deleteSource(source.id) },
-          ]);
-        }
+      id={source.id}
+      type="source"
+      position={source.position}
+      size={source.size || { width: 220, height: 80 }}
+      isSelected={selectedId === `source-${source.id}` && !isDraggingItem}
+      onTap={() => {
+        setSelectedId(`source-${source.id}`);
+        setSelectedType('source');
       }}
-      style={[
-        styles.sourceCard,
-        {
-          left: source.position.x,
-          top: source.position.y,
-          width: source.size?.width || 220,
-        },
-      ]}
+      onDragStart={() => {
+        setSelectedId(`source-${source.id}`);
+        setSelectedType('source');
+      }}
+      onDragActiveChange={setIsDraggingItemLocal}
+      onPositionChange={(id, position) => {
+        updateSource?.(id, { position });
+      }}
+      dragTouchZone="edges"
     >
-      <Text style={styles.sourceTitle} numberOfLines={1}>
-        🔗 {source.title || source.url}
-      </Text>
-      <Text style={styles.sourceUrl} numberOfLines={1}>
-        {source.url}
-      </Text>
-    </Pressable>
+      <Pressable
+        onLongPress={() => {
+          if (deleteSource) {
+            Alert.alert('Delete Source', 'Delete this source?', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Delete', style: 'destructive', onPress: () => deleteSource(source.id) },
+            ]);
+          }
+        }}
+        style={styles.sourceCard}
+      >
+        <Text style={styles.sourceTitle} numberOfLines={1}>
+          🔗 {source.title || source.url}
+        </Text>
+        <Text style={styles.sourceUrl} numberOfLines={1}>
+          {source.url}
+        </Text>
+      </Pressable>
+    </DraggableCanvasItem>
+  );
+
+  // Render note sticker
+  const renderNoteSticker = (sticker: any) => (
+    <NoteSticker
+      key={sticker.id}
+      sticker={sticker}
+      updateNoteSticker={updateNoteSticker}
+      deleteNoteSticker={deleteNoteSticker}
+      zoom={scale}
+      shouldDeleteOnDrop={shouldDeleteOnDrop}
+      isSelected={selectedId === `noteSticker-${sticker.id}` && !isDraggingItem}
+      onMultiDrag={onMultiDrag}
+      selectedCount={selectedCount}
+      onPositionChange={selectedId === `noteSticker-${sticker.id}` ? updateSelectedPosition : undefined}
+    />
   );
 
   // Render grid dots
@@ -390,6 +587,17 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
     return dots;
   };
+
+  const renderDraggableItem = useCallback(
+    (item: any, renderFunction: (item: any) => JSX.Element) => {
+      return React.cloneElement(renderFunction(item), {
+        onDrag: (id: number, position: Position) => {
+          handleDragNearEdge(position.x, position.y);
+        },
+      });
+    },
+    [handleDragNearEdge]
+  );
 
   return (
     <View style={styles.container}>
@@ -421,49 +629,50 @@ export const Canvas: React.FC<CanvasProps> = ({
 
       {/* Trash Zone */}
       <Pressable onPress={onOpenTrash} style={styles.trashZone}>
-        <Trash2 size={24} color="#EF4444" />
+        <Trash2 size={24} color="#8B5CF6" />
       </Pressable>
 
-      {/* Scrollable Canvas */}
-      <ScrollView
-        ref={scrollViewRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ width: CANVAS_WIDTH * scale, height: CANVAS_HEIGHT * scale }}
-        maximumZoomScale={3}
-        minimumZoomScale={0.25}
-        bouncesZoom
-      >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ width: CANVAS_WIDTH * scale, height: CANVAS_HEIGHT * scale }}
-        >
-          <View style={[styles.canvasContent, { transform: [{ scale }] }]}>
+      {/* Canvas with Gesture Handler */}
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={[styles.canvasWrapper, animatedStyle]}>
+          <View
+            style={[styles.canvasContent, { width: canvasWidth, height: canvasHeight }]}
+          >
             {/* Grid Background */}
-            <View style={styles.gridContainer}>
-              {renderGrid()}
-            </View>
+            <View style={styles.gridContainer}>{renderGrid()}</View>
 
-            {/* Empty State */}
-            {notes.length === 0 && stickers.length === 0 && images.length === 0 && (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateIcon}>📝</Text>
-                <Text style={styles.emptyStateTitle}>Your canvas awaits!</Text>
-                <Text style={styles.emptyStateSubtitle}>Tap + to add notes</Text>
-              </View>
-            )}
-
-            {/* Render all items */}
-            {notes.map(renderNoteCard)}
-            {todos.map(renderTodoItem)}
-            {stickers.map(renderSticker)}
-            {images.map(renderImage)}
-            {tables.map(renderTable)}
-            {sources.map(renderSource)}
+            {/* Render all items dynamically */}
+            {notes.map((note) => renderDraggableItem(note, renderNoteCard))}
+            {todos.map((todo) => renderDraggableItem(todo, renderTodoItem))}
+            {stickers.map((sticker) => renderDraggableItem(sticker, renderSticker))}
+            {images.map((image) => renderDraggableItem(image, renderImage))}
+            {tables.map((table) => renderDraggableItem(table, renderTable))}
+            {sources.map((source) => renderDraggableItem(source, renderSource))}
+            {noteStickers.map((sticker) => renderNoteSticker(sticker))}
           </View>
-        </ScrollView>
-      </ScrollView>
+          {/* Selection Overlay */}
+          {selectedType === 'noteSticker' && selectedId && (() => {
+            const id = parseInt(selectedId.split('-')[1]);
+            const sticker = noteStickers.find(s => s.id === id);
+            return sticker ? (
+              <Animated.View
+                style={{
+                  position: 'absolute',
+                  width: sticker.size?.width || 200,
+                  height: sticker.size?.height || 160,
+                  borderWidth: 2,
+                  borderColor: '#8B5CF6',
+                  pointerEvents: 'none',
+                  transform: [
+                    { translateX: selectionX.value },
+                    { translateY: selectionY.value },
+                  ],
+                }}
+              />
+            ) : null;
+          })()}
+        </Animated.View>
+      </GestureDetector>
     </View>
   );
 };
@@ -472,6 +681,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#111827',
+    overflow: 'hidden',
+  },
+  canvasWrapper: {
+    flex: 1,
     overflow: 'hidden',
   },
   canvasContent: {
@@ -585,7 +798,7 @@ const styles = StyleSheet.create({
   
   // Note card
   noteCard: {
-    position: 'absolute',
+    flex: 1,
     backgroundColor: '#fef3c7',
     borderRadius: 12,
     padding: 12,
@@ -611,7 +824,7 @@ const styles = StyleSheet.create({
   
   // Todo card
   todoCard: {
-    position: 'absolute',
+    flex: 1,
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 12,
@@ -655,7 +868,7 @@ const styles = StyleSheet.create({
   
   // Sticker item
   stickerItem: {
-    position: 'absolute',
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -665,7 +878,6 @@ const styles = StyleSheet.create({
   
   // Image card
   imageCard: {
-    position: 'absolute',
     backgroundColor: '#e5e7eb',
     borderRadius: 8,
     overflow: 'hidden',
@@ -673,6 +885,7 @@ const styles = StyleSheet.create({
     borderColor: '#d1d5db',
     alignItems: 'center',
     justifyContent: 'center',
+    flex: 1,
   },
   imagePlaceholderIcon: {
     fontSize: 32,
@@ -684,12 +897,12 @@ const styles = StyleSheet.create({
   
   // Table card
   tableCard: {
-    position: 'absolute',
     backgroundColor: '#fff',
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: '#d1d5db',
+    flex: 1,
   },
   tableHeader: {
     backgroundColor: '#f3f4f6',
@@ -721,12 +934,12 @@ const styles = StyleSheet.create({
   
   // Source card
   sourceCard: {
-    position: 'absolute',
     backgroundColor: '#eff6ff',
     borderRadius: 8,
     padding: 12,
     borderWidth: 2,
     borderColor: '#bfdbfe',
+    flex: 1,
   },
   sourceTitle: {
     color: '#2563eb',
@@ -737,6 +950,14 @@ const styles = StyleSheet.create({
     color: '#60a5fa',
     fontSize: 12,
     marginTop: 4,
+  },
+  
+  // Selected styles
+  selectedNoteCard: {
+    borderColor: '#8B5CF6',
+  },
+  selectedNoteSticker: {
+    borderColor: '#8b5cf6',
   },
 });
 
