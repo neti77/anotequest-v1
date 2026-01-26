@@ -1728,6 +1728,51 @@ export default function App() {
           </View>
         )}
 
+        {/* ===== NOTE VIEWING MODAL (Tap to view) ===== */}
+        <Modal visible={viewingNote !== null} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.noteEditorModal}>
+              <View style={styles.noteEditorHeader}>
+                <View style={styles.noteEditorDragHandle}>
+                  <GripVertical size={16} color="#6B7280" />
+                </View>
+                <Text style={styles.noteEditorTitle} numberOfLines={1}>
+                  {viewingNote?.title || 'Note'}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable 
+                    onPress={() => {
+                      if (viewingNote) {
+                        setEditingNote(viewingNote);
+                        setViewingNote(null);
+                      }
+                    }} 
+                    style={[styles.noteEditorClose, { backgroundColor: '#8b5cf6' }]}
+                  >
+                    <Pencil size={16} color="#fff" />
+                  </Pressable>
+                  <Pressable onPress={() => setViewingNote(null)} style={styles.noteEditorClose}>
+                    <X size={20} color="#9CA3AF" />
+                  </Pressable>
+                </View>
+              </View>
+              {viewingNote && (
+                <ScrollView style={styles.noteEditorContent}>
+                  <Text style={[styles.noteTitleInput, { backgroundColor: 'transparent', paddingHorizontal: 0 }]}>
+                    {viewingNote.title || 'Untitled'}
+                  </Text>
+                  <Text style={[styles.noteContentInput, { backgroundColor: 'transparent', borderWidth: 0 }]}>
+                    {viewingNote.content || 'No content yet. Tap the edit button to add content.'}
+                  </Text>
+                  <Text style={styles.noteWordCount}>
+                    {viewingNote.content?.split(/\s+/).filter(Boolean).length || 0} words
+                  </Text>
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
+
         {/* ===== NOTE EDITOR MODAL ===== */}
         <Modal visible={editingNote !== null} animationType="slide" transparent>
           <View style={styles.modalOverlay}>
@@ -1737,7 +1782,7 @@ export default function App() {
                   <GripVertical size={16} color="#6B7280" />
                 </View>
                 <Text style={styles.noteEditorTitle}>
-                  {editingNote?.title || 'New Note'}
+                  {editingNote?.title || 'Edit Note'}
                 </Text>
                 <Pressable onPress={() => setEditingNote(null)} style={styles.noteEditorClose}>
                   <X size={20} color="#9CA3AF" />
@@ -1752,7 +1797,7 @@ export default function App() {
                       setEditingNote({ ...editingNote, title: text });
                       updateNote(editingNote.id, { title: text });
                     }}
-                    placeholder="Add Task"
+                    placeholder="Note title"
                     placeholderTextColor="#6b7280"
                   />
                   <TextInput
@@ -1762,7 +1807,7 @@ export default function App() {
                       setEditingNote({ ...editingNote, content: text });
                       updateNote(editingNote.id, { content: text });
                     }}
-                    placeholder="Click to start writing..."
+                    placeholder="Write your note content here..."
                     placeholderTextColor="#6b7280"
                     multiline
                     textAlignVertical="top"
@@ -1771,6 +1816,50 @@ export default function App() {
                     {editingNote.content?.split(/\s+/).filter(Boolean).length || 0} words
                   </Text>
                 </View>
+              )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* ===== STICKER VIEWING MODAL (Tap to view) ===== */}
+        <Modal visible={viewingSticker !== null} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.noteEditorModal, { backgroundColor: '#FEF3C7' }]}>
+              <View style={[styles.noteEditorHeader, { backgroundColor: '#FDE68A' }]}>
+                <View style={styles.noteEditorDragHandle}>
+                  <GripVertical size={16} color="#92400E" />
+                </View>
+                <Text style={[styles.noteEditorTitle, { color: '#92400E' }]} numberOfLines={1}>
+                  {viewingSticker?.title || 'Sticker'}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable 
+                    onPress={() => {
+                      if (viewingSticker) {
+                        setEditingStickerTitle(viewingSticker.title || '');
+                        setEditingStickerContent(viewingSticker.content || '');
+                        setEditingSticker(viewingSticker);
+                        setViewingSticker(null);
+                      }
+                    }} 
+                    style={[styles.noteEditorClose, { backgroundColor: '#d97706' }]}
+                  >
+                    <Pencil size={16} color="#fff" />
+                  </Pressable>
+                  <Pressable onPress={() => setViewingSticker(null)} style={styles.noteEditorClose}>
+                    <X size={20} color="#92400E" />
+                  </Pressable>
+                </View>
+              </View>
+              {viewingSticker && (
+                <ScrollView style={[styles.noteEditorContent, { backgroundColor: '#FEF3C7' }]}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1f2937', marginBottom: 12 }}>
+                    {viewingSticker.title || 'Untitled'}
+                  </Text>
+                  <Text style={{ fontSize: 15, color: '#374151', lineHeight: 24 }}>
+                    {viewingSticker.content || 'No content yet. Tap edit to add content.'}
+                  </Text>
+                </ScrollView>
               )}
             </View>
           </View>
