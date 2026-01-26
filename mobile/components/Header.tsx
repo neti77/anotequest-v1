@@ -199,48 +199,48 @@ export const Header: React.FC<HeaderProps> = ({
             disabled={!canUndo}
             className={`w-8 h-8 items-center justify-center rounded-md ${!canUndo ? 'opacity-35' : ''}`}
           >
-            <Undo2 size={16} color={canUndo ? '#D1D5DB' : '#6B7280'} />
+            <Undo2 size={16} color={canUndo ? '#e2e8f0' : '#64748b'} />
           </StyledPressable>
           <StyledPressable
             onPress={onRedo}
             disabled={!canRedo}
-            className={`w-7 h-7 items-center justify-center rounded-md ${!canRedo ? 'opacity-40' : ''}`}
+            className={`w-8 h-8 items-center justify-center rounded-md ${!canRedo ? 'opacity-35' : ''}`}
           >
-            <Redo2 size={16} color={canRedo ? '#D1D5DB' : '#6B7280'} />
+            <Redo2 size={16} color={canRedo ? '#e2e8f0' : '#64748b'} />
           </StyledPressable>
         </StyledView>
 
         {/* Drawing Mode Indicator */}
         {isDrawingMode && (
-          <StyledView className="flex-row items-center gap-1 bg-purple-600/20 px-2 py-1 rounded-full">
-            <Pencil size={12} color="#A78BFA" />
-            <StyledText className="text-purple-400 text-xs">Drawing</StyledText>
+          <StyledView className="flex-row items-center gap-1.5 bg-violet-500/15 px-2.5 py-1.5 rounded-full border border-violet-500/30">
+            <Pencil size={12} color="#a78bfa" />
+            <StyledText className="text-violet-400 text-xs font-semibold">Drawing</StyledText>
           </StyledView>
         )}
 
         {/* Folder Selector */}
         <StyledPressable
           onPress={() => setShowFolderMenu(true)}
-          className="flex-row items-center gap-1 bg-gray-700 px-2 py-1.5 rounded-md"
+          className="flex-row items-center gap-1.5 bg-slate-700/60 px-3 py-2 rounded-lg border border-slate-600/40"
         >
-          <Folder size={14} color="#8B5CF6" />
-          <StyledText className="text-white text-sm font-medium" numberOfLines={1}>
+          <Folder size={14} color="#a78bfa" />
+          <StyledText className="text-slate-100 text-sm font-semibold" numberOfLines={1}>
             {currentFolder ? currentFolder.name : 'All'}
           </StyledText>
-          <ChevronDown size={12} color="#9CA3AF" />
+          <ChevronDown size={12} color="#94a3b8" />
         </StyledPressable>
       </StyledView>
 
       {/* Right Actions */}
-      <StyledView className="flex-row items-center gap-2">
+      <StyledView className="flex-row items-center gap-2.5">
         {/* Time Badge */}
-        <StyledView className="bg-gray-700/50 px-2 py-1 rounded-md">
-          <StyledText className="text-gray-400 text-xs">{formatTime(stats.timeSpent)}</StyledText>
+        <StyledView className="bg-slate-700/50 px-2.5 py-1.5 rounded-lg">
+          <StyledText className="text-slate-400 text-xs font-semibold">{formatTime(stats.timeSpent)}</StyledText>
         </StyledView>
 
         {/* Premium Badge */}
         {isPremium && (
-          <StyledView className="flex-row items-center gap-1 bg-amber-500 px-2 py-1 rounded-full">
+          <StyledView className="flex-row items-center gap-1 bg-amber-500 px-2.5 py-1.5 rounded-full shadow-sm">
             <Crown size={12} color="#FFFFFF" />
             <StyledText className="text-white text-xs font-bold">Pro</StyledText>
           </StyledView>
@@ -249,9 +249,9 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Export Button */}
         <StyledPressable
           onPress={() => setShowExportMenu(true)}
-          className="w-8 h-8 items-center justify-center rounded-md bg-gray-700"
+          className="w-9 h-9 items-center justify-center rounded-lg bg-slate-700/60 border border-slate-600/30"
         >
-          <Download size={16} color="#9CA3AF" />
+          <Download size={16} color="#94a3b8" />
         </StyledPressable>
       </StyledView>
 
@@ -263,20 +263,20 @@ export const Header: React.FC<HeaderProps> = ({
             setIsAddingFolder(false);
             setNewFolderName('');
           }}
-          className="flex-1 bg-black/60 justify-center items-center"
+          className="flex-1 bg-black/70 justify-center items-center"
         >
           <StyledPressable
             onPress={(e) => e.stopPropagation()}
-            className="bg-gray-800 rounded-xl w-72 max-h-96 overflow-hidden"
+            className="bg-slate-900 rounded-2xl w-80 max-h-96 overflow-hidden border border-slate-700/60 shadow-xl"
           >
-            <StyledScrollView className="p-2">
+            <StyledScrollView className="p-3">
               {/* All Notes */}
               <StyledPressable
                 onPress={() => {
                   setActiveFolder(null);
                   setShowFolderMenu(false);
                 }}
-                className="flex-row items-center gap-3 p-3 rounded-lg"
+                className="flex-row items-center gap-3 p-3.5 rounded-xl"
               >
                 <Home size={18} color="#9CA3AF" />
                 <StyledText className="flex-1 text-white">All Notes</StyledText>
