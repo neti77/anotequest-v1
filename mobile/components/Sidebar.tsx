@@ -101,19 +101,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   );
 
   return (
-    <StyledView className="flex-1 bg-gray-800/50 border-r border-gray-700">
+    <StyledView className="flex-1 bg-slate-900/60 border-r border-slate-700/60">
       {/* Tabs */}
-      <StyledView className="p-4 border-b border-gray-700">
-        <StyledView className="flex-row bg-gray-700 rounded-lg p-1">
+      <StyledView className="p-4 border-b border-slate-700/50">
+        <StyledView className="flex-row bg-slate-800/70 rounded-xl p-1.5">
           <StyledPressable
             onPress={() => setActiveTab('folders')}
-            className={`flex-1 py-2 rounded-md ${
-              activeTab === 'folders' ? 'bg-gray-600' : ''
+            className={`flex-1 py-2.5 rounded-lg ${
+              activeTab === 'folders' ? 'bg-slate-700' : ''
             }`}
           >
             <StyledText
-              className={`text-center text-sm font-medium ${
-                activeTab === 'folders' ? 'text-white' : 'text-gray-400'
+              className={`text-center text-sm font-semibold ${
+                activeTab === 'folders' ? 'text-slate-100' : 'text-slate-500'
               }`}
             >
               Folders
@@ -121,13 +121,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </StyledPressable>
           <StyledPressable
             onPress={() => setActiveTab('images')}
-            className={`flex-1 py-2 rounded-md ${
-              activeTab === 'images' ? 'bg-gray-600' : ''
+            className={`flex-1 py-2.5 rounded-lg ${
+              activeTab === 'images' ? 'bg-slate-700' : ''
             }`}
           >
             <StyledText
-              className={`text-center text-sm font-medium ${
-                activeTab === 'images' ? 'text-white' : 'text-gray-400'
+              className={`text-center text-sm font-semibold ${
+                activeTab === 'images' ? 'text-slate-100' : 'text-slate-500'
               }`}
             >
               Images
@@ -140,14 +140,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {activeTab === 'folders' && (
         <StyledView className="flex-1">
           {/* Header */}
-          <StyledView className="p-4 border-b border-gray-700">
+          <StyledView className="p-4 border-b border-slate-700/50">
             <StyledView className="flex-row items-center justify-between mb-3">
-              <StyledText className="text-white font-semibold text-sm">Organization</StyledText>
+              <StyledText className="text-slate-100 font-bold text-sm tracking-wide">Organization</StyledText>
               <StyledPressable
                 onPress={() => setIsAdding(!isAdding)}
-                className="w-8 h-8 items-center justify-center rounded-md bg-gray-700"
+                className="w-9 h-9 items-center justify-center rounded-lg bg-slate-700/70 border border-slate-600/40"
               >
-                <FolderPlus size={16} color="#9CA3AF" />
+                <FolderPlus size={16} color="#94a3b8" />
               </StyledPressable>
             </StyledView>
 
