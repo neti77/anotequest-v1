@@ -1524,24 +1524,24 @@ export default function App() {
           {/* Flexible spacer */}
           <View style={{ flex: 1 }} />
           
-          {/* Middle: Search, Undo, Redo */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Pressable style={[styles.headerIconButton, { width: 28 * headerScale, height: 28 * headerScale, borderRadius: 6 * headerScale }]} onPress={() => setShowSearchModal(true)}>
-              <Search size={Math.round(16 * headerScale)} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
+          {/* Middle: Search, Undo, Redo - smaller icons */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Pressable style={[styles.headerIconButton, { width: 24 * headerScale, height: 24 * headerScale, borderRadius: 5 * headerScale }]} onPress={() => setShowSearchModal(true)}>
+              <Search size={Math.round(14 * headerScale)} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
             </Pressable>
             <Pressable 
-              style={[styles.headerIconButton, { width: 28 * headerScale, height: 28 * headerScale, borderRadius: 6 * headerScale }, historyIndex <= 0 && styles.headerIconButtonDisabled]} 
+              style={[styles.headerIconButton, { width: 24 * headerScale, height: 24 * headerScale, borderRadius: 5 * headerScale }, historyIndex <= 0 && styles.headerIconButtonDisabled]} 
               onPress={handleUndo}
               disabled={historyIndex <= 0}
             >
-              <Undo2 size={Math.round(16 * headerScale)} color={historyIndex > 0 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
+              <Undo2 size={Math.round(14 * headerScale)} color={historyIndex > 0 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
             </Pressable>
             <Pressable 
-              style={[styles.headerIconButton, { width: 28 * headerScale, height: 28 * headerScale, borderRadius: 6 * headerScale }, historyIndex >= history.length - 1 && styles.headerIconButtonDisabled]} 
+              style={[styles.headerIconButton, { width: 24 * headerScale, height: 24 * headerScale, borderRadius: 5 * headerScale }, historyIndex >= history.length - 1 && styles.headerIconButtonDisabled]} 
               onPress={handleRedo}
               disabled={historyIndex >= history.length - 1}
             >
-              <Redo2 size={Math.round(16 * headerScale)} color={historyIndex < history.length - 1 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
+              <Redo2 size={Math.round(14 * headerScale)} color={historyIndex < history.length - 1 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
             </Pressable>
           </View>
           
