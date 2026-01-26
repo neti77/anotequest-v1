@@ -813,8 +813,11 @@ export default function App() {
   const [isEraser, setIsEraser] = useState(false);
   const [drawingToolbarPosition, setDrawingToolbarPosition] = useState({ x: 20, y: 150 });
   
-  // Canvas uses window size as base, grows with content
-  const [canvasSize, setCanvasSize] = useState({ width: windowWidth * 2, height: windowHeight * 2 });
+  // Canvas starts small (6 note widths) and grows with content
+  const [canvasSize, setCanvasSize] = useState({ 
+    width: Math.max(windowWidth, INITIAL_CANVAS_SIZE), 
+    height: Math.max(windowHeight, INITIAL_CANVAS_SIZE) 
+  });
   
   // Drag and drop state
   const [draggingItem, setDraggingItem] = useState<{ type: string; id: number } | null>(null);
