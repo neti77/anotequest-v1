@@ -1133,6 +1133,64 @@ export default function App() {
     setTables((prev) => [...prev, newTable]);
   }, [activeFolder, saveToHistory]);
 
+  // Image functions
+  const addImage = useCallback(async () => {
+    // For now, create a placeholder - full image picker would need expo-image-picker
+    Alert.alert(
+      'Add Image',
+      'Image picker requires additional setup. For now, a placeholder will be created.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Add Placeholder', 
+          onPress: () => {
+            const newImage = {
+              id: Date.now(),
+              data: null, // Would be base64 data
+              position: { x: 200 + Math.random() * 150, y: 200 + Math.random() * 150 },
+              size: { width: 200, height: 150 },
+              folderId: activeFolder,
+              createdAt: new Date().toISOString(),
+            };
+            setImages((prev) => [...prev, newImage]);
+          }
+        },
+      ]
+    );
+  }, [activeFolder]);
+
+  const deleteImage = useCallback((id: number) => {
+    setImages((prev) => prev.filter((i) => i.id !== id));
+  }, []);
+
+  // Source functions
+  const addSource = useCallback(() => {
+    setShowSourceModal(true);
+  }, []);
+
+  const createSource = useCallback(() => {
+    if (!newSourceTitle.trim() && !newSourceUrl.trim()) {
+      Alert.alert('Error', 'Please enter a title or URL');
+      return;
+    }
+    const newSource = {
+      id: Date.now(),
+      title: newSourceTitle.trim() || 'New Source',
+      url: newSourceUrl.trim(),
+      position: { x: 200 + Math.random() * 150, y: 200 + Math.random() * 150 },
+      folderId: activeFolder,
+      createdAt: new Date().toISOString(),
+    };
+    setSources((prev) => [...prev, newSource]);
+    setNewSourceTitle('');
+    setNewSourceUrl('');
+    setShowSourceModal(false);
+  }, [newSourceTitle, newSourceUrl, activeFolder]);
+
+  const deleteSource = useCallback((id: number) => {
+    setSources((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
   // Folder functions
   const addFolder = useCallback(() => {
     if (!newFolderName.trim()) return;
@@ -1145,6 +1203,26 @@ export default function App() {
     setNewFolderName('');
     setShowNewFolderModal(false);
   }, [newFolderName]);
+
+  const deleteFolder = useCallback((id: number) => {
+    // Move all notes in this folder to "All Notes"
+    setNotes((prev) => prev.map(n => n.folderId === id ? { ...n, folderId: null } : n));
+    setNoteStickers((prev) => prev.map(s => s.folderId === id ? { ...s, folderId: null } : s));
+    setTodos((prev) => prev.map(t => t.folderId === id ? { ...t, folderId: null } : t));
+    setTables((prev) => prev.map(t => t.folderId === id ? { ...t, folderId: null } : t));
+    setSources((prev) => prev.map(s => s.folderId === id ? { ...s, folderId: null } : s));
+    setImages((prev) => prev.map(i => i.folderId === id ? { ...i, folderId: null } : i));
+    
+    // Remove the folder
+    setFolders((prev) => prev.filter((f) => f.id !== id));
+    
+    // If we were viewing this folder, go back to All Notes
+    if (activeFolder === id) {
+      setActiveFolder(null);
+    }
+    
+    Alert.alert('Deleted', 'Folder deleted. Items moved to All Notes.');
+  }, [activeFolder]);
 
   // Export functions
   const generateExportText = useCallback(() => {
