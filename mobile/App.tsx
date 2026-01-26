@@ -54,9 +54,16 @@ import {
   GripVertical,
 } from 'lucide-react-native';
 
-// Canvas configuration
-const CANVAS_WIDTH = 4000;
-const CANVAS_HEIGHT = 4000;
+// Canvas configuration - initial size (grows dynamically)
+const CANVAS_MIN_WIDTH = 1200;
+const CANVAS_MIN_HEIGHT = 800;
+const CANVAS_PADDING = 300;
+
+// Drawing colors
+const DRAWING_COLORS = [
+  '#3b82f6', '#ef4444', '#22c55e', '#eab308', '#8b5cf6', '#f97316',
+  '#ec4899', '#14b8a6', '#000000', '#6b7280', '#ffffff'
+];
 
 // Types
 interface Note {
