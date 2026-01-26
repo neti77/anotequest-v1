@@ -55,10 +55,8 @@ import {
   Eraser,
 } from 'lucide-react-native';
 
-// Canvas configuration - initial size (grows dynamically)
-const CANVAS_MIN_WIDTH = 1200;
-const CANVAS_MIN_HEIGHT = 800;
-const CANVAS_PADDING = 300;
+// Canvas fills whole view - no minimum, grows with content
+const CANVAS_PADDING = 200;
 
 // Drawing colors
 const DRAWING_COLORS = [
