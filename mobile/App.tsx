@@ -1487,16 +1487,16 @@ export default function App() {
                 paddingVertical: 5 * headerScale,
                 borderRadius: 6 * headerScale,
                 gap: 4 * headerScale,
-                minWidth: 70 * headerScale,
-                maxWidth: 130 * headerScale,
+                minWidth: 100 * headerScale,
+                maxWidth: 180 * headerScale,
               }]}
               onPress={() => setShowFolderDropdown(!showFolderDropdown)}
             >
-              <Folder size={Math.round(12 * headerScale)} color="#8B5CF6" />
-              <Text style={[styles.folderDropdownText, !isDarkMode && styles.folderDropdownTextLight, { fontSize: 12 * headerScale }]} numberOfLines={1}>
+              <Folder size={Math.round(14 * headerScale)} color="#8B5CF6" />
+              <Text style={[styles.folderDropdownText, !isDarkMode && styles.folderDropdownTextLight, { fontSize: 13 * headerScale, flex: 1 }]} numberOfLines={1}>
                 {activeFolderName}
               </Text>
-              <ChevronDown size={Math.round(10 * headerScale)} color={isDarkMode ? "#6B7280" : "#9CA3AF"} style={showFolderDropdown && { transform: [{ rotate: '180deg' }] }} />
+              <ChevronDown size={Math.round(12 * headerScale)} color={isDarkMode ? "#6B7280" : "#9CA3AF"} style={showFolderDropdown && { transform: [{ rotate: '180deg' }] }} />
             </Pressable>
             
             {/* Dropdown Menu */}
