@@ -414,13 +414,18 @@ const CanvasWithGestures: React.FC<any> = ({
   }, [scale]);
   
   // Pan gesture - only active when NOT dragging item
+  // LIMIT: Can only pan right (negative translateX) and down (negative translateY)
   const panGesture = Gesture.Pan()
     .minDistance(12)
     .enabled(!draggingItem)
     .onUpdate((e) => {
       'worklet';
-      translateX.value = savedTranslateX.value + e.translationX;
-      translateY.value = savedTranslateY.value + e.translationY;
+      // Calculate new translation
+      let newX = savedTranslateX.value + e.translationX;
+      let newY = savedTranslateY.value + e.translationY;
+      // Clamp: can't go left (positive X) or up (positive Y)
+      translateX.value = Math.min(0, newX);
+      translateY.value = Math.min(0, newY);
     })
     .onEnd(() => {
       'worklet';
