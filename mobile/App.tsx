@@ -755,20 +755,36 @@ export default function App() {
   const [trash, setTrash] = useState<TrashItem[]>([]);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
+  
+  // View vs Edit modes - tap to view first, then edit
+  const [viewingNote, setViewingNote] = useState<Note | null>(null);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [viewingSticker, setViewingSticker] = useState<any | null>(null);
   const [editingSticker, setEditingSticker] = useState<any | null>(null);
   const [editingStickerTitle, setEditingStickerTitle] = useState('');
   const [editingStickerContent, setEditingStickerContent] = useState('');
+  
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [showFolderDropdown, setShowFolderDropdown] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showSourceModal, setShowSourceModal] = useState(false);
+  const [newSourceTitle, setNewSourceTitle] = useState('');
+  const [newSourceUrl, setNewSourceUrl] = useState('');
   const [scale, setScale] = useState(1);
   const scrollViewRef = useRef<ScrollView>(null);
+  
+  // Drawing state
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [drawings, setDrawings] = useState<any[]>([]);
   const [currentPath, setCurrentPath] = useState<{x: number, y: number}[]>([]);
+  const [drawingColor, setDrawingColor] = useState('#3b82f6');
+  const [brushSize, setBrushSize] = useState(4);
+  const [isEraser, setIsEraser] = useState(false);
+  
+  // Dynamic canvas size
+  const [canvasSize, setCanvasSize] = useState({ width: CANVAS_MIN_WIDTH, height: CANVAS_MIN_HEIGHT });
   
   // Drag and drop state
   const [draggingItem, setDraggingItem] = useState<{ type: string; id: number } | null>(null);
@@ -780,6 +796,36 @@ export default function App() {
   const [history, setHistory] = useState<{ notes: Note[], todos: Todo[] }[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const maxHistoryLength = 50;
+
+  // Calculate dynamic canvas size based on content
+  useEffect(() => {
+    let maxX = 0;
+    let maxY = 0;
+    
+    const consider = (item: any, defaultWidth: number, defaultHeight: number) => {
+      if (!item || !item.position) return;
+      const width = item.size?.width || defaultWidth;
+      const height = item.size?.height || defaultHeight;
+      maxX = Math.max(maxX, item.position.x + width);
+      maxY = Math.max(maxY, item.position.y + height);
+    };
+    
+    notes.forEach(note => consider(note, 230, 200));
+    noteStickers.forEach(sticker => consider(sticker, 170, 170));
+    tables.forEach(table => consider(table, 240, 150));
+    todos.forEach(todo => consider(todo, 210, 200));
+    sources.forEach(source => consider(source, 220, 100));
+    images.forEach(image => consider(image, 200, 150));
+    
+    const targetWidth = Math.max(CANVAS_MIN_WIDTH, maxX + CANVAS_PADDING);
+    const targetHeight = Math.max(CANVAS_MIN_HEIGHT, maxY + CANVAS_PADDING);
+    
+    // Canvas only grows, never shrinks (like freeform)
+    setCanvasSize(prev => ({
+      width: Math.max(prev.width, targetWidth),
+      height: Math.max(prev.height, targetHeight),
+    }));
+  }, [notes, noteStickers, tables, todos, sources, images]);
 
   // Save current state to history
   const saveToHistory = useCallback(() => {
