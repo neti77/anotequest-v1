@@ -1701,17 +1701,6 @@ export default function App() {
               ))
             ))}
             
-            {/* Clear drawings button */}
-            <Pressable 
-              style={styles.clearDrawingsBtn}
-              onPress={() => setDrawings([])}
-            >
-              <Trash2 size={16} color="#EF4444" />
-              <Text style={styles.clearDrawingsText}>Clear</Text>
-            </Pressable>
-          </View>
-        )}
-
         {/* ===== BOTTOM DOCK (Scrollable) ===== */}
         <BottomDock 
           isDarkMode={isDarkMode}
@@ -1719,6 +1708,8 @@ export default function App() {
           addTodo={addTodo}
           addNoteSticker={addNoteSticker}
           addTable={addTable}
+          addImage={addImage}
+          addSource={addSource}
           isDrawingMode={isDrawingMode}
           setIsDrawingMode={setIsDrawingMode}
           setShowNewFolderModal={setShowNewFolderModal}
