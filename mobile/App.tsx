@@ -605,6 +605,7 @@ const CanvasWithGestures: React.FC<any> = ({
               scale={scale}
               style={[styles.tableCard, !isDarkMode && styles.tableCardLight]}
               isDragging={draggingItem?.type === 'table' && draggingItem?.id === table.id}
+              itemType="table"
             >
               <View style={[styles.tableHeader, !isDarkMode && styles.tableHeaderLight]}>
                 <Text style={[styles.tableTitle, !isDarkMode && styles.tableTitleLight]} numberOfLines={1}>
@@ -627,15 +628,79 @@ const CanvasWithGestures: React.FC<any> = ({
             </DraggableItem>
           ))}
 
+          {/* Sources - Draggable */}
+          {sources.map((source: any) => (
+            <DraggableItem
+              key={source.id}
+              position={source.position || { x: 200, y: 200 }}
+              onPositionChange={(newPos) => updateItemPosition('source', source.id, newPos)}
+              onDragStart={() => setDraggingItem({ type: 'source', id: source.id })}
+              onDragEnd={(pageX, pageY) => {
+                if (isPositionOverTrash(pageX, pageY)) {
+                  deleteSource(source.id);
+                }
+                setDraggingItem(null);
+                setIsOverTrash(false);
+              }}
+              scale={scale}
+              style={[styles.sourceCard, !isDarkMode && styles.sourceCardLight]}
+              isDragging={draggingItem?.type === 'source' && draggingItem?.id === source.id}
+              itemType="source"
+            >
+              <View style={styles.sourceHeader}>
+                <Link size={14} color="#3b82f6" />
+                <Text style={styles.sourceTitle} numberOfLines={1}>{source.title || 'Source'}</Text>
+              </View>
+              <Text style={styles.sourceUrl} numberOfLines={2}>{source.url || 'No URL'}</Text>
+            </DraggableItem>
+          ))}
+
+          {/* Images - Draggable */}
+          {images.map((image: any) => (
+            <DraggableItem
+              key={image.id}
+              position={image.position || { x: 200, y: 200 }}
+              onPositionChange={(newPos) => updateItemPosition('image', image.id, newPos)}
+              onDragStart={() => setDraggingItem({ type: 'image', id: image.id })}
+              onDragEnd={(pageX, pageY) => {
+                if (isPositionOverTrash(pageX, pageY)) {
+                  deleteImage(image.id);
+                }
+                setDraggingItem(null);
+                setIsOverTrash(false);
+              }}
+              scale={scale}
+              style={[styles.imageCard, !isDarkMode && styles.imageCardLight]}
+              isDragging={draggingItem?.type === 'image' && draggingItem?.id === image.id}
+              itemType="image"
+            >
+              {image.data ? (
+                <Image source={{ uri: image.data }} style={styles.imageContent} resizeMode="cover" />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <ImageIcon size={32} color="#9ca3af" />
+                  <Text style={styles.imagePlaceholderText}>No image</Text>
+                </View>
+              )}
+            </DraggableItem>
+          ))}
+
           {/* Drawing paths */}
-          {drawings.map((path: any, pathIndex: number) => (
-            <View key={pathIndex} style={styles.drawingPath}>
-              {path.points.map((point: {x: number, y: number}, pointIndex: number) => (
+          {drawings.map((drawing: any, pathIndex: number) => (
+            <View key={pathIndex} style={styles.drawingPath} pointerEvents="none">
+              {drawing.path?.map((point: {x: number, y: number}, pointIndex: number) => (
                 <View
                   key={pointIndex}
                   style={[
                     styles.drawingDot,
-                    { left: point.x - 3, top: point.y - 3 }
+                    { 
+                      left: point.x - (drawing.brushSize || 3), 
+                      top: point.y - (drawing.brushSize || 3),
+                      width: (drawing.brushSize || 6),
+                      height: (drawing.brushSize || 6),
+                      borderRadius: (drawing.brushSize || 6) / 2,
+                      backgroundColor: drawing.color || '#F59E0B',
+                    }
                   ]}
                 />
               ))}
