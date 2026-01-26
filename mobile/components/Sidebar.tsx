@@ -153,45 +153,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Add folder input */}
             {isAdding && (
-              <StyledView className="flex-row gap-2">
+              <StyledView className="flex-row gap-2.5">
                 <StyledTextInput
                   value={newFolderName}
                   onChangeText={setNewFolderName}
                   placeholder="Folder name"
-                  placeholderTextColor="#6B7280"
-                  className="flex-1 bg-gray-700 text-white px-3 py-2 rounded-md text-sm"
+                  placeholderTextColor="#64748b"
+                  className="flex-1 bg-slate-700/70 text-slate-100 px-4 py-2.5 rounded-lg text-sm font-medium border border-slate-600/40"
                   autoFocus
                   onSubmitEditing={handleAddFolder}
                   returnKeyType="done"
                 />
                 <StyledPressable
                   onPress={handleAddFolder}
-                  className="bg-purple-600 px-4 py-2 rounded-md"
+                  className="bg-violet-600 px-4 py-2.5 rounded-lg shadow-sm"
                 >
-                  <StyledText className="text-white font-medium text-sm">Add</StyledText>
+                  <StyledText className="text-white font-bold text-sm">Add</StyledText>
                 </StyledPressable>
               </StyledView>
             )}
           </StyledView>
 
           {/* Folder List */}
-          <StyledScrollView className="flex-1 p-2">
+          <StyledScrollView className="flex-1 p-3">
             {/* All Notes */}
             <StyledPressable
               onPress={() => setActiveFolder(null)}
-              className={`mb-2 p-3 rounded-lg border ${
+              className={`mb-3 p-3.5 rounded-xl border ${
                 activeFolder === null
-                  ? 'bg-purple-600/20 border-purple-500'
-                  : 'bg-gray-800 border-gray-700'
+                  ? 'bg-violet-600/15 border-violet-500/60'
+                  : 'bg-slate-800/70 border-slate-700/60'
               }`}
             >
               <StyledView className="flex-row items-center justify-between">
-                <StyledView className="flex-row items-center gap-2">
+                <StyledView className="flex-row items-center gap-2.5">
                   <StyledText className="text-lg">📝</StyledText>
-                  <StyledText className="text-white text-sm font-medium">All Notes</StyledText>
+                  <StyledText className="text-slate-100 text-sm font-semibold">All Notes</StyledText>
                 </StyledView>
-                <StyledView className="bg-gray-700 px-2 py-0.5 rounded">
-                  <StyledText className="text-gray-300 text-xs">{notes.length}</StyledText>
+                <StyledView className="bg-slate-700/70 px-2.5 py-1 rounded-lg">
+                  <StyledText className="text-slate-300 text-xs font-semibold">{notes.length}</StyledText>
                 </StyledView>
               </StyledView>
             </StyledPressable>
@@ -204,28 +204,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   key={folder.id}
                   onPress={() => setActiveFolder(folder.id)}
                   onLongPress={() => handleDeleteFolder(folder)}
-                  className={`mb-2 p-3 rounded-lg border ${
+                  className={`mb-3 p-3.5 rounded-xl border ${
                     activeFolder === folder.id
-                      ? 'bg-purple-600/20 border-purple-500'
-                      : 'bg-gray-800 border-gray-700'
+                      ? 'bg-violet-600/15 border-violet-500/60'
+                      : 'bg-slate-800/70 border-slate-700/60'
                   }`}
                 >
                   <StyledView className="flex-row items-center justify-between">
-                    <StyledView className="flex-row items-center gap-2 flex-1">
-                      <Folder size={16} color="#A78BFA" />
-                      <StyledText className="text-white text-sm font-medium" numberOfLines={1}>
+                    <StyledView className="flex-row items-center gap-2.5 flex-1">
+                      <Folder size={16} color="#a78bfa" />
+                      <StyledText className="text-slate-100 text-sm font-semibold" numberOfLines={1}>
                         {folder.name}
                       </StyledText>
                     </StyledView>
-                    <StyledView className="flex-row items-center gap-2">
-                      <StyledView className="bg-gray-700/50 px-2 py-0.5 rounded border border-gray-600">
-                        <StyledText className="text-gray-400 text-xs">{noteCount}</StyledText>
+                    <StyledView className="flex-row items-center gap-2.5">
+                      <StyledView className="bg-slate-700/60 px-2.5 py-1 rounded-lg border border-slate-600/40">
+                        <StyledText className="text-slate-400 text-xs font-semibold">{noteCount}</StyledText>
                       </StyledView>
                       <StyledPressable
                         onPress={() => handleDeleteFolder(folder)}
-                        className="w-6 h-6 items-center justify-center rounded"
+                        className="w-7 h-7 items-center justify-center rounded-lg"
                       >
-                        <Trash2 size={14} color="#EF4444" />
+                        <Trash2 size={14} color="#f87171" />
                       </StyledPressable>
                     </StyledView>
                   </StyledView>
@@ -235,10 +235,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Empty State */}
             {folders.length === 0 && !isAdding && (
-              <StyledView className="items-center py-8">
-                <Folder size={32} color="#6B7280" />
-                <StyledText className="text-gray-400 text-sm mt-2">No folders yet</StyledText>
-                <StyledText className="text-gray-500 text-xs mt-1">Tap + to create one</StyledText>
+              <StyledView className="items-center py-10">
+                <Folder size={36} color="#64748b" />
+                <StyledText className="text-slate-400 text-sm mt-3 font-medium">No folders yet</StyledText>
+                <StyledText className="text-slate-500 text-xs mt-1">Tap + to create one</StyledText>
               </StyledView>
             )}
           </StyledScrollView>
@@ -248,29 +248,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Images Tab */}
       {activeTab === 'images' && (
         <StyledScrollView className="flex-1 p-4">
-          <StyledView className="flex-row items-center gap-2 mb-4">
+          <StyledView className="flex-row items-center gap-2.5 mb-5">
             <StyledText className="text-lg">🖼️</StyledText>
-            <StyledText className="text-white font-semibold text-sm">Image Gallery</StyledText>
-            <StyledView className="bg-gray-700 px-2 py-0.5 rounded">
-              <StyledText className="text-gray-300 text-xs">{allImages.length}</StyledText>
+            <StyledText className="text-slate-100 font-bold text-sm">Image Gallery</StyledText>
+            <StyledView className="bg-slate-700/70 px-2.5 py-1 rounded-lg">
+              <StyledText className="text-slate-300 text-xs font-semibold">{allImages.length}</StyledText>
             </StyledView>
           </StyledView>
 
           {allImages.length > 0 ? (
-            <StyledView className="flex-row flex-wrap gap-2">
+            <StyledView className="flex-row flex-wrap gap-3">
               {allImages.map((image) => (
                 <StyledPressable
                   key={`${image.noteId}-${image.id}`}
                   onPress={() => Alert.alert('Image', `From note: ${image.noteTitle}`)}
-                  className="w-[48%] aspect-square rounded-lg overflow-hidden border border-gray-700"
+                  className="w-[47%] aspect-square rounded-xl overflow-hidden border-2 border-slate-700/60"
                 >
                   <StyledImage
                     source={{ uri: image.data }}
                     className="w-full h-full"
                     resizeMode="cover"
                   />
-                  <StyledView className="absolute bottom-0 left-0 right-0 bg-black/60 p-1">
-                    <StyledText className="text-white text-xs" numberOfLines={1}>
+                  <StyledView className="absolute bottom-0 left-0 right-0 bg-slate-900/75 p-2">
+                    <StyledText className="text-slate-100 text-xs font-medium" numberOfLines={1}>
                       {image.noteTitle}
                     </StyledText>
                   </StyledView>
