@@ -1667,40 +1667,6 @@ export default function App() {
             </Pressable>
           </View>
         )}
-              }
-            }}
-          >
-            <View style={styles.drawingModeIndicator}>
-              <Pencil size={16} color="#F59E0B" />
-              <Text style={styles.drawingModeText}>Drawing Mode - Tap outside to exit</Text>
-              <Pressable onPress={() => setIsDrawingMode(false)} style={styles.drawingModeClose}>
-                <X size={16} color="#fff" />
-              </Pressable>
-            </View>
-            
-            {/* Render current drawing */}
-            {currentPath.map((point, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.drawingDot,
-                  { left: point.x - 3, top: point.y - 3, backgroundColor: '#F59E0B' }
-                ]}
-              />
-            ))}
-            
-            {/* Render saved drawings */}
-            {drawings.map((path, pathIndex) => (
-              path.points.map((point: {x: number, y: number}, pointIndex: number) => (
-                <View
-                  key={`${pathIndex}-${pointIndex}`}
-                  style={[
-                    styles.drawingDot,
-                    { left: point.x - 3, top: point.y - 3, backgroundColor: path.color }
-                  ]}
-                />
-              ))
-            ))}
             
         {/* ===== BOTTOM DOCK (Scrollable) ===== */}
         <BottomDock 
