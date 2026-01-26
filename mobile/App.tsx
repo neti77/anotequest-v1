@@ -602,6 +602,7 @@ const CanvasWithGestures: React.FC<any> = ({
               position={table.position || { x: 200, y: 200 }}
               onPositionChange={(newPos) => updateItemPosition('table', table.id, newPos)}
               onDragStart={() => setDraggingItem({ type: 'table', id: table.id })}
+              onDragUpdate={(pageX, pageY) => setIsOverTrash(isPositionOverTrash(pageX, pageY))}
               onDragEnd={(pageX, pageY) => {
                 if (isPositionOverTrash(pageX, pageY)) {
                   handleDragDelete('table', table.id);
