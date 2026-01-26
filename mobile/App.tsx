@@ -1548,21 +1548,21 @@ export default function App() {
           {/* Flexible spacer */}
           <View style={{ flex: 1 }} />
           
-          {/* Right: Theme toggle + Export + Note count */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {/* Right: Theme toggle + Export + Note count - smaller */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Pressable 
-              style={[styles.headerIconButton, { width: 28 * headerScale, height: 28 * headerScale, borderRadius: 6 * headerScale }, styles.themeToggleButton, !isDarkMode && styles.themeToggleButtonLight]} 
+              style={[styles.headerIconButton, { width: 24 * headerScale, height: 24 * headerScale, borderRadius: 5 * headerScale }, styles.themeToggleButton, !isDarkMode && styles.themeToggleButtonLight]} 
               onPress={() => setIsDarkMode(!isDarkMode)}
             >
-              {isDarkMode ? <Sun size={Math.round(16 * headerScale)} color="#F59E0B" /> : <Moon size={Math.round(16 * headerScale)} color="#64748B" />}
+              {isDarkMode ? <Sun size={Math.round(14 * headerScale)} color="#F59E0B" /> : <Moon size={Math.round(14 * headerScale)} color="#64748B" />}
             </Pressable>
             
-            <Pressable style={[styles.headerIconButton, { width: 28 * headerScale, height: 28 * headerScale, borderRadius: 6 * headerScale }]} onPress={() => setShowExportModal(true)}>
-              <Download size={Math.round(16 * headerScale)} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
+            <Pressable style={[styles.headerIconButton, { width: 24 * headerScale, height: 24 * headerScale, borderRadius: 5 * headerScale }]} onPress={() => setShowExportModal(true)}>
+              <Download size={Math.round(14 * headerScale)} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
             </Pressable>
             
             <View style={[
-              { paddingHorizontal: 6 * headerScale, paddingVertical: 3 * headerScale, borderRadius: 8 * headerScale, minWidth: 20 * headerScale },
+              { paddingHorizontal: 5 * headerScale, paddingVertical: 2 * headerScale, borderRadius: 6 * headerScale, minWidth: 18 * headerScale },
               styles.headerNoteCount, 
               !isDarkMode && styles.headerNoteCountLight,
               notes.length >= 61 && styles.headerNoteCountRed,
@@ -1571,7 +1571,7 @@ export default function App() {
             ]}>
               <Text style={[
                 styles.headerNoteCountText,
-                { fontSize: 11 * headerScale },
+                { fontSize: 10 * headerScale },
                 notes.length >= 61 && styles.headerNoteCountTextRed,
                 notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountTextYellow,
                 notes.length < 40 && styles.headerNoteCountTextGreen,
