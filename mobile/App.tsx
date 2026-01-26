@@ -468,6 +468,7 @@ const CanvasWithGestures: React.FC<any> = ({
               position={note.position}
               onPositionChange={(newPos) => updateItemPosition('note', note.id, newPos)}
               onDragStart={() => setDraggingItem({ type: 'note', id: note.id })}
+              onDragUpdate={(pageX, pageY) => setIsOverTrash(isPositionOverTrash(pageX, pageY))}
               onDragEnd={(pageX, pageY) => {
                 if (isPositionOverTrash(pageX, pageY)) {
                   handleDragDelete('note', note.id);
