@@ -1471,30 +1471,30 @@ export default function App() {
         {/* ===== HEADER ===== */}
         <View style={[styles.header, !isDarkMode && styles.headerLight]}>
           {/* Logo */}
-          <View style={[styles.headerLogo, { width: 30 * headerScale, height: 30 * headerScale, borderRadius: 6 * headerScale }]}>
-            <Image source={require('./assets/logo.png')} style={[styles.logoImage, { width: 30 * headerScale, height: 30 * headerScale, borderRadius: 6 * headerScale }]} resizeMode="contain" />
+          <View style={[styles.headerLogo, { width: 26 * headerScale, height: 26 * headerScale, borderRadius: 5 * headerScale }]}>
+            <Image source={require('./assets/logo.png')} style={[styles.logoImage, { width: 26 * headerScale, height: 26 * headerScale, borderRadius: 5 * headerScale }]} resizeMode="contain" />
           </View>
           
-          <View style={{ width: 8 }} />
+          <View style={{ width: 6 }} />
           
-          {/* Folder Dropdown */}
+          {/* Folder Dropdown - more compact */}
           <View style={styles.folderDropdownWrapper}>
             <Pressable 
               style={[styles.folderDropdown, !isDarkMode && styles.folderDropdownLight, {
-                paddingHorizontal: 10 * headerScale,
-                paddingVertical: 6 * headerScale,
-                borderRadius: 8 * headerScale,
+                paddingHorizontal: 8 * headerScale,
+                paddingVertical: 5 * headerScale,
+                borderRadius: 6 * headerScale,
                 gap: 4 * headerScale,
-                minWidth: 80 * headerScale,
-                maxWidth: 140 * headerScale,
+                minWidth: 70 * headerScale,
+                maxWidth: 130 * headerScale,
               }]}
               onPress={() => setShowFolderDropdown(!showFolderDropdown)}
             >
-              <Folder size={Math.round(14 * headerScale)} color="#8B5CF6" />
-              <Text style={[styles.folderDropdownText, !isDarkMode && styles.folderDropdownTextLight, { fontSize: 13 * headerScale }]} numberOfLines={1}>
+              <Folder size={Math.round(12 * headerScale)} color="#8B5CF6" />
+              <Text style={[styles.folderDropdownText, !isDarkMode && styles.folderDropdownTextLight, { fontSize: 12 * headerScale }]} numberOfLines={1}>
                 {activeFolderName}
               </Text>
-              <ChevronDown size={Math.round(12 * headerScale)} color={isDarkMode ? "#6B7280" : "#9CA3AF"} style={showFolderDropdown && { transform: [{ rotate: '180deg' }] }} />
+              <ChevronDown size={Math.round(10 * headerScale)} color={isDarkMode ? "#6B7280" : "#9CA3AF"} style={showFolderDropdown && { transform: [{ rotate: '180deg' }] }} />
             </Pressable>
             
             {/* Dropdown Menu */}
