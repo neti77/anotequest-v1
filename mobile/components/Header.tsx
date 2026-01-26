@@ -278,16 +278,16 @@ export const Header: React.FC<HeaderProps> = ({
                 }}
                 className="flex-row items-center gap-3 p-3.5 rounded-xl"
               >
-                <Home size={18} color="#9CA3AF" />
-                <StyledText className="flex-1 text-white">All Notes</StyledText>
-                <StyledView className="bg-gray-700 px-2 py-0.5 rounded">
-                  <StyledText className="text-gray-400 text-xs">{notes.length}</StyledText>
+                <Home size={18} color="#94a3b8" />
+                <StyledText className="flex-1 text-slate-100 font-medium">All Notes</StyledText>
+                <StyledView className="bg-slate-700/70 px-2.5 py-1 rounded-lg">
+                  <StyledText className="text-slate-400 text-xs font-semibold">{notes.length}</StyledText>
                 </StyledView>
-                {activeFolder === null && <Check size={16} color="#8B5CF6" />}
+                {activeFolder === null && <Check size={16} color="#a78bfa" />}
               </StyledPressable>
 
               {/* Separator */}
-              <StyledView className="h-px bg-gray-700 my-1" />
+              <StyledView className="h-px bg-slate-700/50 my-2" />
 
               {/* Folders */}
               {folders.map((folder) => (
@@ -297,67 +297,67 @@ export const Header: React.FC<HeaderProps> = ({
                     setActiveFolder(folder.id);
                     setShowFolderMenu(false);
                   }}
-                  className="flex-row items-center gap-3 p-3 rounded-lg"
+                  className="flex-row items-center gap-3 p-3.5 rounded-xl"
                 >
-                  <Folder size={18} color="#A78BFA" />
-                  <StyledText className="flex-1 text-white" numberOfLines={1}>
+                  <Folder size={18} color="#a78bfa" />
+                  <StyledText className="flex-1 text-slate-100 font-medium" numberOfLines={1}>
                     {folder.name}
                   </StyledText>
-                  <StyledView className="bg-gray-700 px-2 py-0.5 rounded">
-                    <StyledText className="text-gray-400 text-xs">
+                  <StyledView className="bg-slate-700/70 px-2.5 py-1 rounded-lg">
+                    <StyledText className="text-slate-400 text-xs font-semibold">
                       {getFolderNoteCount(folder.id)}
                     </StyledText>
                   </StyledView>
-                  {activeFolder === folder.id && <Check size={16} color="#8B5CF6" />}
+                  {activeFolder === folder.id && <Check size={16} color="#a78bfa" />}
                 </StyledPressable>
               ))}
 
-              {folders.length > 0 && <StyledView className="h-px bg-gray-700 my-1" />}
+              {folders.length > 0 && <StyledView className="h-px bg-slate-700/50 my-2" />}
 
               {/* Add Folder */}
               {isAddingFolder ? (
-                <StyledView className="p-2">
-                  <StyledView className="flex-row gap-2">
+                <StyledView className="p-3">
+                  <StyledView className="flex-row gap-2.5">
                     <StyledTextInput
                       value={newFolderName}
                       onChangeText={setNewFolderName}
                       placeholder="Folder name"
-                      placeholderTextColor="#6B7280"
-                      className="flex-1 bg-gray-700 text-white px-3 py-2 rounded-md text-sm"
+                      placeholderTextColor="#64748b"
+                      className="flex-1 bg-slate-700/70 text-slate-100 px-4 py-2.5 rounded-lg text-sm font-medium border border-slate-600/40"
                       autoFocus
                       onSubmitEditing={handleAddFolder}
                     />
                     <StyledPressable
                       onPress={handleAddFolder}
-                      className="bg-purple-600 px-3 py-2 rounded-md"
+                      className="bg-violet-600 px-4 py-2.5 rounded-lg shadow-sm"
                     >
-                      <StyledText className="text-white font-medium">Add</StyledText>
+                      <StyledText className="text-white font-bold">Add</StyledText>
                     </StyledPressable>
                   </StyledView>
                 </StyledView>
               ) : (
                 <StyledPressable
                   onPress={() => setIsAddingFolder(true)}
-                  className="flex-row items-center gap-3 p-3 rounded-lg"
+                  className="flex-row items-center gap-3 p-3.5 rounded-xl"
                 >
-                  <FolderPlus size={18} color="#9CA3AF" />
-                  <StyledText className="text-gray-300">New Folder</StyledText>
+                  <FolderPlus size={18} color="#94a3b8" />
+                  <StyledText className="text-slate-300 font-medium">New Folder</StyledText>
                 </StyledPressable>
               )}
 
               {/* View All Folders */}
               {setShowFolderView && (
                 <>
-                  <StyledView className="h-px bg-gray-700 my-1" />
+                  <StyledView className="h-px bg-slate-700/50 my-2" />
                   <StyledPressable
                     onPress={() => {
                       setShowFolderMenu(false);
                       setShowFolderView(true);
                     }}
-                    className="flex-row items-center gap-3 p-3 rounded-lg"
+                    className="flex-row items-center gap-3 p-3.5 rounded-xl"
                   >
-                    <Folder size={18} color="#9CA3AF" />
-                    <StyledText className="text-gray-300">View All Folders</StyledText>
+                    <Folder size={18} color="#94a3b8" />
+                    <StyledText className="text-slate-300 font-medium">View All Folders</StyledText>
                   </StyledPressable>
                 </>
               )}
@@ -370,19 +370,19 @@ export const Header: React.FC<HeaderProps> = ({
       <Modal visible={showExportMenu} transparent animationType="fade">
         <StyledPressable
           onPress={() => setShowExportMenu(false)}
-          className="flex-1 bg-black/60 justify-center items-center"
+          className="flex-1 bg-black/70 justify-center items-center"
         >
           <StyledPressable
             onPress={(e) => e.stopPropagation()}
-            className="bg-gray-800 rounded-xl w-64 overflow-hidden"
+            className="bg-slate-900 rounded-2xl w-72 overflow-hidden border border-slate-700/60 shadow-xl"
           >
-            <StyledView className="p-2">
+            <StyledView className="p-3">
               <StyledPressable
                 onPress={exportToText}
-                className="flex-row items-center gap-3 p-3 rounded-lg"
+                className="flex-row items-center gap-3.5 p-3.5 rounded-xl"
               >
-                <FileText size={18} color="#9CA3AF" />
-                <StyledText className="text-white">Export as Text</StyledText>
+                <FileText size={18} color="#94a3b8" />
+                <StyledText className="text-slate-100 font-medium">Export as Text</StyledText>
               </StyledPressable>
               <StyledPressable
                 onPress={() => {
@@ -392,10 +392,10 @@ export const Header: React.FC<HeaderProps> = ({
                   );
                   setShowExportMenu(false);
                 }}
-                className="flex-row items-center gap-3 p-3 rounded-lg"
+                className="flex-row items-center gap-3.5 p-3.5 rounded-xl"
               >
-                <FileText size={18} color="#9CA3AF" />
-                <StyledText className="text-white">Export as PDF</StyledText>
+                <FileText size={18} color="#94a3b8" />
+                <StyledText className="text-slate-100 font-medium">Export as PDF</StyledText>
               </StyledPressable>
             </StyledView>
           </StyledPressable>
