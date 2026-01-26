@@ -781,13 +781,16 @@ export default function App() {
   const [drawingColor, setDrawingColor] = useState('#3b82f6');
   const [brushSize, setBrushSize] = useState(4);
   const [isEraser, setIsEraser] = useState(false);
+  const [drawingToolbarPosition, setDrawingToolbarPosition] = useState({ x: 20, y: 150 });
   
-  // Dynamic canvas size
-  const [canvasSize, setCanvasSize] = useState({ width: CANVAS_MIN_WIDTH, height: CANVAS_MIN_HEIGHT });
+  // Canvas uses window size as base, grows with content
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const [canvasSize, setCanvasSize] = useState({ width: windowWidth * 2, height: windowHeight * 2 });
   
   // Drag and drop state
   const [draggingItem, setDraggingItem] = useState<{ type: string; id: number } | null>(null);
   const [isOverTrash, setIsOverTrash] = useState(false);
+  const [floatingTrashPosition, setFloatingTrashPosition] = useState({ x: 0, y: 0 });
   const trashZoneRef = useRef<View>(null);
   const [trashZoneLayout, setTrashZoneLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
   
@@ -796,35 +799,36 @@ export default function App() {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const maxHistoryLength = 50;
 
-  // Calculate dynamic canvas size based on content
+  // Calculate dynamic canvas size based on content - fills view and grows
   useEffect(() => {
-    let maxX = 0;
-    let maxY = 0;
+    let maxX = windowWidth;
+    let maxY = windowHeight;
     
     const consider = (item: any, defaultWidth: number, defaultHeight: number) => {
       if (!item || !item.position) return;
       const width = item.size?.width || defaultWidth;
       const height = item.size?.height || defaultHeight;
-      maxX = Math.max(maxX, item.position.x + width);
-      maxY = Math.max(maxY, item.position.y + height);
+      maxX = Math.max(maxX, item.position.x + width + CANVAS_PADDING);
+      maxY = Math.max(maxY, item.position.y + height + CANVAS_PADDING);
     };
     
-    notes.forEach(note => consider(note, 230, 200));
-    noteStickers.forEach(sticker => consider(sticker, 170, 170));
-    tables.forEach(table => consider(table, 240, 150));
-    todos.forEach(todo => consider(todo, 210, 200));
-    sources.forEach(source => consider(source, 220, 100));
-    images.forEach(image => consider(image, 200, 150));
+    // Only consider items in current folder
+    const folderNotes = notes.filter(n => activeFolder === null || n.folderId === activeFolder);
+    const folderStickers = noteStickers.filter(s => activeFolder === null || s.folderId === activeFolder);
+    const folderTables = tables.filter(t => activeFolder === null || t.folderId === activeFolder);
+    const folderTodos = todos.filter(t => activeFolder === null || t.folderId === activeFolder);
+    const folderSources = sources.filter(s => activeFolder === null || s.folderId === activeFolder);
+    const folderImages = images.filter(i => activeFolder === null || i.folderId === activeFolder);
     
-    const targetWidth = Math.max(CANVAS_MIN_WIDTH, maxX + CANVAS_PADDING);
-    const targetHeight = Math.max(CANVAS_MIN_HEIGHT, maxY + CANVAS_PADDING);
+    folderNotes.forEach(note => consider(note, 230, 200));
+    folderStickers.forEach(sticker => consider(sticker, 170, 170));
+    folderTables.forEach(table => consider(table, 240, 150));
+    folderTodos.forEach(todo => consider(todo, 210, 200));
+    folderSources.forEach(source => consider(source, 220, 100));
+    folderImages.forEach(image => consider(image, 200, 150));
     
-    // Canvas only grows, never shrinks (like freeform)
-    setCanvasSize(prev => ({
-      width: Math.max(prev.width, targetWidth),
-      height: Math.max(prev.height, targetHeight),
-    }));
-  }, [notes, noteStickers, tables, todos, sources, images]);
+    setCanvasSize({ width: maxX, height: maxY });
+  }, [notes, noteStickers, tables, todos, sources, images, activeFolder, windowWidth, windowHeight]);
 
   // Save current state to history
   const saveToHistory = useCallback(() => {
