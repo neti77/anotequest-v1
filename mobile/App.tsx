@@ -2361,10 +2361,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   
-  // Canvas - refined background
+  // Canvas - refined background (size set dynamically)
   canvasContent: {
-    width: CANVAS_WIDTH,
-    height: CANVAS_HEIGHT,
     backgroundColor: '#0c1222',
     transformOrigin: 'top left',
   },
@@ -2372,8 +2370,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: CANVAS_WIDTH,
-    height: CANVAS_HEIGHT,
   },
   gridDot: {
     position: 'absolute',
