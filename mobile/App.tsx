@@ -1898,16 +1898,33 @@ export default function App() {
                 </Text>
               </Pressable>
               {folders.map(folder => (
-                <Pressable 
-                  key={folder.id}
-                  style={[styles.folderMenuItem, activeFolder === folder.id && styles.folderMenuItemActive]}
-                  onPress={() => { setActiveFolder(folder.id); setShowFolderDropdown(false); }}
-                >
-                  <Folder size={16} color={activeFolder === folder.id ? "#F59E0B" : "#9CA3AF"} />
-                  <Text style={[styles.folderMenuItemText, activeFolder === folder.id && styles.folderMenuItemTextActive]}>
-                    {folder.name}
-                  </Text>
-                </Pressable>
+                <View key={folder.id} style={[styles.folderMenuItem, activeFolder === folder.id && styles.folderMenuItemActive]}>
+                  <Pressable 
+                    style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                    onPress={() => { setActiveFolder(folder.id); setShowFolderDropdown(false); }}
+                  >
+                    <Folder size={16} color={activeFolder === folder.id ? "#F59E0B" : "#9CA3AF"} />
+                    <Text style={[styles.folderMenuItemText, activeFolder === folder.id && styles.folderMenuItemTextActive, { marginLeft: 10 }]}>
+                      {folder.name}
+                    </Text>
+                  </Pressable>
+                  <Pressable 
+                    onPress={() => {
+                      Alert.alert(
+                        'Delete Folder',
+                        `Delete "${folder.name}"? Items will be moved to All Notes.`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Delete', style: 'destructive', onPress: () => deleteFolder(folder.id) }
+                        ]
+                      );
+                      setShowFolderDropdown(false);
+                    }}
+                    style={{ padding: 6 }}
+                  >
+                    <Trash2 size={14} color="#ef4444" />
+                  </Pressable>
+                </View>
               ))}
               <View style={styles.folderMenuDivider} />
               <Pressable 
