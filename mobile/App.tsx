@@ -734,7 +734,7 @@ const CanvasWithGestures: React.FC<any> = ({
 };
 
 export default function App() {
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const headerScale = Math.min(windowWidth / 390, 1.2); // Base on iPhone 12 Pro, max 1.2x
   const [notes, setNotes] = useState<Note[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
