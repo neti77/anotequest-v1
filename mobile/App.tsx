@@ -2435,21 +2435,30 @@ const styles = StyleSheet.create({
   // Main content area
   mainContent: {
     flex: 1,
+    backgroundColor: '#0c1222',
   },
 
-  // Canvas area
+  // Canvas area - fills the whole view
   canvasArea: {
     flex: 1,
     position: 'relative',
+    backgroundColor: '#0c1222',
+    overflow: 'hidden',
   },
   canvasScrollView: {
     flex: 1,
+    backgroundColor: '#0c1222',
   },
   
-  // Canvas - refined background (size set dynamically)
+  // Canvas - fills view and grows with content
   canvasContent: {
     backgroundColor: '#0c1222',
     transformOrigin: 'top left',
+    minWidth: '100%',
+    minHeight: '100%',
+  },
+  canvasContentLight: {
+    backgroundColor: '#f8fafc',
   },
   gridContainer: {
     position: 'absolute',
