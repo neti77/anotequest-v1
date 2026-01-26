@@ -1346,25 +1346,60 @@ export default function App() {
       }
       setNotes((prev) => prev.filter((n) => n.id !== id));
     } else if (type === 'sticker') {
+      const stickerToDelete = noteStickers.find((s) => s.id === id);
+      if (stickerToDelete) {
+        setTrash((prev) => [
+          ...prev,
+          { id: Date.now(), type: 'sticker', item: stickerToDelete, deletedAt: new Date().toISOString() },
+        ]);
+      }
       setNoteStickers((prev) => prev.filter((s) => s.id !== id));
     } else if (type === 'todo') {
+      const todoToDelete = todos.find((t) => t.id === id);
+      if (todoToDelete) {
+        setTrash((prev) => [
+          ...prev,
+          { id: Date.now(), type: 'todo', item: todoToDelete, deletedAt: new Date().toISOString() },
+        ]);
+      }
       setTodos((prev) => prev.filter((t) => t.id !== id));
     } else if (type === 'table') {
+      const tableToDelete = tables.find((t) => t.id === id);
+      if (tableToDelete) {
+        setTrash((prev) => [
+          ...prev,
+          { id: Date.now(), type: 'table', item: tableToDelete, deletedAt: new Date().toISOString() },
+        ]);
+      }
       setTables((prev) => prev.filter((t) => t.id !== id));
+    } else if (type === 'source') {
+      setSources((prev) => prev.filter((s) => s.id !== id));
+    } else if (type === 'image') {
+      setImages((prev) => prev.filter((i) => i.id !== id));
     }
     setDraggingItem(null);
-  }, [notes, saveToHistory]);
+  }, [notes, noteStickers, todos, tables, saveToHistory]);
 
   // Update item position
   const updateItemPosition = useCallback((type: string, id: number, newPosition: { x: number, y: number }) => {
+    // Ensure position is not negative
+    const safePos = {
+      x: Math.max(0, newPosition.x),
+      y: Math.max(0, newPosition.y),
+    };
+    
     if (type === 'note') {
-      setNotes((prev) => prev.map((n) => n.id === id ? { ...n, position: newPosition } : n));
+      setNotes((prev) => prev.map((n) => n.id === id ? { ...n, position: safePos } : n));
     } else if (type === 'sticker') {
-      setNoteStickers((prev) => prev.map((s) => s.id === id ? { ...s, position: newPosition } : s));
+      setNoteStickers((prev) => prev.map((s) => s.id === id ? { ...s, position: safePos } : s));
     } else if (type === 'todo') {
-      setTodos((prev) => prev.map((t) => t.id === id ? { ...t, position: newPosition } : t));
+      setTodos((prev) => prev.map((t) => t.id === id ? { ...t, position: safePos } : t));
     } else if (type === 'table') {
-      setTables((prev) => prev.map((t) => t.id === id ? { ...t, position: newPosition } : t));
+      setTables((prev) => prev.map((t) => t.id === id ? { ...t, position: safePos } : t));
+    } else if (type === 'source') {
+      setSources((prev) => prev.map((s) => s.id === id ? { ...s, position: safePos } : s));
+    } else if (type === 'image') {
+      setImages((prev) => prev.map((i) => i.id === id ? { ...i, position: safePos } : i));
     }
   }, []);
 
@@ -1383,13 +1418,18 @@ export default function App() {
     return activeFolder === null || sticker.folderId === activeFolder;
   });
 
-  // Render grid dots
-  const renderGrid = () => {
+  // Render grid dots based on canvas size
+  const renderGrid = useCallback(() => {
     const dots: React.ReactNode[] = [];
     const step = 50;
-    const maxDots = 80;
+    const cols = Math.ceil(canvasSize.width / step);
+    const rows = Math.ceil(canvasSize.height / step);
+    // Limit for performance
+    const maxDots = Math.min(cols, 60);
+    const maxRows = Math.min(rows, 60);
+    
     for (let i = 0; i < maxDots; i++) {
-      for (let j = 0; j < maxDots; j++) {
+      for (let j = 0; j < maxRows; j++) {
         dots.push(
           <View
             key={`dot-${i}-${j}`}
@@ -1399,7 +1439,7 @@ export default function App() {
       }
     }
     return dots;
-  };
+  }, [canvasSize]);
 
   // State for sidebar
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
