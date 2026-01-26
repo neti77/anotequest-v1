@@ -52,6 +52,7 @@ import {
   Undo2,
   Redo2,
   GripVertical,
+  Eraser,
 } from 'lucide-react-native';
 
 // Canvas configuration - initial size (grows dynamically)
