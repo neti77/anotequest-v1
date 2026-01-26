@@ -1594,11 +1594,11 @@ export default function App() {
               isDarkMode={isDarkMode}
               renderGrid={renderGrid}
               filteredNotes={filteredNotes}
-              todos={todos}
+              todos={todos.filter(t => activeFolder === null || t.folderId === activeFolder)}
               filteredStickers={filteredStickers}
-              tables={tables}
-              sources={sources}
-              images={images}
+              tables={tables.filter(t => activeFolder === null || t.folderId === activeFolder)}
+              sources={sources.filter(s => activeFolder === null || s.folderId === activeFolder)}
+              images={images.filter(i => activeFolder === null || i.folderId === activeFolder)}
               drawings={drawings}
               currentPath={currentPath}
               canvasSize={canvasSize}
@@ -1613,6 +1613,51 @@ export default function App() {
               deleteSource={deleteSource}
               deleteImage={deleteImage}
             />
+            
+            {/* Drawing Overlay - captures touch for drawing */}
+            {isDrawingMode && (
+              <View 
+                style={styles.drawingCanvasOverlay}
+                onStartShouldSetResponder={() => true}
+                onMoveShouldSetResponder={() => true}
+                onResponderGrant={(e) => {
+                  const { locationX, locationY } = e.nativeEvent;
+                  setCurrentPath([{ x: locationX / scale, y: locationY / scale }]);
+                }}
+                onResponderMove={(e) => {
+                  const { locationX, locationY } = e.nativeEvent;
+                  const point = { x: locationX / scale, y: locationY / scale };
+                  setCurrentPath(prev => [...prev, point]);
+                }}
+                onResponderRelease={() => {
+                  if (currentPath.length > 1) {
+                    setDrawings(prev => [...prev, { 
+                      path: currentPath, 
+                      color: drawingColor, 
+                      brushSize: brushSize,
+                      isEraser: isEraser 
+                    }]);
+                  }
+                  setCurrentPath([]);
+                }}
+              >
+                {/* Show current stroke being drawn */}
+                {currentPath.map((point, idx) => (
+                  <View
+                    key={idx}
+                    style={{
+                      position: 'absolute',
+                      left: point.x * scale - brushSize / 2,
+                      top: point.y * scale - brushSize / 2,
+                      width: brushSize,
+                      height: brushSize,
+                      borderRadius: brushSize / 2,
+                      backgroundColor: isEraser ? 'rgba(255,255,255,0.5)' : drawingColor,
+                    }}
+                  />
+                ))}
+              </View>
+            )}
           </View>
         </View>
 
