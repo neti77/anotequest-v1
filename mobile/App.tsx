@@ -2456,9 +2456,6 @@ const styles = StyleSheet.create({
     minWidth: '100%',
     minHeight: '100%',
   },
-  canvasContentLight: {
-    backgroundColor: '#f8fafc',
-  },
   gridContainer: {
     position: 'absolute',
     top: 0,
