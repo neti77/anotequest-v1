@@ -795,7 +795,6 @@ export default function App() {
   const [drawingToolbarPosition, setDrawingToolbarPosition] = useState({ x: 20, y: 150 });
   
   // Canvas uses window size as base, grows with content
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const [canvasSize, setCanvasSize] = useState({ width: windowWidth * 2, height: windowHeight * 2 });
   
   // Drag and drop state
