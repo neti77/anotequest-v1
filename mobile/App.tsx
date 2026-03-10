@@ -304,7 +304,7 @@ const BottomDock: React.FC<{
 }) => {
   const insets = useSafeAreaInsets();
   
-  // HOME VIEW - Only folder creation and trash
+  // HOME VIEW - Only folder creation (no trash)
   if (currentView === 'home') {
     return (
       <View style={[
@@ -319,27 +319,6 @@ const BottomDock: React.FC<{
             </View>
             <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>New Folder</Text>
           </Pressable>
-          
-          <View
-            ref={trashZoneRef}
-            onLayout={(event) => {
-              event.target.measure((x, y, width, height, pageX, pageY) => {
-                setTrashZoneLayout({ x: pageX, y: pageY, width, height });
-              });
-            }}
-          >
-            <Pressable style={styles.dockButton} onPress={() => setIsTrashOpen(true)}>
-              <View style={[
-                styles.dockButtonInner, 
-                styles.dockButtonTrash, 
-                !isDarkMode && styles.dockButtonTrashLight,
-                isOverTrash && styles.dockButtonTrashActive,
-              ]}>
-                <Trash2 size={16} color="#EF4444" />
-              </View>
-              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Trash</Text>
-            </Pressable>
-          </View>
         </View>
       </View>
     );
@@ -836,6 +815,146 @@ const CanvasWithGestures: React.FC<any> = ({
   );
 };
 
+// Home Canvas with Gesture-based pan and pinch zoom for folders
+const HomeCanvasWithGestures: React.FC<any> = ({
+  scale,
+  setScale,
+  draggingItem,
+  isDarkMode,
+  renderGrid,
+  folders,
+  canvasSize,
+  updateFolderPosition,
+  setDraggingItem,
+  goToFolder,
+  setFolderOptionsModal,
+  getFolderItemCount,
+}) => {
+  // Shared values for canvas pan
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+  
+  // Shared values for pinch zoom
+  const scaleValue = useSharedValue(scale);
+  const savedScale = useSharedValue(scale);
+  
+  // Update scale when prop changes
+  useEffect(() => {
+    scaleValue.value = scale;
+    savedScale.value = scale;
+  }, [scale]);
+  
+  // Pan gesture - only active when NOT dragging item
+  const panGesture = Gesture.Pan()
+    .minDistance(12)
+    .enabled(!draggingItem)
+    .onUpdate((e) => {
+      'worklet';
+      let newX = savedTranslateX.value + e.translationX;
+      let newY = savedTranslateY.value + e.translationY;
+      // Clamp: can't go left (positive X) or up (positive Y)
+      translateX.value = Math.min(0, newX);
+      translateY.value = Math.min(0, newY);
+    })
+    .onEnd(() => {
+      'worklet';
+      savedTranslateX.value = translateX.value;
+      savedTranslateY.value = translateY.value;
+    });
+  
+  // Pinch gesture for zoom
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((e) => {
+      'worklet';
+      const newScale = savedScale.value * e.scale;
+      scaleValue.value = Math.max(0.25, Math.min(3, newScale));
+    })
+    .onEnd(() => {
+      'worklet';
+      savedScale.value = scaleValue.value;
+      runOnJS(setScale)(scaleValue.value);
+    });
+  
+  // Combine gestures
+  const composedGesture = Gesture.Simultaneous(panGesture, pinchGesture);
+  
+  // Animated style for canvas container
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scaleValue.value },
+    ],
+  }));
+  
+  return (
+    <GestureDetector gesture={composedGesture}>
+      <Animated.View style={[styles.canvasScrollView, { flex: 1 }]}>
+        <Animated.View style={[
+          styles.canvasContent,
+          !isDarkMode && styles.canvasContentLight,
+          { width: canvasSize.width, height: canvasSize.height },
+          animatedStyle,
+        ]}>
+          {/* Grid */}
+          <View style={[styles.gridContainer, { width: canvasSize.width, height: canvasSize.height }]}>{renderGrid()}</View>
+
+          {/* Empty State */}
+          {folders.length === 0 && (
+            <View style={[styles.emptyState, !isDarkMode && styles.emptyStateLight]}>
+              <Text style={styles.emptyStateIcon}>📁</Text>
+              <Text style={[styles.emptyStateTitle, !isDarkMode && styles.emptyStateTitleLight]}>No folders yet!</Text>
+              <Text style={styles.emptyStateSubtitle}>Tap + New Folder to create one</Text>
+            </View>
+          )}
+
+          {/* Draggable Folder Cards */}
+          {folders.map((folder: Folder) => (
+            <DraggableItem
+              key={folder.id}
+              position={folder.position || { x: 100, y: 100 }}
+              onPositionChange={(newPos) => updateFolderPosition(folder.id, newPos)}
+              onDragStart={() => setDraggingItem({ type: 'folder', id: folder.id })}
+              onDragUpdate={() => {}}
+              onDragEnd={() => {
+                setDraggingItem(null);
+              }}
+              scale={scale}
+              style={[styles.folderCard, !isDarkMode && styles.folderCardLight]}
+              isDragging={draggingItem?.type === 'folder' && draggingItem?.id === folder.id}
+              itemType="folder"
+            >
+              <Pressable 
+                onPress={() => goToFolder(folder.id)}
+                onLongPress={() => setFolderOptionsModal(folder)}
+                style={styles.folderCardInner}
+              >
+                {folder.coverImage ? (
+                  <Image source={{ uri: folder.coverImage }} style={styles.folderCoverImage} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.folderIconContainer, !isDarkMode && styles.folderIconContainerLight]}>
+                    <Folder size={48} color="#F59E0B" />
+                  </View>
+                )}
+                <View style={styles.folderCardInfo}>
+                  <Text style={[styles.folderCardName, !isDarkMode && styles.folderCardNameLight]} numberOfLines={1}>
+                    {folder.name}
+                  </Text>
+                  <Text style={[styles.folderCardCount, !isDarkMode && styles.folderCardCountLight]}>
+                    {getFolderItemCount(folder.id)} items
+                  </Text>
+                </View>
+              </Pressable>
+            </DraggableItem>
+          ))}
+        </Animated.View>
+      </Animated.View>
+    </GestureDetector>
+  );
+};
+
 export default function App() {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const headerScale = Math.min(windowWidth / 390, 1.2); // Base on iPhone 12 Pro, max 1.2x
@@ -891,8 +1010,10 @@ export default function App() {
   const [editingTableTitle, setEditingTableTitle] = useState('');
   const [editingTableRows, setEditingTableRows] = useState<string[][]>([]);
   
-  // NEW: Folder options modal
+  // Folder options modal and renaming
   const [folderOptionsModal, setFolderOptionsModal] = useState<Folder | null>(null);
+  const [renamingFolderId, setRenamingFolderId] = useState<number | null>(null);
+  const [renamingFolderName, setRenamingFolderName] = useState('');
   
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -1446,6 +1567,17 @@ export default function App() {
     setFolderOptionsModal(null);
   }, []);
 
+  // Rename folder
+  const renameFolder = useCallback((id: number, newName: string) => {
+    if (!newName.trim()) return;
+    setFolders((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, name: newName.trim() } : f))
+    );
+    setRenamingFolderId(null);
+    setRenamingFolderName('');
+    setFolderOptionsModal(null);
+  }, []);
+
   const deleteFolder = useCallback((id: number) => {
     // Move all notes in this folder to "All Notes"
     setNotes((prev) => prev.map(n => n.folderId === id ? { ...n, folderId: null } : n));
@@ -1766,7 +1898,7 @@ export default function App() {
           
           {/* Undo/Redo - only in folder view */}
           {currentView === 'folder' && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Pressable 
                 style={[styles.headerIconButton, historyIndex <= 0 && styles.headerIconButtonDisabled]} 
                 onPress={handleUndo}
@@ -1784,28 +1916,41 @@ export default function App() {
             </View>
           )}
           
-          {/* Theme toggle */}
-          <Pressable 
-            style={[styles.headerIconButton, styles.themeToggleButton, !isDarkMode && styles.themeToggleButtonLight]} 
-            onPress={() => setIsDarkMode(!isDarkMode)}
-          >
-            {isDarkMode ? <Sun size={18} color="#F59E0B" /> : <Moon size={18} color="#64748B" />}
-          </Pressable>
-          
-          {/* Media counter */}
-          <View style={[
-            styles.headerNoteCount,
-            !isDarkMode && styles.headerNoteCountLight,
-            notes.length >= 61 && styles.headerNoteCountRed,
-            notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountYellow,
-            notes.length < 40 && styles.headerNoteCountGreen,
-          ]}>
-            <Text style={[
-              styles.headerNoteCountText,
-              notes.length >= 61 && styles.headerNoteCountTextRed,
-              notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountTextYellow,
-              notes.length < 40 && styles.headerNoteCountTextGreen,
-            ]}>{notes.length + todos.length + noteStickers.length}</Text>
+          {/* Right side icons with more spacing */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginLeft: 16 }}>
+            {/* Media counter */}
+            <View style={[
+              styles.headerNoteCount,
+              !isDarkMode && styles.headerNoteCountLight,
+              notes.length >= 61 && styles.headerNoteCountRed,
+              notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountYellow,
+              notes.length < 40 && styles.headerNoteCountGreen,
+            ]}>
+              <Text style={[
+                styles.headerNoteCountText,
+                notes.length >= 61 && styles.headerNoteCountTextRed,
+                notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountTextYellow,
+                notes.length < 40 && styles.headerNoteCountTextGreen,
+              ]}>{notes.length + todos.length + noteStickers.length}</Text>
+            </View>
+            
+            {/* Theme toggle */}
+            <Pressable 
+              style={[styles.headerIconButton, styles.themeToggleButton, !isDarkMode && styles.themeToggleButtonLight]} 
+              onPress={() => setIsDarkMode(!isDarkMode)}
+            >
+              {isDarkMode ? <Sun size={18} color="#F59E0B" /> : <Moon size={18} color="#64748B" />}
+            </Pressable>
+            
+            {/* Settings - only in home view */}
+            {currentView === 'home' && (
+              <Pressable 
+                style={[styles.headerIconButton, !isDarkMode && styles.headerIconButtonLight]} 
+                onPress={() => Alert.alert('Settings', 'Settings page coming soon!')}
+              >
+                <Settings size={18} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
+              </Pressable>
+            )}
           </View>
         </View>
 
@@ -1815,64 +1960,21 @@ export default function App() {
           <View style={styles.canvasArea}>
             {/* Show Home Canvas (folders) or Folder Canvas (items) */}
             {currentView === 'home' ? (
-              /* HOME VIEW - Folder Cards Canvas */
-              <View style={[styles.canvasScrollView, { flex: 1 }]}>
-                <View style={[
-                  styles.canvasContent,
-                  !isDarkMode && styles.canvasContentLight,
-                  { width: canvasSize.width, height: canvasSize.height },
-                ]}>
-                  {/* Grid */}
-                  <View style={[styles.gridContainer, { width: canvasSize.width, height: canvasSize.height }]}>{renderGrid()}</View>
-
-                  {/* Empty State */}
-                  {folders.length === 0 && (
-                    <View style={[styles.emptyState, !isDarkMode && styles.emptyStateLight]}>
-                      <Text style={styles.emptyStateIcon}>📁</Text>
-                      <Text style={[styles.emptyStateTitle, !isDarkMode && styles.emptyStateTitleLight]}>No folders yet!</Text>
-                      <Text style={styles.emptyStateSubtitle}>Tap + New Folder to create one</Text>
-                    </View>
-                  )}
-
-                  {/* Folder Cards */}
-                  {folders.map((folder, index) => (
-                    <View
-                      key={folder.id}
-                      style={[
-                        styles.folderCard,
-                        !isDarkMode && styles.folderCardLight,
-                        { 
-                          position: 'absolute',
-                          left: folder.position?.x || (100 + (index % 3) * 200),
-                          top: folder.position?.y || (100 + Math.floor(index / 3) * 220),
-                        }
-                      ]}
-                    >
-                      <Pressable 
-                        onPress={() => goToFolder(folder.id)}
-                        onLongPress={() => setFolderOptionsModal(folder)}
-                        style={styles.folderCardInner}
-                      >
-                        {folder.coverImage ? (
-                          <Image source={{ uri: folder.coverImage }} style={styles.folderCoverImage} resizeMode="cover" />
-                        ) : (
-                          <View style={[styles.folderIconContainer, !isDarkMode && styles.folderIconContainerLight]}>
-                            <Folder size={48} color="#F59E0B" />
-                          </View>
-                        )}
-                        <View style={styles.folderCardInfo}>
-                          <Text style={[styles.folderCardName, !isDarkMode && styles.folderCardNameLight]} numberOfLines={1}>
-                            {folder.name}
-                          </Text>
-                          <Text style={[styles.folderCardCount, !isDarkMode && styles.folderCardCountLight]}>
-                            {getFolderItemCount(folder.id)} items
-                          </Text>
-                        </View>
-                      </Pressable>
-                    </View>
-                  ))}
-                </View>
-              </View>
+              /* HOME VIEW - Folder Cards Canvas with zoom/pan */
+              <HomeCanvasWithGestures
+                scale={scale}
+                setScale={setScale}
+                draggingItem={draggingItem}
+                isDarkMode={isDarkMode}
+                renderGrid={renderGrid}
+                folders={folders}
+                canvasSize={canvasSize}
+                updateFolderPosition={updateFolderPosition}
+                setDraggingItem={setDraggingItem}
+                goToFolder={goToFolder}
+                setFolderOptionsModal={setFolderOptionsModal}
+                getFolderItemCount={getFolderItemCount}
+              />
             ) : (
               /* FOLDER VIEW - Notes/Items Canvas */
               <CanvasWithGestures
@@ -2348,28 +2450,66 @@ export default function App() {
         </Modal>
 
         {/* ===== FOLDER OPTIONS MODAL ===== */}
-        <Modal visible={folderOptionsModal !== null} animationType="fade" transparent>
+        <Modal visible={folderOptionsModal !== null && renamingFolderId === null} animationType="fade" transparent>
           <Pressable style={styles.modalOverlay} onPress={() => setFolderOptionsModal(null)}>
-            <View style={styles.nameModalContent}>
+            <Pressable style={styles.nameModalContent} onPress={(e) => e.stopPropagation()}>
               <Text style={styles.nameModalTitle}>{folderOptionsModal?.name}</Text>
               <View style={styles.folderOptionsButtons}>
+                {/* Rename Folder */}
+                <Pressable
+                  style={styles.folderOptionBtn}
+                  onPress={() => {
+                    if (folderOptionsModal) {
+                      setRenamingFolderId(folderOptionsModal.id);
+                      setRenamingFolderName(folderOptionsModal.name);
+                    }
+                  }}
+                >
+                  <Edit3 size={20} color="#8B5CF6" />
+                  <Text style={styles.folderOptionBtnText}>Rename Folder</Text>
+                </Pressable>
+                
+                {/* Change Cover Image */}
                 <Pressable
                   style={styles.folderOptionBtn}
                   onPress={() => folderOptionsModal && addFolderCoverImage(folderOptionsModal.id)}
                 >
                   <ImageIcon size={20} color="#8B5CF6" />
-                  <Text style={styles.folderOptionBtnText}>Set Cover Image</Text>
+                  <Text style={styles.folderOptionBtnText}>Change Cover Image</Text>
                 </Pressable>
+                
+                {/* Delete Folder */}
                 <Pressable
                   style={[styles.folderOptionBtn, styles.folderOptionBtnDanger]}
                   onPress={() => {
                     if (folderOptionsModal) {
                       Alert.alert(
-                        'Delete Folder',
-                        `Delete "${folderOptionsModal.name}"? Items will be moved to unorganized.`,
+                        'Delete Folder?',
+                        `Are you sure you want to delete "${folderOptionsModal.name}"?\n\nAll items inside will be moved to unorganized.`,
                         [
                           { text: 'Cancel', style: 'cancel' },
-                          { text: 'Delete', style: 'destructive', onPress: () => { deleteFolder(folderOptionsModal.id); setFolderOptionsModal(null); } }
+                          { 
+                            text: 'Yes, Delete', 
+                            style: 'destructive', 
+                            onPress: () => {
+                              // Second confirmation
+                              Alert.alert(
+                                'Final Confirmation',
+                                'This action cannot be undone. Delete this folder?',
+                                [
+                                  { text: 'No, Keep It', style: 'cancel' },
+                                  { 
+                                    text: 'Delete Forever', 
+                                    style: 'destructive', 
+                                    onPress: () => { 
+                                      deleteFolder(folderOptionsModal.id); 
+                                      setFolderOptionsModal(null); 
+                                    } 
+                                  }
+                                ]
+                              );
+                            } 
+                          }
                         ]
                       );
                     }
@@ -2382,8 +2522,36 @@ export default function App() {
               <Pressable style={styles.modalCancelButton} onPress={() => setFolderOptionsModal(null)}>
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </Pressable>
-            </View>
+            </Pressable>
           </Pressable>
+        </Modal>
+
+        {/* ===== RENAME FOLDER MODAL ===== */}
+        <Modal visible={renamingFolderId !== null} animationType="fade" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.nameModalContent}>
+              <Text style={styles.nameModalTitle}>Rename Folder</Text>
+              <TextInput
+                style={styles.nameInput}
+                value={renamingFolderName}
+                onChangeText={setRenamingFolderName}
+                placeholder="Enter new name..."
+                placeholderTextColor="#6b7280"
+                autoFocus
+              />
+              <View style={styles.modalButtonRow}>
+                <Pressable style={styles.modalCancelButton} onPress={() => { setRenamingFolderId(null); setRenamingFolderName(''); }}>
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable 
+                  style={styles.nameSubmitButton} 
+                  onPress={() => renamingFolderId && renameFolder(renamingFolderId, renamingFolderName)}
+                >
+                  <Text style={styles.nameSubmitText}>Save</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
         </Modal>
 
         {/* ===== TODO EDITOR MODAL ===== */}
@@ -2782,6 +2950,9 @@ const styles = StyleSheet.create({
   },
   headerIconButtonDisabled: {
     opacity: 0.4,
+  },
+  headerIconButtonLight: {
+    backgroundColor: 'rgba(148, 163, 184, 0.2)',
   },
   headerLogoButton: {
     padding: 2,
