@@ -17,6 +17,8 @@ import {
   Clipboard,
   PanResponder,
   useWindowDimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView, Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -2162,8 +2164,8 @@ export default function App() {
           onGoToFolders={goToHome}
         />
 
-        {/* Floating Trash Zone when dragging */}
-        {draggingItem && (
+        {/* Floating Trash Zone when dragging - ONLY in folder view, not home */}
+        {draggingItem && currentView === 'folder' && (
           <View 
             style={styles.floatingTrashZone}
             onLayout={(event) => {
@@ -2228,7 +2230,10 @@ export default function App() {
 
         {/* ===== NOTE EDITOR MODAL ===== */}
         <Modal visible={editingNote !== null} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
             <View style={styles.noteEditorModal}>
               <View style={styles.noteEditorHeader}>
                 <View style={styles.noteEditorDragHandle}>
@@ -2271,7 +2276,7 @@ export default function App() {
                 </View>
               )}
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* ===== STICKER VIEWING MODAL (Tap to view) ===== */}
@@ -2320,7 +2325,10 @@ export default function App() {
 
         {/* ===== STICKER EDITOR MODAL ===== */}
         <Modal visible={editingSticker !== null} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
             <View style={[styles.noteEditorModal, { backgroundColor: '#FEF3C7' }]}>
               <View style={[styles.noteEditorHeader, { backgroundColor: '#FDE68A' }]}>
                 <View style={styles.noteEditorDragHandle}>
@@ -2367,7 +2375,7 @@ export default function App() {
                 />
               </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* ===== FOLDER DROPDOWN MODAL ===== */}
@@ -2426,7 +2434,10 @@ export default function App() {
 
         {/* ===== NEW FOLDER MODAL ===== */}
         <Modal visible={showNewFolderModal} animationType="fade" transparent>
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
             <View style={styles.nameModalContent}>
               <Text style={styles.nameModalTitle}>Create New Folder</Text>
               <TextInput
@@ -2446,7 +2457,7 @@ export default function App() {
                 </Pressable>
               </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* ===== FOLDER OPTIONS MODAL ===== */}
@@ -2528,7 +2539,10 @@ export default function App() {
 
         {/* ===== RENAME FOLDER MODAL ===== */}
         <Modal visible={renamingFolderId !== null} animationType="fade" transparent>
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
             <View style={styles.nameModalContent}>
               <Text style={styles.nameModalTitle}>Rename Folder</Text>
               <TextInput
@@ -2551,12 +2565,15 @@ export default function App() {
                 </Pressable>
               </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* ===== TODO EDITOR MODAL ===== */}
         <Modal visible={viewingTodo !== null} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
             <View style={styles.todoEditorModal}>
               <View style={styles.noteEditorHeader}>
                 <CheckSquare size={20} color="#8B5CF6" />
@@ -2620,12 +2637,15 @@ export default function App() {
                 </Pressable>
               </ScrollView>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* ===== TABLE EDITOR MODAL ===== */}
         <Modal visible={viewingTable !== null} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
             <View style={styles.tableEditorModal}>
               <View style={styles.noteEditorHeader}>
                 <Table size={20} color="#8B5CF6" />
@@ -2701,33 +2721,37 @@ export default function App() {
                 </View>
               </ScrollView>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* ===== SEARCH MODAL ===== */}
         <Modal visible={showSearchModal} animationType="fade" transparent>
-          <Pressable style={styles.searchModalOverlay} onPress={() => setShowSearchModal(false)}>
-            <Pressable style={[styles.searchModalContent, !isDarkMode && styles.searchModalContentLight]} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.searchModalHeader}>
-                <Search size={20} color="#8B5CF6" />
-                <TextInput
-                  style={[styles.searchInput, !isDarkMode && styles.searchInputLight]}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder="Search notes..."
-                  placeholderTextColor={isDarkMode ? "#6b7280" : "#9CA3AF"}
-                  autoFocus
-                />
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.searchModalOverlay}
+          >
+            <Pressable style={styles.searchModalOverlay} onPress={() => setShowSearchModal(false)}>
+              <Pressable style={[styles.searchModalContent, !isDarkMode && styles.searchModalContentLight]} onPress={(e) => e.stopPropagation()}>
+                <View style={styles.searchModalHeader}>
+                  <Search size={20} color="#8B5CF6" />
+                  <TextInput
+                    style={[styles.searchInput, !isDarkMode && styles.searchInputLight]}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder="Search notes..."
+                    placeholderTextColor={isDarkMode ? "#6b7280" : "#9CA3AF"}
+                    autoFocus
+                  />
+                  {searchQuery.length > 0 && (
+                    <Pressable onPress={() => setSearchQuery('')}>
+                      <X size={18} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
+                    </Pressable>
+                  )}
+                </View>
+                
+                {/* Search Results */}
                 {searchQuery.length > 0 && (
-                  <Pressable onPress={() => setSearchQuery('')}>
-                    <X size={18} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
-                  </Pressable>
-                )}
-              </View>
-              
-              {/* Search Results */}
-              {searchQuery.length > 0 && (
-                <ScrollView style={styles.searchResults} showsVerticalScrollIndicator={false}>
+                  <ScrollView style={styles.searchResults} showsVerticalScrollIndicator={false}>
                   {filteredNotes.length > 0 ? (
                     filteredNotes.map((note) => (
                       <Pressable 
@@ -2756,6 +2780,7 @@ export default function App() {
               )}
             </Pressable>
           </Pressable>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* ===== EXPORT MODAL ===== */}
