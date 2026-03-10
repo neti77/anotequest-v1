@@ -31,6 +31,7 @@ import {
   CheckSquare,
   Trash2,
   Folder,
+  FolderOpen,
   Settings,
   Search,
   X,
@@ -42,6 +43,7 @@ import {
   Pencil,
   Minus,
   ArrowRight,
+  ArrowLeft,
   Circle,
   ImageIcon,
   Square,
@@ -55,6 +57,7 @@ import {
   Redo2,
   GripVertical,
   Eraser,
+  Home,
 } from 'lucide-react-native';
 
 // Canvas fills whole view - no minimum, grows with content
@@ -68,13 +71,28 @@ const DRAWING_COLORS = [
   '#ec4899', '#14b8a6', '#000000', '#6b7280', '#ffffff'
 ];
 
-// Helper to convert points array to SVG path string
+// Helper to convert points array to SVG path string with smooth curves
 const pointsToPath = (points: {x: number, y: number}[]): string => {
   if (points.length < 2) return '';
+  
+  // Use quadratic bezier curves for smooth lines
   let d = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 1; i < points.length; i++) {
-    d += ` L ${points[i].x} ${points[i].y}`;
+  
+  if (points.length === 2) {
+    d += ` L ${points[1].x} ${points[1].y}`;
+    return d;
   }
+  
+  for (let i = 1; i < points.length - 1; i++) {
+    const xc = (points[i].x + points[i + 1].x) / 2;
+    const yc = (points[i].y + points[i + 1].y) / 2;
+    d += ` Q ${points[i].x} ${points[i].y} ${xc} ${yc}`;
+  }
+  
+  // Connect to last point
+  const last = points[points.length - 1];
+  d += ` L ${last.x} ${last.y}`;
+  
   return d;
 };
 
@@ -93,6 +111,8 @@ interface Folder {
   id: number;
   name: string;
   createdAt: string;
+  coverImage?: string;
+  position: { x: number; y: number };
 }
 
 interface TrashItem {
@@ -186,9 +206,9 @@ const DraggableItem: React.FC<{
     })
     .onEnd(() => {
       'worklet';
-      // Commit final position immediately without spring
-      const finalX = startX.value + translateX.value;
-      const finalY = startY.value + translateY.value;
+      // Commit final position - clamp to >= 0 (only grow right/bottom)
+      const finalX = Math.max(0, startX.value + translateX.value);
+      const finalY = Math.max(0, startY.value + translateY.value);
       
       // Update shared values synchronously
       startX.value = finalX;
@@ -242,9 +262,10 @@ const DraggableItem: React.FC<{
   );
 };
 
-// BottomDock component with safe area insets
+// BottomDock component with safe area insets - updated for home/folder views
 const BottomDock: React.FC<{
   isDarkMode: boolean;
+  currentView: 'home' | 'folder';
   addNote: () => void;
   addTodo: () => void;
   addNoteSticker: () => void;
@@ -255,11 +276,15 @@ const BottomDock: React.FC<{
   setIsDrawingMode: (val: boolean) => void;
   setShowNewFolderModal: (val: boolean) => void;
   setIsTrashOpen: (val: boolean) => void;
+  setShowSearchModal: (val: boolean) => void;
+  setShowExportModal: (val: boolean) => void;
   trashZoneRef: any;
   setTrashZoneLayout: (layout: any) => void;
   isOverTrash: boolean;
+  onGoToFolders: () => void;
 }> = ({
   isDarkMode,
+  currentView,
   addNote,
   addTodo,
   addNoteSticker,
@@ -270,12 +295,57 @@ const BottomDock: React.FC<{
   setIsDrawingMode,
   setShowNewFolderModal,
   setIsTrashOpen,
+  setShowSearchModal,
+  setShowExportModal,
   trashZoneRef,
   setTrashZoneLayout,
   isOverTrash,
+  onGoToFolders,
 }) => {
   const insets = useSafeAreaInsets();
   
+  // HOME VIEW - Only folder creation and trash
+  if (currentView === 'home') {
+    return (
+      <View style={[
+        styles.bottomDockContainer,
+        !isDarkMode && styles.bottomDockContainerLight,
+        { paddingBottom: Math.max(insets.bottom, 8) }
+      ]}>
+        <View style={[styles.bottomDockScroll, { justifyContent: 'center' }]}>
+          <Pressable style={styles.dockButton} onPress={() => setShowNewFolderModal(true)}>
+            <View style={[styles.dockButtonInner, styles.dockButtonHighlight, !isDarkMode && styles.dockButtonHighlightLight]}>
+              <Plus size={20} color="#F59E0B" />
+            </View>
+            <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>New Folder</Text>
+          </Pressable>
+          
+          <View
+            ref={trashZoneRef}
+            onLayout={(event) => {
+              event.target.measure((x, y, width, height, pageX, pageY) => {
+                setTrashZoneLayout({ x: pageX, y: pageY, width, height });
+              });
+            }}
+          >
+            <Pressable style={styles.dockButton} onPress={() => setIsTrashOpen(true)}>
+              <View style={[
+                styles.dockButtonInner, 
+                styles.dockButtonTrash, 
+                !isDarkMode && styles.dockButtonTrashLight,
+                isOverTrash && styles.dockButtonTrashActive,
+              ]}>
+                <Trash2 size={16} color="#EF4444" />
+              </View>
+              <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Trash</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    );
+  }
+  
+  // FOLDER VIEW - All tools including Search and Export
   return (
     <View style={[
       styles.bottomDockContainer,
@@ -287,6 +357,14 @@ const BottomDock: React.FC<{
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.bottomDockScroll}
       >
+        {/* Quick folder switch */}
+        <Pressable style={styles.dockButton} onPress={onGoToFolders}>
+          <View style={[styles.dockButtonInner, styles.dockButtonHighlight, !isDarkMode && styles.dockButtonHighlightLight]}>
+            <FolderOpen size={16} color="#F59E0B" />
+          </View>
+          <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Folders</Text>
+        </Pressable>
+        
         <Pressable style={styles.dockButton} onPress={() => addNote()}>
           <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
             <Plus size={16} color={isDarkMode ? "#fff" : "#64748b"} />
@@ -306,13 +384,6 @@ const BottomDock: React.FC<{
             <FileText size={16} color={isDarkMode ? "#fff" : "#64748b"} />
           </View>
           <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Sticker</Text>
-        </Pressable>
-        
-        <Pressable style={styles.dockButton} onPress={() => setShowNewFolderModal(true)}>
-          <View style={[styles.dockButtonInner, styles.dockButtonHighlight, !isDarkMode && styles.dockButtonHighlightLight]}>
-            <Folder size={16} color="#F59E0B" />
-          </View>
-          <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Folder</Text>
         </Pressable>
         
         <Pressable style={styles.dockButton} onPress={addImage}>
@@ -341,6 +412,22 @@ const BottomDock: React.FC<{
             <Pencil size={16} color={isDrawingMode ? "#F59E0B" : (isDarkMode ? "#fff" : "#64748b")} />
           </View>
           <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Draw</Text>
+        </Pressable>
+        
+        {/* Search - moved from header */}
+        <Pressable style={styles.dockButton} onPress={() => setShowSearchModal(true)}>
+          <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+            <Search size={16} color={isDarkMode ? "#fff" : "#64748b"} />
+          </View>
+          <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Search</Text>
+        </Pressable>
+        
+        {/* Export - moved from header */}
+        <Pressable style={styles.dockButton} onPress={() => setShowExportModal(true)}>
+          <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+            <Download size={16} color={isDarkMode ? "#fff" : "#64748b"} />
+          </View>
+          <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Export</Text>
         </Pressable>
         
         <View
@@ -581,36 +668,37 @@ const CanvasWithGestures: React.FC<any> = ({
               isDragging={draggingItem?.type === 'todo' && draggingItem?.id === todo.id}
               itemType="todo"
             >
-              <View style={[styles.todoHeader, !isDarkMode && styles.todoHeaderLight]}>
-                <View style={styles.todoHeaderLeft}>
-                  <CheckSquare size={14} color="#8B5CF6" />
-                  <Text style={[styles.todoTitle, !isDarkMode && styles.todoTitleLight]}>{todo.title || 'Todo List'}</Text>
-                </View>
-                <Text style={[styles.todoCount, !isDarkMode && styles.todoCountLight]}>
-                  {todo.items?.filter((i: any) => i.completed).length || 0}/{todo.items?.length || 0}
-                </Text>
-              </View>
-              {todo.items?.slice(0, 5).map((item: any, idx: number) => (
-                <Pressable
-                  key={idx}
-                  onPress={() => {
-                    const newItems = [...todo.items];
-                    newItems[idx] = { ...item, completed: !item.completed };
-                    updateTodo(todo.id, { items: newItems });
-                  }}
-                  style={styles.todoItemRow}
-                >
-                  <View style={[styles.todoCheckbox, item.completed && styles.todoCheckboxChecked, !isDarkMode && !item.completed && styles.todoCheckboxLight]}>
-                    {item.completed && <Text style={styles.todoCheckmark}>✓</Text>}
+              <Pressable onPress={() => {
+                setViewingTodo(todo);
+                setEditingTodoTitle(todo.title);
+                setEditingTodoItems([...todo.items]);
+              }}>
+                <View style={[styles.todoHeader, !isDarkMode && styles.todoHeaderLight]}>
+                  <View style={styles.todoHeaderLeft}>
+                    <CheckSquare size={14} color="#8B5CF6" />
+                    <Text style={[styles.todoTitle, !isDarkMode && styles.todoTitleLight]}>{todo.title || 'Todo List'}</Text>
                   </View>
-                  <Text
-                    style={[styles.todoItemText, item.completed && styles.todoItemCompleted, !isDarkMode && styles.todoItemTextLight]}
-                    numberOfLines={1}
-                  >
-                    {item.text || 'Add a task...'}
+                  <Text style={[styles.todoCount, !isDarkMode && styles.todoCountLight]}>
+                    {todo.items?.filter((i: any) => i.completed).length || 0}/{todo.items?.length || 0}
                   </Text>
-                </Pressable>
-              ))}
+                </View>
+                {todo.items?.slice(0, 5).map((item: any, idx: number) => (
+                  <View key={idx} style={styles.todoItemRow}>
+                    <View style={[styles.todoCheckbox, item.completed && styles.todoCheckboxChecked, !isDarkMode && !item.completed && styles.todoCheckboxLight]}>
+                      {item.completed && <Text style={styles.todoCheckmark}>✓</Text>}
+                    </View>
+                    <Text
+                      style={[styles.todoItemText, item.completed && styles.todoItemCompleted, !isDarkMode && styles.todoItemTextLight]}
+                      numberOfLines={1}
+                    >
+                      {item.text || 'Tap to edit...'}
+                    </Text>
+                  </View>
+                ))}
+                {todo.items?.length > 5 && (
+                  <Text style={styles.todoMoreItems}>+{todo.items.length - 5} more items</Text>
+                )}
+              </Pressable>
             </DraggableItem>
           ))}
 
@@ -634,24 +722,32 @@ const CanvasWithGestures: React.FC<any> = ({
               isDragging={draggingItem?.type === 'table' && draggingItem?.id === table.id}
               itemType="table"
             >
-              <View style={[styles.tableHeader, !isDarkMode && styles.tableHeaderLight]}>
-                <Text style={[styles.tableTitle, !isDarkMode && styles.tableTitleLight]} numberOfLines={1}>
-                  {table.title || 'Table'}
-                </Text>
-              </View>
-              <View style={styles.tableContent}>
-                {table.rows?.map((row: string[], rowIndex: number) => (
-                  <View key={rowIndex} style={[styles.tableRow, rowIndex === 0 && styles.tableHeaderRow]}>
-                    {row.map((cell: string, cellIndex: number) => (
-                      <View key={cellIndex} style={[styles.tableCell, rowIndex === 0 && styles.tableHeaderCell]}>
-                        <Text style={[styles.tableCellText, rowIndex === 0 && styles.tableHeaderCellText, !isDarkMode && styles.tableCellTextLight]} numberOfLines={1}>
-                          {cell}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                ))}
-              </View>
+              <Pressable onPress={() => {
+                setViewingTable(table);
+                setEditingTableTitle(table.title);
+                setEditingTableRows([...table.rows.map((row: string[]) => [...row])]);
+              }}>
+                <View style={[styles.tableHeader, !isDarkMode && styles.tableHeaderLight]}>
+                  <Table size={14} color="#8B5CF6" />
+                  <Text style={[styles.tableTitle, !isDarkMode && styles.tableTitleLight]} numberOfLines={1}>
+                    {table.title || 'Table'}
+                  </Text>
+                </View>
+                <View style={styles.tableContent}>
+                  {table.rows?.slice(0, 4).map((row: string[], rowIndex: number) => (
+                    <View key={rowIndex} style={[styles.tableRow, rowIndex === 0 && styles.tableHeaderRow]}>
+                      {row.slice(0, 3).map((cell: string, cellIndex: number) => (
+                        <View key={cellIndex} style={[styles.tableCell, rowIndex === 0 && styles.tableHeaderCell]}>
+                          <Text style={[styles.tableCellText, rowIndex === 0 && styles.tableHeaderCellText, !isDarkMode && styles.tableCellTextLight]} numberOfLines={1}>
+                            {cell}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+                <Text style={styles.tableTapToEdit}>Tap to edit table</Text>
+              </Pressable>
             </DraggableItem>
           ))}
 
@@ -714,38 +810,20 @@ const CanvasWithGestures: React.FC<any> = ({
             </DraggableItem>
           ))}
 
-          {/* Drawing paths */}
-          {drawings.map((drawing: any, pathIndex: number) => (
-            <View key={pathIndex} style={styles.drawingPath} pointerEvents="none">
-              {drawing.path?.map((point: {x: number, y: number}, pointIndex: number) => (
-                <View
-                  key={pointIndex}
-                  style={[
-                    styles.drawingDot,
-                    { 
-                      left: point.x - (drawing.brushSize || 3), 
-                      top: point.y - (drawing.brushSize || 3),
-                      width: (drawing.brushSize || 6),
-                      height: (drawing.brushSize || 6),
-                      borderRadius: (drawing.brushSize || 6) / 2,
-                      backgroundColor: drawing.color || '#F59E0B',
-                    }
-                  ]}
-                />
-              ))}
-            </View>
-          ))}
-
-          {/* Current drawing path */}
-          {currentPath.map((point: {x: number, y: number}, index: number) => (
-            <View
-              key={index}
-              style={[
-                styles.drawingDot,
-                { left: point.x - 3, top: point.y - 3 }
-              ]}
-            />
-          ))}
+          {/* Drawing SVG paths */}
+          <Svg style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
+            {drawings.map((drawing: any, pathIndex: number) => (
+              <Path
+                key={drawing.id || pathIndex}
+                d={typeof drawing.path === 'string' ? drawing.path : pointsToPath(drawing.path || [])}
+                stroke={drawing.color || '#F59E0B'}
+                strokeWidth={drawing.brushSize || 4}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ))}
+          </Svg>
         </Animated.View>
       </Animated.View>
     </GestureDetector>
@@ -755,6 +833,10 @@ const CanvasWithGestures: React.FC<any> = ({
 export default function App() {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const headerScale = Math.min(windowWidth / 390, 1.2); // Base on iPhone 12 Pro, max 1.2x
+  
+  // NEW: View state - 'home' (folder canvas) or 'folder' (inside a folder)
+  const [currentView, setCurrentView] = useState<'home' | 'folder'>('home');
+  
   const [notes, setNotes] = useState<Note[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [activeFolder, setActiveFolder] = useState<number | null>(null);
@@ -793,6 +875,19 @@ export default function App() {
   const [editingStickerTitle, setEditingStickerTitle] = useState('');
   const [editingStickerContent, setEditingStickerContent] = useState('');
   
+  // NEW: Todo editor state
+  const [viewingTodo, setViewingTodo] = useState<Todo | null>(null);
+  const [editingTodoTitle, setEditingTodoTitle] = useState('');
+  const [editingTodoItems, setEditingTodoItems] = useState<{ text: string; completed: boolean }[]>([]);
+  
+  // NEW: Table editor state
+  const [viewingTable, setViewingTable] = useState<any | null>(null);
+  const [editingTableTitle, setEditingTableTitle] = useState('');
+  const [editingTableRows, setEditingTableRows] = useState<string[][]>([]);
+  
+  // NEW: Folder options modal
+  const [folderOptionsModal, setFolderOptionsModal] = useState<Folder | null>(null);
+  
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [showFolderDropdown, setShowFolderDropdown] = useState(false);
@@ -804,16 +899,17 @@ export default function App() {
   const [scale, setScale] = useState(1);
   const scrollViewRef = useRef<ScrollView>(null);
   
-  // Drawing state
+  // Drawing state - improved for smooth SVG paths
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [drawings, setDrawings] = useState<any[]>([]);
   const [currentPath, setCurrentPath] = useState<{x: number, y: number}[]>([]);
+  const [currentSvgPath, setCurrentSvgPath] = useState<string>('');
   const [drawingColor, setDrawingColor] = useState('#3b82f6');
   const [brushSize, setBrushSize] = useState(4);
   const [isEraser, setIsEraser] = useState(false);
   const [drawingToolbarPosition, setDrawingToolbarPosition] = useState({ x: 20, y: 150 });
   
-  // Canvas starts small (6 note widths) and grows with content
+  // Canvas starts small (6 note widths) and grows with content - ONLY to right/bottom
   const [canvasSize, setCanvasSize] = useState({ 
     width: Math.max(windowWidth, INITIAL_CANVAS_SIZE), 
     height: Math.max(windowHeight, INITIAL_CANVAS_SIZE) 
@@ -920,7 +1016,13 @@ export default function App() {
           }))
         );
 
-        setFolders(await load('anotequest_folders'));
+        const loadedFolders = await load('anotequest_folders');
+        setFolders(
+          loadedFolders.map((f: any, idx: number) => ({
+            ...f,
+            position: f.position || { x: 100 + (idx % 3) * 200, y: 100 + Math.floor(idx / 3) * 220 },
+          }))
+        );
 
         const loadedStickers = await load('anotequest_stickers');
         setStickers(
@@ -1118,6 +1220,10 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
     setTodos((prev) => [...prev, newTodo]);
+    // Open editor immediately
+    setViewingTodo(newTodo);
+    setEditingTodoTitle(newTodo.title);
+    setEditingTodoItems([...newTodo.items]);
   }, [activeFolder, saveToHistory]);
 
   const updateTodo = useCallback((id: number, updates: Partial<Todo>) => {
@@ -1164,15 +1270,26 @@ export default function App() {
       title: 'New Table',
       rows: [
         ['Header 1', 'Header 2', 'Header 3'],
-        ['Cell 1', 'Cell 2', 'Cell 3'],
-        ['Cell 4', 'Cell 5', 'Cell 6'],
+        ['', '', ''],
+        ['', '', ''],
       ],
       position: { x: 220 + Math.random() * 150, y: 220 + Math.random() * 150 },
       folderId: activeFolder,
       createdAt: new Date().toISOString(),
     };
     setTables((prev) => [...prev, newTable]);
+    // Open editor immediately
+    setViewingTable(newTable);
+    setEditingTableTitle(newTable.title);
+    setEditingTableRows([...newTable.rows.map(row => [...row])]);
   }, [activeFolder, saveToHistory]);
+
+  // Update table
+  const updateTable = useCallback((id: number, updates: any) => {
+    setTables((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+    );
+  }, []);
 
   // Image functions - uses expo-image-picker
   const addImage = useCallback(async () => {
@@ -1277,15 +1394,51 @@ export default function App() {
   // Folder functions
   const addFolder = useCallback(() => {
     if (!newFolderName.trim()) return;
+    const existingCount = folders.length;
     const newFolder: Folder = {
       id: Date.now(),
       name: newFolderName.trim(),
       createdAt: new Date().toISOString(),
+      position: { x: 100 + (existingCount % 3) * 200, y: 100 + Math.floor(existingCount / 3) * 220 },
     };
     setFolders((prev) => [...prev, newFolder]);
     setNewFolderName('');
     setShowNewFolderModal(false);
-  }, [newFolderName]);
+  }, [newFolderName, folders.length]);
+
+  // Update folder position
+  const updateFolderPosition = useCallback((id: number, newPos: { x: number; y: number }) => {
+    setFolders((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, position: { x: Math.max(0, newPos.x), y: Math.max(0, newPos.y) } } : f))
+    );
+  }, []);
+
+  // Add cover image to folder
+  const addFolderCoverImage = useCallback(async (folderId: number) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant photo library access.');
+      return;
+    }
+    
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.5,
+      base64: true,
+    });
+    
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setFolders((prev) =>
+        prev.map((f) =>
+          f.id === folderId
+            ? { ...f, coverImage: `data:image/jpeg;base64,${asset.base64}` }
+            : f
+        )
+      );
+    }
+    setFolderOptionsModal(null);
+  }, []);
 
   const deleteFolder = useCallback((id: number) => {
     // Move all notes in this folder to "All Notes"
@@ -1299,12 +1452,13 @@ export default function App() {
     // Remove the folder
     setFolders((prev) => prev.filter((f) => f.id !== id));
     
-    // If we were viewing this folder, go back to All Notes
+    // If we were viewing this folder, go back to home
     if (activeFolder === id) {
       setActiveFolder(null);
+      setCurrentView('home');
     }
     
-    Alert.alert('Deleted', 'Folder deleted. Items moved to All Notes.');
+    Alert.alert('Deleted', 'Folder deleted. Items moved to unorganized.');
   }, [activeFolder]);
 
   // Export functions
@@ -1501,6 +1655,36 @@ export default function App() {
     return activeFolder === null || sticker.folderId === activeFolder;
   });
 
+  // Filtered drawings based on active folder
+  const filteredDrawings = drawings.filter((drawing) => {
+    return activeFolder === null || drawing.folderId === activeFolder;
+  });
+
+  // Navigation functions
+  const goToFolder = useCallback((folderId: number) => {
+    setActiveFolder(folderId);
+    setCurrentView('folder');
+    setIsDrawingMode(false);
+  }, []);
+
+  const goToHome = useCallback(() => {
+    setActiveFolder(null);
+    setCurrentView('home');
+    setIsDrawingMode(false);
+  }, []);
+
+  // Get item count for a folder
+  const getFolderItemCount = useCallback((folderId: number) => {
+    return (
+      notes.filter(n => n.folderId === folderId).length +
+      todos.filter(t => t.folderId === folderId).length +
+      noteStickers.filter(s => s.folderId === folderId).length +
+      tables.filter(t => t.folderId === folderId).length +
+      sources.filter(s => s.folderId === folderId).length +
+      images.filter(i => i.folderId === folderId).length
+    );
+  }, [notes, todos, noteStickers, tables, sources, images]);
+
   // Render grid dots based on canvas size
   const renderGrid = useCallback(() => {
     const dots: React.ReactNode[] = [];
@@ -1550,115 +1734,72 @@ export default function App() {
           <SafeAreaView style={[styles.container, !isDarkMode && styles.containerLight]} edges={['top', 'left', 'right']}>
           <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
 
-        {/* ===== HEADER ===== */}
+        {/* ===== SIMPLIFIED HEADER ===== */}
         <View style={[styles.header, !isDarkMode && styles.headerLight]}>
-          {/* Logo */}
-          <View style={[styles.headerLogo, { width: 26 * headerScale, height: 26 * headerScale, borderRadius: 5 * headerScale }]}>
-            <Image source={require('./assets/logo.png')} style={[styles.logoImage, { width: 26 * headerScale, height: 26 * headerScale, borderRadius: 5 * headerScale }]} resizeMode="contain" />
-          </View>
-          
-          <View style={{ width: 6 }} />
-          
-          {/* Folder Dropdown - more compact */}
-          <View style={styles.folderDropdownWrapper}>
-            <Pressable 
-              style={[styles.folderDropdown, !isDarkMode && styles.folderDropdownLight, {
-                paddingHorizontal: 8 * headerScale,
-                paddingVertical: 5 * headerScale,
-                borderRadius: 6 * headerScale,
-                gap: 4 * headerScale,
-                minWidth: 100 * headerScale,
-                maxWidth: 180 * headerScale,
-              }]}
-              onPress={() => setShowFolderDropdown(!showFolderDropdown)}
-            >
-              <Folder size={Math.round(14 * headerScale)} color="#8B5CF6" />
-              <Text style={[styles.folderDropdownText, !isDarkMode && styles.folderDropdownTextLight, { fontSize: 13 * headerScale, flex: 1 }]} numberOfLines={1}>
-                {activeFolderName}
-              </Text>
-              <ChevronDown size={Math.round(12 * headerScale)} color={isDarkMode ? "#6B7280" : "#9CA3AF"} style={showFolderDropdown && { transform: [{ rotate: '180deg' }] }} />
-            </Pressable>
-            
-            {/* Dropdown Menu */}
-            {showFolderDropdown && (
-              <View style={[styles.folderDropdownMenu, !isDarkMode && styles.folderDropdownMenuLight]}>
-                <Pressable 
-                  style={[styles.folderDropdownItem, !activeFolder && styles.folderDropdownItemActive]}
-                  onPress={() => { setActiveFolder(null); setShowFolderDropdown(false); }}
-                >
-                  <Folder size={14} color={!activeFolder ? "#8B5CF6" : (isDarkMode ? "#9CA3AF" : "#64748b")} />
-                  <Text style={[styles.folderDropdownItemText, !isDarkMode && styles.folderDropdownItemTextLight, !activeFolder && styles.folderDropdownItemTextActive]}>All Notes</Text>
-                </Pressable>
-                {folders.map((folder) => (
-                  <Pressable 
-                    key={folder.id}
-                    style={[styles.folderDropdownItem, activeFolder === folder.id && styles.folderDropdownItemActive]}
-                    onPress={() => { setActiveFolder(folder.id); setShowFolderDropdown(false); }}
-                  >
-                    <Folder size={14} color={activeFolder === folder.id ? "#8B5CF6" : (isDarkMode ? "#9CA3AF" : "#64748b")} />
-                    <Text style={[styles.folderDropdownItemText, !isDarkMode && styles.folderDropdownItemTextLight, activeFolder === folder.id && styles.folderDropdownItemTextActive]} numberOfLines={1}>{folder.name}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-          </View>
-          
-          {/* Flexible spacer */}
-          <View style={{ flex: 1 }} />
-          
-          {/* Middle: Search, Undo, Redo - smaller icons */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Pressable style={[styles.headerIconButton, { width: 24 * headerScale, height: 24 * headerScale, borderRadius: 5 * headerScale }]} onPress={() => setShowSearchModal(true)}>
-              <Search size={Math.round(14 * headerScale)} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
-            </Pressable>
-            <Pressable 
-              style={[styles.headerIconButton, { width: 24 * headerScale, height: 24 * headerScale, borderRadius: 5 * headerScale }, historyIndex <= 0 && styles.headerIconButtonDisabled]} 
-              onPress={handleUndo}
-              disabled={historyIndex <= 0}
-            >
-              <Undo2 size={Math.round(14 * headerScale)} color={historyIndex > 0 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
-            </Pressable>
-            <Pressable 
-              style={[styles.headerIconButton, { width: 24 * headerScale, height: 24 * headerScale, borderRadius: 5 * headerScale }, historyIndex >= history.length - 1 && styles.headerIconButtonDisabled]} 
-              onPress={handleRedo}
-              disabled={historyIndex >= history.length - 1}
-            >
-              <Redo2 size={Math.round(14 * headerScale)} color={historyIndex < history.length - 1 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
-            </Pressable>
-          </View>
-          
-          {/* Flexible spacer */}
-          <View style={{ flex: 1 }} />
-          
-          {/* Right: Theme toggle + Export + Note count - smaller */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Pressable 
-              style={[styles.headerIconButton, { width: 24 * headerScale, height: 24 * headerScale, borderRadius: 5 * headerScale }, styles.themeToggleButton, !isDarkMode && styles.themeToggleButtonLight]} 
-              onPress={() => setIsDarkMode(!isDarkMode)}
-            >
-              {isDarkMode ? <Sun size={Math.round(14 * headerScale)} color="#F59E0B" /> : <Moon size={Math.round(14 * headerScale)} color="#64748B" />}
-            </Pressable>
-            
-            <Pressable style={[styles.headerIconButton, { width: 24 * headerScale, height: 24 * headerScale, borderRadius: 5 * headerScale }]} onPress={() => setShowExportModal(true)}>
-              <Download size={Math.round(14 * headerScale)} color={isDarkMode ? "#9CA3AF" : "#6B7280"} />
-            </Pressable>
-            
-            <View style={[
-              { paddingHorizontal: 5 * headerScale, paddingVertical: 2 * headerScale, borderRadius: 6 * headerScale, minWidth: 18 * headerScale },
-              styles.headerNoteCount, 
-              !isDarkMode && styles.headerNoteCountLight,
-              notes.length >= 61 && styles.headerNoteCountRed,
-              notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountYellow,
-              notes.length < 40 && styles.headerNoteCountGreen,
-            ]}>
-              <Text style={[
-                styles.headerNoteCountText,
-                { fontSize: 10 * headerScale },
-                notes.length >= 61 && styles.headerNoteCountTextRed,
-                notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountTextYellow,
-                notes.length < 40 && styles.headerNoteCountTextGreen,
-              ]}>{notes.length}{!isPremium && `/${FREE_NOTE_LIMIT}`}</Text>
+          {/* Logo - tap to go home */}
+          <Pressable onPress={goToHome} style={styles.headerLogoButton}>
+            <View style={[styles.headerLogo, { width: 32 * headerScale, height: 32 * headerScale, borderRadius: 6 * headerScale }]}>
+              <Image source={require('./assets/logo.png')} style={[styles.logoImage, { width: 32 * headerScale, height: 32 * headerScale, borderRadius: 6 * headerScale }]} resizeMode="contain" />
             </View>
+          </Pressable>
+          
+          {/* Back button when in folder view */}
+          {currentView === 'folder' && (
+            <Pressable onPress={goToHome} style={[styles.headerIconButton, { marginLeft: 8 }]}>
+              <ArrowLeft size={20} color={isDarkMode ? "#9CA3AF" : "#64748b"} />
+            </Pressable>
+          )}
+          
+          {/* Title */}
+          <Text style={[styles.headerTitle, !isDarkMode && styles.headerTitleLight]} numberOfLines={1}>
+            {currentView === 'home' ? 'Folders' : activeFolderName}
+          </Text>
+          
+          {/* Spacer */}
+          <View style={{ flex: 1 }} />
+          
+          {/* Undo/Redo - only in folder view */}
+          {currentView === 'folder' && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Pressable 
+                style={[styles.headerIconButton, historyIndex <= 0 && styles.headerIconButtonDisabled]} 
+                onPress={handleUndo}
+                disabled={historyIndex <= 0}
+              >
+                <Undo2 size={18} color={historyIndex > 0 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
+              </Pressable>
+              <Pressable 
+                style={[styles.headerIconButton, historyIndex >= history.length - 1 && styles.headerIconButtonDisabled]} 
+                onPress={handleRedo}
+                disabled={historyIndex >= history.length - 1}
+              >
+                <Redo2 size={18} color={historyIndex < history.length - 1 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
+              </Pressable>
+            </View>
+          )}
+          
+          {/* Theme toggle */}
+          <Pressable 
+            style={[styles.headerIconButton, styles.themeToggleButton, !isDarkMode && styles.themeToggleButtonLight]} 
+            onPress={() => setIsDarkMode(!isDarkMode)}
+          >
+            {isDarkMode ? <Sun size={18} color="#F59E0B" /> : <Moon size={18} color="#64748B" />}
+          </Pressable>
+          
+          {/* Media counter */}
+          <View style={[
+            styles.headerNoteCount,
+            !isDarkMode && styles.headerNoteCountLight,
+            notes.length >= 61 && styles.headerNoteCountRed,
+            notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountYellow,
+            notes.length < 40 && styles.headerNoteCountGreen,
+          ]}>
+            <Text style={[
+              styles.headerNoteCountText,
+              notes.length >= 61 && styles.headerNoteCountTextRed,
+              notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountTextYellow,
+              notes.length < 40 && styles.headerNoteCountTextGreen,
+            ]}>{notes.length + todos.length + noteStickers.length}</Text>
           </View>
         </View>
 
@@ -1666,18 +1807,79 @@ export default function App() {
         <View style={styles.mainContent}>
           {/* ===== CANVAS AREA ===== */}
           <View style={styles.canvasArea}>
-            {/* Canvas with Gesture-based pan/zoom */}
-            <CanvasWithGestures
-              scale={scale}
-              setScale={setScale}
-              draggingItem={draggingItem}
-              isDarkMode={isDarkMode}
-              renderGrid={renderGrid}
-              filteredNotes={filteredNotes}
-              todos={todos.filter(t => activeFolder === null || t.folderId === activeFolder)}
-              filteredStickers={filteredStickers}
-              tables={tables.filter(t => activeFolder === null || t.folderId === activeFolder)}
-              sources={sources.filter(s => activeFolder === null || s.folderId === activeFolder)}
+            {/* Show Home Canvas (folders) or Folder Canvas (items) */}
+            {currentView === 'home' ? (
+              /* HOME VIEW - Folder Cards Canvas */
+              <View style={[styles.canvasScrollView, { flex: 1 }]}>
+                <View style={[
+                  styles.canvasContent,
+                  !isDarkMode && styles.canvasContentLight,
+                  { width: canvasSize.width, height: canvasSize.height },
+                ]}>
+                  {/* Grid */}
+                  <View style={[styles.gridContainer, { width: canvasSize.width, height: canvasSize.height }]}>{renderGrid()}</View>
+
+                  {/* Empty State */}
+                  {folders.length === 0 && (
+                    <View style={[styles.emptyState, !isDarkMode && styles.emptyStateLight]}>
+                      <Text style={styles.emptyStateIcon}>📁</Text>
+                      <Text style={[styles.emptyStateTitle, !isDarkMode && styles.emptyStateTitleLight]}>No folders yet!</Text>
+                      <Text style={styles.emptyStateSubtitle}>Tap + New Folder to create one</Text>
+                    </View>
+                  )}
+
+                  {/* Folder Cards */}
+                  {folders.map((folder, index) => (
+                    <View
+                      key={folder.id}
+                      style={[
+                        styles.folderCard,
+                        !isDarkMode && styles.folderCardLight,
+                        { 
+                          position: 'absolute',
+                          left: folder.position?.x || (100 + (index % 3) * 200),
+                          top: folder.position?.y || (100 + Math.floor(index / 3) * 220),
+                        }
+                      ]}
+                    >
+                      <Pressable 
+                        onPress={() => goToFolder(folder.id)}
+                        onLongPress={() => setFolderOptionsModal(folder)}
+                        style={styles.folderCardInner}
+                      >
+                        {folder.coverImage ? (
+                          <Image source={{ uri: folder.coverImage }} style={styles.folderCoverImage} resizeMode="cover" />
+                        ) : (
+                          <View style={[styles.folderIconContainer, !isDarkMode && styles.folderIconContainerLight]}>
+                            <Folder size={48} color="#F59E0B" />
+                          </View>
+                        )}
+                        <View style={styles.folderCardInfo}>
+                          <Text style={[styles.folderCardName, !isDarkMode && styles.folderCardNameLight]} numberOfLines={1}>
+                            {folder.name}
+                          </Text>
+                          <Text style={[styles.folderCardCount, !isDarkMode && styles.folderCardCountLight]}>
+                            {getFolderItemCount(folder.id)} items
+                          </Text>
+                        </View>
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : (
+              /* FOLDER VIEW - Notes/Items Canvas */
+              <CanvasWithGestures
+                scale={scale}
+                setScale={setScale}
+                draggingItem={draggingItem}
+                isDarkMode={isDarkMode}
+                renderGrid={renderGrid}
+                filteredNotes={filteredNotes}
+                todos={todos.filter(t => activeFolder === null || t.folderId === activeFolder)}
+                filteredStickers={filteredStickers}
+                tables={tables.filter(t => activeFolder === null || t.folderId === activeFolder)}
+                sources={sources.filter(s => activeFolder === null || s.folderId === activeFolder)}
               images={images.filter(i => activeFolder === null || i.folderId === activeFolder)}
               drawings={drawings}
               currentPath={currentPath}
@@ -1694,7 +1896,7 @@ export default function App() {
               deleteImage={deleteImage}
             />
             
-            {/* Drawing Overlay - captures touch for drawing */}
+            {/* Drawing Overlay - captures touch for smooth SVG drawing */}
             {isDrawingMode && (
               <View 
                 style={styles.drawingCanvasOverlay}
@@ -1702,40 +1904,51 @@ export default function App() {
                 onMoveShouldSetResponder={() => true}
                 onResponderGrant={(e) => {
                   const { locationX, locationY } = e.nativeEvent;
-                  setCurrentPath([{ x: locationX / scale, y: locationY / scale }]);
+                  const x = Math.max(0, locationX / scale);
+                  const y = Math.max(0, locationY / scale);
+                  setCurrentPath([{ x, y }]);
+                  setCurrentSvgPath(`M ${x} ${y}`);
                 }}
                 onResponderMove={(e) => {
                   const { locationX, locationY } = e.nativeEvent;
-                  const point = { x: locationX / scale, y: locationY / scale };
-                  setCurrentPath(prev => [...prev, point]);
+                  const x = Math.max(0, locationX / scale);
+                  const y = Math.max(0, locationY / scale);
+                  setCurrentPath(prev => {
+                    const newPath = [...prev, { x, y }];
+                    // Generate smooth SVG path using quadratic bezier curves
+                    if (newPath.length >= 2) {
+                      setCurrentSvgPath(pointsToPath(newPath));
+                    }
+                    return newPath;
+                  });
                 }}
                 onResponderRelease={() => {
                   if (currentPath.length > 1) {
                     setDrawings(prev => [...prev, { 
-                      path: currentPath, 
-                      color: drawingColor, 
-                      brushSize: brushSize,
-                      isEraser: isEraser 
+                      id: Date.now(),
+                      path: pointsToPath(currentPath), 
+                      color: isEraser ? (isDarkMode ? '#0a0f1a' : '#f1f5f9') : drawingColor, 
+                      brushSize: isEraser ? brushSize * 3 : brushSize,
+                      folderId: activeFolder,
                     }]);
                   }
                   setCurrentPath([]);
+                  setCurrentSvgPath('');
                 }}
               >
-                {/* Show current stroke being drawn */}
-                {currentPath.map((point, idx) => (
-                  <View
-                    key={idx}
-                    style={{
-                      position: 'absolute',
-                      left: point.x * scale - brushSize / 2,
-                      top: point.y * scale - brushSize / 2,
-                      width: brushSize,
-                      height: brushSize,
-                      borderRadius: brushSize / 2,
-                      backgroundColor: isEraser ? 'rgba(255,255,255,0.5)' : drawingColor,
-                    }}
-                  />
-                ))}
+                {/* Show current SVG stroke being drawn */}
+                {currentSvgPath && (
+                  <Svg style={StyleSheet.absoluteFill}>
+                    <Path
+                      d={currentSvgPath}
+                      stroke={isEraser ? 'rgba(255,255,255,0.3)' : drawingColor}
+                      strokeWidth={isEraser ? brushSize * 3 : brushSize}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                )}
               </View>
             )}
           </View>
@@ -1815,6 +2028,7 @@ export default function App() {
         {/* ===== BOTTOM DOCK (Scrollable) ===== */}
         <BottomDock 
           isDarkMode={isDarkMode}
+          currentView={currentView}
           addNote={addNote}
           addTodo={addTodo}
           addNoteSticker={addNoteSticker}
@@ -1825,9 +2039,12 @@ export default function App() {
           setIsDrawingMode={setIsDrawingMode}
           setShowNewFolderModal={setShowNewFolderModal}
           setIsTrashOpen={setIsTrashOpen}
+          setShowSearchModal={setShowSearchModal}
+          setShowExportModal={setShowExportModal}
           trashZoneRef={trashZoneRef}
           setTrashZoneLayout={setTrashZoneLayout}
           isOverTrash={isOverTrash}
+          onGoToFolders={goToHome}
         />
 
         {/* Floating Trash Zone when dragging */}
@@ -2117,6 +2334,195 @@ export default function App() {
           </View>
         </Modal>
 
+        {/* ===== FOLDER OPTIONS MODAL ===== */}
+        <Modal visible={folderOptionsModal !== null} animationType="fade" transparent>
+          <Pressable style={styles.modalOverlay} onPress={() => setFolderOptionsModal(null)}>
+            <View style={styles.nameModalContent}>
+              <Text style={styles.nameModalTitle}>{folderOptionsModal?.name}</Text>
+              <View style={styles.folderOptionsButtons}>
+                <Pressable
+                  style={styles.folderOptionBtn}
+                  onPress={() => folderOptionsModal && addFolderCoverImage(folderOptionsModal.id)}
+                >
+                  <ImageIcon size={20} color="#8B5CF6" />
+                  <Text style={styles.folderOptionBtnText}>Set Cover Image</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.folderOptionBtn, styles.folderOptionBtnDanger]}
+                  onPress={() => {
+                    if (folderOptionsModal) {
+                      Alert.alert(
+                        'Delete Folder',
+                        `Delete "${folderOptionsModal.name}"? Items will be moved to unorganized.`,
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Delete', style: 'destructive', onPress: () => { deleteFolder(folderOptionsModal.id); setFolderOptionsModal(null); } }
+                        ]
+                      );
+                    }
+                  }}
+                >
+                  <Trash2 size={20} color="#ef4444" />
+                  <Text style={[styles.folderOptionBtnText, { color: '#ef4444' }]}>Delete Folder</Text>
+                </Pressable>
+              </View>
+              <Pressable style={styles.modalCancelButton} onPress={() => setFolderOptionsModal(null)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Modal>
+
+        {/* ===== TODO EDITOR MODAL ===== */}
+        <Modal visible={viewingTodo !== null} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.todoEditorModal}>
+              <View style={styles.noteEditorHeader}>
+                <CheckSquare size={20} color="#8B5CF6" />
+                <TextInput
+                  style={styles.todoEditorTitleInput}
+                  value={editingTodoTitle}
+                  onChangeText={setEditingTodoTitle}
+                  placeholder="Todo title..."
+                  placeholderTextColor="#6b7280"
+                />
+                <Pressable onPress={() => {
+                  if (viewingTodo) {
+                    updateTodo(viewingTodo.id, { title: editingTodoTitle, items: editingTodoItems.filter(i => i.text.trim()) });
+                  }
+                  setViewingTodo(null);
+                }} style={styles.noteEditorClose}>
+                  <X size={20} color="#9CA3AF" />
+                </Pressable>
+              </View>
+              <ScrollView style={styles.todoEditorContent}>
+                {editingTodoItems.map((item, idx) => (
+                  <View key={idx} style={styles.todoEditorItem}>
+                    <Pressable
+                      onPress={() => {
+                        const newItems = [...editingTodoItems];
+                        newItems[idx] = { ...item, completed: !item.completed };
+                        setEditingTodoItems(newItems);
+                      }}
+                      style={[styles.todoEditorCheckbox, item.completed && styles.todoEditorCheckboxChecked]}
+                    >
+                      {item.completed && <Text style={styles.todoCheckmark}>✓</Text>}
+                    </Pressable>
+                    <TextInput
+                      style={[styles.todoEditorItemInput, item.completed && styles.todoEditorItemCompleted]}
+                      value={item.text}
+                      onChangeText={(text) => {
+                        const newItems = [...editingTodoItems];
+                        newItems[idx] = { ...item, text };
+                        setEditingTodoItems(newItems);
+                      }}
+                      placeholder="Enter task..."
+                      placeholderTextColor="#6b7280"
+                    />
+                    <Pressable
+                      onPress={() => {
+                        const newItems = editingTodoItems.filter((_, i) => i !== idx);
+                        setEditingTodoItems(newItems);
+                      }}
+                      style={styles.todoEditorDeleteItem}
+                    >
+                      <Trash2 size={16} color="#ef4444" />
+                    </Pressable>
+                  </View>
+                ))}
+                <Pressable
+                  style={styles.todoEditorAddItem}
+                  onPress={() => setEditingTodoItems([...editingTodoItems, { text: '', completed: false }])}
+                >
+                  <Plus size={18} color="#8B5CF6" />
+                  <Text style={styles.todoEditorAddItemText}>Add task</Text>
+                </Pressable>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ===== TABLE EDITOR MODAL ===== */}
+        <Modal visible={viewingTable !== null} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.tableEditorModal}>
+              <View style={styles.noteEditorHeader}>
+                <Table size={20} color="#8B5CF6" />
+                <TextInput
+                  style={styles.todoEditorTitleInput}
+                  value={editingTableTitle}
+                  onChangeText={setEditingTableTitle}
+                  placeholder="Table title..."
+                  placeholderTextColor="#6b7280"
+                />
+                <Pressable onPress={() => {
+                  if (viewingTable) {
+                    updateTable(viewingTable.id, { title: editingTableTitle, rows: editingTableRows });
+                  }
+                  setViewingTable(null);
+                }} style={styles.noteEditorClose}>
+                  <X size={20} color="#9CA3AF" />
+                </Pressable>
+              </View>
+              <ScrollView style={styles.tableEditorContent} horizontal>
+                <View>
+                  {editingTableRows.map((row, rowIdx) => (
+                    <View key={rowIdx} style={styles.tableEditorRow}>
+                      {row.map((cell, cellIdx) => (
+                        <TextInput
+                          key={cellIdx}
+                          style={[styles.tableEditorCell, rowIdx === 0 && styles.tableEditorHeaderCell]}
+                          value={cell}
+                          onChangeText={(text) => {
+                            const newRows = [...editingTableRows];
+                            newRows[rowIdx][cellIdx] = text;
+                            setEditingTableRows(newRows);
+                          }}
+                          placeholder={rowIdx === 0 ? 'Header' : 'Cell'}
+                          placeholderTextColor="#6b7280"
+                        />
+                      ))}
+                      {rowIdx > 0 && (
+                        <Pressable
+                          style={styles.tableEditorDeleteRow}
+                          onPress={() => {
+                            const newRows = editingTableRows.filter((_, i) => i !== rowIdx);
+                            setEditingTableRows(newRows);
+                          }}
+                        >
+                          <Minus size={16} color="#ef4444" />
+                        </Pressable>
+                      )}
+                    </View>
+                  ))}
+                  <View style={styles.tableEditorActions}>
+                    <Pressable
+                      style={styles.tableEditorAddBtn}
+                      onPress={() => {
+                        const newRow = editingTableRows[0].map(() => '');
+                        setEditingTableRows([...editingTableRows, newRow]);
+                      }}
+                    >
+                      <Plus size={16} color="#8B5CF6" />
+                      <Text style={styles.tableEditorAddBtnText}>Add Row</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.tableEditorAddBtn}
+                      onPress={() => {
+                        const newRows = editingTableRows.map((row, idx) => [...row, idx === 0 ? 'Header' : '']);
+                        setEditingTableRows(newRows);
+                      }}
+                    >
+                      <Plus size={16} color="#8B5CF6" />
+                      <Text style={styles.tableEditorAddBtnText}>Add Column</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
         {/* ===== SEARCH MODAL ===== */}
         <Modal visible={showSearchModal} animationType="fade" transparent>
           <Pressable style={styles.searchModalOverlay} onPress={() => setShowSearchModal(false)}>
@@ -2358,10 +2764,252 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(51, 65, 85, 0.5)',
     borderRadius: 8,
+    width: 36,
+    height: 36,
   },
   headerIconButtonDisabled: {
     opacity: 0.4,
   },
+  headerLogoButton: {
+    padding: 2,
+  },
+  headerTitle: {
+    color: '#f1f5f9',
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: 8,
+    letterSpacing: 0.2,
+  },
+  headerTitleLight: {
+    color: '#1e293b',
+  },
+  
+  // Folder Card styles for home view
+  folderCard: {
+    width: 170,
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.6)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  folderCardLight: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e2e8f0',
+  },
+  folderCardInner: {
+    width: '100%',
+  },
+  folderIconContainer: {
+    height: 120,
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  folderIconContainerLight: {
+    backgroundColor: 'rgba(245, 158, 11, 0.05)',
+  },
+  folderCoverImage: {
+    width: '100%',
+    height: 120,
+  },
+  folderCardInfo: {
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(51, 65, 85, 0.4)',
+  },
+  folderCardName: {
+    color: '#f1f5f9',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  folderCardNameLight: {
+    color: '#1e293b',
+  },
+  folderCardCount: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  folderCardCountLight: {
+    color: '#94a3b8',
+  },
+  
+  // Folder options modal
+  folderOptionsButtons: {
+    width: '100%',
+    gap: 12,
+    marginBottom: 16,
+  },
+  folderOptionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(51, 65, 85, 0.5)',
+    padding: 14,
+    borderRadius: 12,
+  },
+  folderOptionBtnDanger: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
+  folderOptionBtnText: {
+    color: '#f1f5f9',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  
+  // Todo editor styles
+  todoEditorModal: {
+    backgroundColor: 'rgba(15, 23, 42, 0.98)',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.6)',
+    borderBottomWidth: 0,
+  },
+  todoEditorTitleInput: {
+    flex: 1,
+    color: '#f1f5f9',
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: 12,
+  },
+  todoEditorContent: {
+    padding: 16,
+    maxHeight: 400,
+  },
+  todoEditorItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 12,
+  },
+  todoEditorCheckbox: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#4b5563',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+  },
+  todoEditorCheckboxChecked: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  todoEditorItemInput: {
+    flex: 1,
+    color: '#f1f5f9',
+    fontSize: 15,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+    borderRadius: 8,
+  },
+  todoEditorItemCompleted: {
+    textDecorationLine: 'line-through',
+    color: '#64748b',
+  },
+  todoEditorDeleteItem: {
+    padding: 6,
+  },
+  todoEditorAddItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 8,
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.3)',
+    borderStyle: 'dashed',
+  },
+  todoEditorAddItemText: {
+    color: '#a78bfa',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  todoMoreItems: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  
+  // Table editor styles
+  tableEditorModal: {
+    backgroundColor: 'rgba(15, 23, 42, 0.98)',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.6)',
+    borderBottomWidth: 0,
+  },
+  tableEditorContent: {
+    padding: 16,
+  },
+  tableEditorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tableEditorCell: {
+    width: 100,
+    padding: 10,
+    backgroundColor: 'rgba(51, 65, 85, 0.4)',
+    borderWidth: 1,
+    borderColor: 'rgba(71, 85, 105, 0.5)',
+    color: '#f1f5f9',
+    fontSize: 13,
+  },
+  tableEditorHeaderCell: {
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    fontWeight: '700',
+  },
+  tableEditorDeleteRow: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  tableEditorActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  tableEditorAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.3)',
+  },
+  tableEditorAddBtnText: {
+    color: '#a78bfa',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tableTapToEdit: {
+    color: '#64748b',
+    fontSize: 11,
+    textAlign: 'center',
+    paddingVertical: 8,
+    fontStyle: 'italic',
+  },
+  
   folderDropdownWrapper: {
     position: 'relative',
     zIndex: 100,
@@ -2762,7 +3410,7 @@ const styles = StyleSheet.create({
   tableHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     backgroundColor: 'rgba(30, 41, 59, 0.9)',
