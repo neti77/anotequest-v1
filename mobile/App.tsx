@@ -62,16 +62,13 @@ import {
   Home,
 } from 'lucide-react-native';
 
-// Canvas fills whole view - no minimum, grows with content
-const CANVAS_PADDING = 200;
+// Canvas starts small and grows with content - only to right/bottom
+const CANVAS_PADDING = 100;
 const NOTE_WIDTH = 230;
-const INITIAL_CANVAS_SIZE = NOTE_WIDTH * 6; // Start with space for ~6 notes
+const INITIAL_CANVAS_SIZE = NOTE_WIDTH * 2; // Start smaller - space for ~2 notes
 
-// Drawing colors
-const DRAWING_COLORS = [
-  '#3b82f6', '#ef4444', '#22c55e', '#eab308', '#8b5cf6', '#f97316',
-  '#ec4899', '#14b8a6', '#000000', '#6b7280', '#ffffff'
-];
+// Drawing colors - 5 main colors
+const DRAWING_COLORS = ['#ffffff', '#000000', '#ef4444', '#3b82f6', '#eab308'];
 
 // Helper to convert points array to SVG path string with smooth curves
 const pointsToPath = (points: {x: number, y: number}[]): string => {
@@ -284,6 +281,13 @@ const BottomDock: React.FC<{
   setTrashZoneLayout: (layout: any) => void;
   isOverTrash: boolean;
   onGoToFolders: () => void;
+  // Drawing props
+  drawingColor: string;
+  setDrawingColor: (color: string) => void;
+  brushSize: number;
+  setBrushSize: (size: number) => void;
+  isEraser: boolean;
+  setIsEraser: (val: boolean) => void;
 }> = ({
   isDarkMode,
   currentView,
@@ -303,8 +307,17 @@ const BottomDock: React.FC<{
   setTrashZoneLayout,
   isOverTrash,
   onGoToFolders,
+  drawingColor,
+  setDrawingColor,
+  brushSize,
+  setBrushSize,
+  isEraser,
+  setIsEraser,
 }) => {
   const insets = useSafeAreaInsets();
+  const [sliderActive, setSliderActive] = useState(false);
+  const sliderStartX = useRef(0);
+  const sliderStartSize = useRef(brushSize);
   
   // HOME VIEW - Only folder creation (no trash)
   if (currentView === 'home') {
@@ -326,7 +339,77 @@ const BottomDock: React.FC<{
     );
   }
   
-  // FOLDER VIEW - All tools including Search and Export
+  // FOLDER VIEW - DRAWING MODE: Show drawing tools
+  if (isDrawingMode) {
+    return (
+      <View style={[
+        styles.bottomDockContainer,
+        !isDarkMode && styles.bottomDockContainerLight,
+        { paddingBottom: Math.max(insets.bottom, 8) }
+      ]}>
+        <View style={styles.drawingToolbarRow}>
+          {/* Close drawing mode */}
+          <Pressable style={styles.drawingToolBtn} onPress={() => setIsDrawingMode(false)}>
+            <X size={20} color="#EF4444" />
+          </Pressable>
+          
+          {/* Pen tool */}
+          <Pressable 
+            style={[styles.drawingToolBtn, !isEraser && styles.drawingToolBtnActive]} 
+            onPress={() => setIsEraser(false)}
+          >
+            <Pencil size={20} color={!isEraser ? "#F59E0B" : (isDarkMode ? "#9CA3AF" : "#64748b")} />
+          </Pressable>
+          
+          {/* Eraser tool */}
+          <Pressable 
+            style={[styles.drawingToolBtn, isEraser && styles.drawingToolBtnActive]} 
+            onPress={() => setIsEraser(true)}
+          >
+            <Eraser size={20} color={isEraser ? "#F59E0B" : (isDarkMode ? "#9CA3AF" : "#64748b")} />
+          </Pressable>
+          
+          {/* Size slider */}
+          <View 
+            style={[styles.drawingSizeSlider, sliderActive && styles.drawingSizeSliderActive]}
+            onStartShouldSetResponder={() => true}
+            onMoveShouldSetResponder={() => true}
+            onResponderGrant={(e) => {
+              setSliderActive(true);
+              sliderStartX.current = e.nativeEvent.pageX;
+              sliderStartSize.current = brushSize;
+            }}
+            onResponderMove={(e) => {
+              const dx = e.nativeEvent.pageX - sliderStartX.current;
+              const newSize = Math.max(1, Math.min(20, sliderStartSize.current + Math.round(dx / 10)));
+              setBrushSize(newSize);
+            }}
+            onResponderRelease={() => {
+              setSliderActive(false);
+            }}
+          >
+            <View style={[styles.drawingSizeDot, { width: brushSize + 4, height: brushSize + 4, borderRadius: (brushSize + 4) / 2 }]} />
+            <Text style={styles.drawingSizeText}>{brushSize}px</Text>
+          </View>
+          
+          {/* Color options - 5 main colors */}
+          {DRAWING_COLORS.map((color) => (
+            <Pressable
+              key={color}
+              style={[
+                styles.drawingColorBtn,
+                { backgroundColor: color, borderColor: color === '#ffffff' ? '#ccc' : color },
+                drawingColor === color && !isEraser && styles.drawingColorBtnActive,
+              ]}
+              onPress={() => { setDrawingColor(color); setIsEraser(false); }}
+            />
+          ))}
+        </View>
+      </View>
+    );
+  }
+  
+  // FOLDER VIEW - Normal tools
   return (
     <View style={[
       styles.bottomDockContainer,
@@ -388,14 +471,14 @@ const BottomDock: React.FC<{
           <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Source</Text>
         </Pressable>
         
-        <Pressable style={styles.dockButton} onPress={() => setIsDrawingMode(!isDrawingMode)}>
-          <View style={[styles.dockButtonInner, isDrawingMode && styles.dockButtonActive, !isDarkMode && styles.dockButtonInnerLight]}>
-            <Pencil size={16} color={isDrawingMode ? "#F59E0B" : (isDarkMode ? "#fff" : "#64748b")} />
+        <Pressable style={styles.dockButton} onPress={() => setIsDrawingMode(true)}>
+          <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
+            <Pencil size={16} color={isDarkMode ? "#fff" : "#64748b"} />
           </View>
           <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Draw</Text>
         </Pressable>
         
-        {/* Search - moved from header */}
+        {/* Search */}
         <Pressable style={styles.dockButton} onPress={() => setShowSearchModal(true)}>
           <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
             <Search size={16} color={isDarkMode ? "#fff" : "#64748b"} />
@@ -403,7 +486,7 @@ const BottomDock: React.FC<{
           <Text style={[styles.dockButtonText, !isDarkMode && styles.dockButtonTextLight]}>Search</Text>
         </Pressable>
         
-        {/* Export - moved from header */}
+        {/* Export */}
         <Pressable style={styles.dockButton} onPress={() => setShowExportModal(true)}>
           <View style={[styles.dockButtonInner, !isDarkMode && styles.dockButtonInnerLight]}>
             <Download size={16} color={isDarkMode ? "#fff" : "#64748b"} />
@@ -1874,62 +1957,73 @@ export default function App() {
           <SafeAreaView style={[styles.container, !isDarkMode && styles.containerLight]} edges={['top', 'left', 'right']}>
           <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
 
-        {/* ===== SIMPLIFIED HEADER ===== */}
-        <View style={[styles.header, !isDarkMode && styles.headerLight]}>
-          {/* Logo - tap to go home */}
-          <Pressable onPress={goToHome} style={styles.headerLogoButton}>
-            <View style={[styles.headerLogo, { width: 32 * headerScale, height: 32 * headerScale, borderRadius: 6 * headerScale }]}>
-              <Image source={require('./assets/logo.png')} style={[styles.logoImage, { width: 32 * headerScale, height: 32 * headerScale, borderRadius: 6 * headerScale }]} resizeMode="contain" />
-            </View>
-          </Pressable>
-          
-          {/* Back button when in folder view */}
-          {currentView === 'folder' && (
-            <Pressable onPress={goToHome} style={[styles.headerIconButton, { marginLeft: 8 }]}>
-              <ArrowLeft size={20} color={isDarkMode ? "#9CA3AF" : "#64748b"} />
-            </Pressable>
+        {/* ===== HEADER ===== */}
+        <View style={[
+          styles.header, 
+          !isDarkMode && styles.headerLight,
+          currentView === 'folder' && styles.headerCompact
+        ]}>
+          {/* Home view: Logo + Title */}
+          {currentView === 'home' && (
+            <>
+              <Pressable onPress={goToHome} style={styles.headerLogoButton}>
+                <View style={[styles.headerLogo, { width: 32 * headerScale, height: 32 * headerScale, borderRadius: 6 * headerScale }]}>
+                  <Image source={require('./assets/logo.png')} style={[styles.logoImage, { width: 32 * headerScale, height: 32 * headerScale, borderRadius: 6 * headerScale }]} resizeMode="contain" />
+                </View>
+              </Pressable>
+              <Text style={[styles.headerTitle, !isDarkMode && styles.headerTitleLight]} numberOfLines={1}>
+                Folders
+              </Text>
+            </>
           )}
           
-          {/* Title */}
-          <Text style={[styles.headerTitle, !isDarkMode && styles.headerTitleLight]} numberOfLines={1}>
-            {currentView === 'home' ? 'Folders' : activeFolderName}
-          </Text>
+          {/* Folder view: Back arrow + folder name (compact) */}
+          {currentView === 'folder' && (
+            <>
+              <Pressable onPress={goToHome} style={styles.headerBackBtn}>
+                <ArrowLeft size={16} color={isDarkMode ? "#9CA3AF" : "#64748b"} />
+              </Pressable>
+              <Text style={[styles.headerTitleCompact, !isDarkMode && styles.headerTitleLight]} numberOfLines={1}>
+                {activeFolderName}
+              </Text>
+            </>
+          )}
           
           {/* Spacer */}
           <View style={{ flex: 1 }} />
           
           {/* Undo/Redo - only in folder view */}
           {currentView === 'folder' && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Pressable 
-                style={[styles.headerIconButton, historyIndex <= 0 && styles.headerIconButtonDisabled]} 
+                style={[styles.headerIconBtnSmall, historyIndex <= 0 && styles.headerIconButtonDisabled]} 
                 onPress={handleUndo}
                 disabled={historyIndex <= 0}
               >
-                <Undo2 size={18} color={historyIndex > 0 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
+                <Undo2 size={14} color={historyIndex > 0 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
               </Pressable>
               <Pressable 
-                style={[styles.headerIconButton, historyIndex >= history.length - 1 && styles.headerIconButtonDisabled]} 
+                style={[styles.headerIconBtnSmall, historyIndex >= history.length - 1 && styles.headerIconButtonDisabled]} 
                 onPress={handleRedo}
                 disabled={historyIndex >= history.length - 1}
               >
-                <Redo2 size={18} color={historyIndex < history.length - 1 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
+                <Redo2 size={14} color={historyIndex < history.length - 1 ? (isDarkMode ? "#9CA3AF" : "#6B7280") : (isDarkMode ? "#4B5563" : "#CBD5E1")} />
               </Pressable>
             </View>
           )}
           
-          {/* Right side icons with more spacing */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginLeft: 16 }}>
+          {/* Right side icons */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: currentView === 'folder' ? 8 : 12, marginLeft: currentView === 'folder' ? 8 : 16 }}>
             {/* Media counter */}
             <View style={[
-              styles.headerNoteCount,
+              currentView === 'folder' ? styles.headerNoteCountSmall : styles.headerNoteCount,
               !isDarkMode && styles.headerNoteCountLight,
               notes.length >= 61 && styles.headerNoteCountRed,
               notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountYellow,
               notes.length < 40 && styles.headerNoteCountGreen,
             ]}>
               <Text style={[
-                styles.headerNoteCountText,
+                currentView === 'folder' ? styles.headerNoteCountTextSmall : styles.headerNoteCountText,
                 notes.length >= 61 && styles.headerNoteCountTextRed,
                 notes.length >= 40 && notes.length <= 60 && styles.headerNoteCountTextYellow,
                 notes.length < 40 && styles.headerNoteCountTextGreen,
@@ -1938,10 +2032,10 @@ export default function App() {
             
             {/* Theme toggle */}
             <Pressable 
-              style={[styles.headerIconButton, styles.themeToggleButton, !isDarkMode && styles.themeToggleButtonLight]} 
+              style={[currentView === 'folder' ? styles.headerIconBtnSmall : styles.headerIconButton, styles.themeToggleButton, !isDarkMode && styles.themeToggleButtonLight]} 
               onPress={() => setIsDarkMode(!isDarkMode)}
             >
-              {isDarkMode ? <Sun size={18} color="#F59E0B" /> : <Moon size={18} color="#64748B" />}
+              {isDarkMode ? <Sun size={currentView === 'folder' ? 14 : 18} color="#F59E0B" /> : <Moon size={currentView === 'folder' ? 14 : 18} color="#64748B" />}
             </Pressable>
             
             {/* Settings - only in home view */}
@@ -2071,77 +2165,6 @@ export default function App() {
           </View>
         </View>
 
-        {/* Vertical Drawing Toolbar - Draggable like frontend (only in folder view) */}
-        {currentView === 'folder' && isDrawingMode && (
-          <View 
-            style={[
-              styles.verticalDrawingToolbar,
-              { left: drawingToolbarPosition.x, top: drawingToolbarPosition.y }
-            ]}
-            {...{
-              onStartShouldSetResponder: () => true,
-              onMoveShouldSetResponder: () => true,
-              onResponderMove: (e: any) => {
-                setDrawingToolbarPosition({
-                  x: Math.max(0, Math.min(windowWidth - 60, e.nativeEvent.pageX - 30)),
-                  y: Math.max(100, Math.min(windowHeight - 400, e.nativeEvent.pageY - 20)),
-                });
-              },
-            }}
-          >
-            {/* Drag Handle */}
-            <View style={styles.drawingToolbarHandle}>
-              <GripVertical size={16} color="#64748b" />
-            </View>
-            
-            {/* Close Button */}
-            <Pressable style={styles.verticalDrawingCloseButton} onPress={() => setIsDrawingMode(false)}>
-              <X size={16} color="#fff" />
-            </Pressable>
-            
-            {/* Pen/Eraser Toggle */}
-            <View style={styles.verticalToolDivider} />
-            <Pressable
-              style={[styles.verticalDrawingToolButton, !isEraser && styles.verticalDrawingToolButtonActive]}
-              onPress={() => setIsEraser(false)}
-            >
-              <Pencil size={20} color={!isEraser ? "#fff" : "#94a3b8"} />
-            </Pressable>
-            <Pressable
-              style={[styles.verticalDrawingToolButton, isEraser && styles.verticalDrawingToolButtonActive]}
-              onPress={() => setIsEraser(true)}
-            >
-              <Eraser size={20} color={isEraser ? "#fff" : "#94a3b8"} />
-            </Pressable>
-            
-            {/* Brush Size */}
-            <View style={styles.verticalToolDivider} />
-            {[2, 4, 8, 12].map((size) => (
-              <Pressable
-                key={size}
-                style={[styles.verticalBrushButton, brushSize === size && styles.verticalBrushButtonActive]}
-                onPress={() => setBrushSize(size)}
-              >
-                <View style={[styles.verticalBrushDot, { width: size + 2, height: size + 2, borderRadius: (size + 2) / 2 }]} />
-              </Pressable>
-            ))}
-            
-            {/* Color Palette */}
-            <View style={styles.verticalToolDivider} />
-            {DRAWING_COLORS.map((color) => (
-              <Pressable
-                key={color}
-                style={[
-                  styles.verticalColorOption,
-                  { backgroundColor: color, borderColor: color === '#ffffff' ? '#64748b' : 'transparent' },
-                  drawingColor === color && styles.verticalColorOptionActive,
-                ]}
-                onPress={() => { setDrawingColor(color); setIsEraser(false); }}
-              />
-            ))}
-          </View>
-        )}
-            
         {/* ===== BOTTOM DOCK (Scrollable) ===== */}
         <BottomDock 
           isDarkMode={isDarkMode}
@@ -2162,6 +2185,12 @@ export default function App() {
           setTrashZoneLayout={setTrashZoneLayout}
           isOverTrash={isOverTrash}
           onGoToFolders={goToHome}
+          drawingColor={drawingColor}
+          setDrawingColor={setDrawingColor}
+          brushSize={brushSize}
+          setBrushSize={setBrushSize}
+          isEraser={isEraser}
+          setIsEraser={setIsEraser}
         />
 
         {/* Floating Trash Zone when dragging - ONLY in folder view, not home */}
@@ -2956,6 +2985,10 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     elevation: 1000,
   },
+  headerCompact: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
   headerLogo: {
     backgroundColor: 'transparent',
     alignItems: 'center',
@@ -2973,6 +3006,23 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
   },
+  headerIconBtnSmall: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(51, 65, 85, 0.5)',
+    borderRadius: 6,
+    width: 28,
+    height: 28,
+  },
+  headerBackBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(51, 65, 85, 0.5)',
+    borderRadius: 6,
+    width: 28,
+    height: 28,
+    marginRight: 8,
+  },
   headerIconButtonDisabled: {
     opacity: 0.4,
   },
@@ -2989,8 +3039,27 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     letterSpacing: 0.2,
   },
+  headerTitleCompact: {
+    color: '#f1f5f9',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+  },
   headerTitleLight: {
     color: '#1e293b',
+  },
+  headerNoteCountSmall: {
+    backgroundColor: 'rgba(51, 65, 85, 0.6)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  headerNoteCountTextSmall: {
+    color: '#94a3b8',
+    fontSize: 10,
+    fontWeight: '700',
   },
   
   // Folder Card styles for home view
@@ -3833,6 +3902,63 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.2,
+  },
+  
+  // Drawing toolbar styles (horizontal at bottom)
+  drawingToolbarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 12,
+  },
+  drawingToolBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(51, 65, 85, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  drawingToolBtnActive: {
+    backgroundColor: 'rgba(245, 158, 11, 0.25)',
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+  },
+  drawingSizeSlider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(51, 65, 85, 0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    minWidth: 70,
+  },
+  drawingSizeSliderActive: {
+    backgroundColor: 'rgba(139, 92, 246, 0.3)',
+    borderWidth: 1,
+    borderColor: '#8B5CF6',
+  },
+  drawingSizeDot: {
+    backgroundColor: '#f1f5f9',
+  },
+  drawingSizeText: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  drawingColorBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+  },
+  drawingColorBtnActive: {
+    borderWidth: 3,
+    borderColor: '#F59E0B',
+    transform: [{ scale: 1.15 }],
   },
   
   // Dragging styles - refined
