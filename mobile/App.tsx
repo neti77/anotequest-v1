@@ -483,6 +483,12 @@ const CanvasWithGestures: React.FC<any> = ({
   setViewingSticker,
   deleteSource,
   deleteImage,
+  setViewingTodo,
+  setEditingTodoTitle,
+  setEditingTodoItems,
+  setViewingTable,
+  setEditingTableTitle,
+  setEditingTableRows,
 }) => {
   // Shared values for canvas pan
   const translateX = useSharedValue(0);
@@ -1880,24 +1886,31 @@ export default function App() {
                 filteredStickers={filteredStickers}
                 tables={tables.filter(t => activeFolder === null || t.folderId === activeFolder)}
                 sources={sources.filter(s => activeFolder === null || s.folderId === activeFolder)}
-              images={images.filter(i => activeFolder === null || i.folderId === activeFolder)}
-              drawings={drawings}
-              currentPath={currentPath}
-              canvasSize={canvasSize}
-              updateItemPosition={updateItemPosition}
-              setDraggingItem={setDraggingItem}
-              isPositionOverTrash={isPositionOverTrash}
-              handleDragDelete={handleDragDelete}
-              setIsOverTrash={setIsOverTrash}
-              setViewingNote={setViewingNote}
-              updateTodo={updateTodo}
-              setViewingSticker={setViewingSticker}
-              deleteSource={deleteSource}
-              deleteImage={deleteImage}
-            />
+                images={images.filter(i => activeFolder === null || i.folderId === activeFolder)}
+                drawings={drawings}
+                currentPath={currentPath}
+                canvasSize={canvasSize}
+                updateItemPosition={updateItemPosition}
+                setDraggingItem={setDraggingItem}
+                isPositionOverTrash={isPositionOverTrash}
+                handleDragDelete={handleDragDelete}
+                setIsOverTrash={setIsOverTrash}
+                setViewingNote={setViewingNote}
+                updateTodo={updateTodo}
+                setViewingSticker={setViewingSticker}
+                deleteSource={deleteSource}
+                deleteImage={deleteImage}
+                setViewingTodo={setViewingTodo}
+                setEditingTodoTitle={setEditingTodoTitle}
+                setEditingTodoItems={setEditingTodoItems}
+                setViewingTable={setViewingTable}
+                setEditingTableTitle={setEditingTableTitle}
+                setEditingTableRows={setEditingTableRows}
+              />
+            )}
             
-            {/* Drawing Overlay - captures touch for smooth SVG drawing */}
-            {isDrawingMode && (
+            {/* Drawing Overlay - captures touch for smooth SVG drawing (only in folder view) */}
+            {currentView === 'folder' && isDrawingMode && (
               <View 
                 style={styles.drawingCanvasOverlay}
                 onStartShouldSetResponder={() => true}
@@ -1954,8 +1967,8 @@ export default function App() {
           </View>
         </View>
 
-        {/* Vertical Drawing Toolbar - Draggable like frontend */}
-        {isDrawingMode && (
+        {/* Vertical Drawing Toolbar - Draggable like frontend (only in folder view) */}
+        {currentView === 'folder' && isDrawingMode && (
           <View 
             style={[
               styles.verticalDrawingToolbar,
