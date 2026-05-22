@@ -30,7 +30,7 @@ const STICKER_COLORS = [
   { color: '#ef4444', name: 'Red' },
   { color: '#22c55e', name: 'Green' },
   { color: '#eab308', name: 'Yellow' },
-  { color: '#8b5cf6', name: 'Purple' },
+  { color: '#67636e', name: 'Purple' },
   { color: '#f97316', name: 'Orange' },
 ];
 

@@ -2652,9 +2652,9 @@ expo-image-loader@~6.0.0:
   resolved "https://registry.npmjs.org/expo-image-loader/-/expo-image-loader-6.0.0.tgz"
   integrity sha512-nKs/xnOGw6ACb4g26xceBD57FKLFkSwEUTDXEDF3Gtcu3MqF3ZIYd3YM+sSb1/z9AKV1dYT7rMSGVNgsveXLIQ==
 
-expo-image-picker@~17.0.10:
+expo-image-picker@^17.0.10:
   version "17.0.10"
-  resolved "https://registry.npmjs.org/expo-image-picker/-/expo-image-picker-17.0.10.tgz"
+  resolved "https://registry.yarnpkg.com/expo-image-picker/-/expo-image-picker-17.0.10.tgz#b4a714971378b2813e53d97d8ca81ab2c32cdf30"
   integrity sha512-a2xrowp2trmvXyUWgX3O6Q2rZaa2C59AqivKI7+bm+wLvMfTEbZgldLX4rEJJhM8xtmEDTNU+lzjtObwzBRGaw==
   dependencies:
     expo-image-loader "~6.0.0"
@@ -4323,10 +4323,10 @@ react-native-screens@~4.16.0:
     react-native-is-edge-to-edge "^1.2.1"
     warn-once "^0.1.0"
 
-react-native-svg@15.12.1:
-  version "15.12.1"
-  resolved "https://registry.npmjs.org/react-native-svg/-/react-native-svg-15.12.1.tgz"
-  integrity sha512-vCuZJDf8a5aNC2dlMovEv4Z0jjEUET53lm/iILFnFewa15b4atjVxU6Wirm6O9y6dEsdjDZVD7Q3QM4T1wlI8g==
+react-native-svg@^15.15.1:
+  version "15.15.4"
+  resolved "https://registry.yarnpkg.com/react-native-svg/-/react-native-svg-15.15.4.tgz#c029be85c20ead09c63dffa6b1ade06012f095ed"
+  integrity sha512-boT/vIRgj6zZKBpfTPJJiYWMbZE9duBMOwPK6kCSTgxsS947IFMOq9OgIFkpWZTB7t229H24pDRkh3W9ZK/J1A==
   dependencies:
     css-select "^5.1.0"
     css-tree "^1.1.3"

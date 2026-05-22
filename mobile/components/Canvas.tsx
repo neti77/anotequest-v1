@@ -661,7 +661,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                   width: sticker.size?.width || 200,
                   height: sticker.size?.height || 160,
                   borderWidth: 2,
-                  borderColor: '#8B5CF6',
+                  borderColor: '#d2f65c',
                   pointerEvents: 'none',
                   transform: [
                     { translateX: selectionX.value },

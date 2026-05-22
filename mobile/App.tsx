@@ -23,6 +23,9 @@ import { GestureHandlerRootView, Gesture, GestureDetector } from 'react-native-g
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CanvasInteractionProvider } from './contexts/CanvasInteractionContext';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { HomeScreen } from './screens/HomeScreen';
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path } from 'react-native-svg';
 import {
@@ -231,7 +234,7 @@ const DraggableItem: React.FC<{
           dragStyle,
           isDragging && {
             borderWidth: 2.5,
-            borderColor: '#a78bfa',
+            borderColor: '#fa9f8b',
             borderRadius: itemType === 'sticker' ? 4 : 16,
           },
         ]}
@@ -751,13 +754,19 @@ const CanvasWithGestures: React.FC<any> = ({
     </GestureDetector>
   );
 };
+const Stack = createNativeStackNavigator();
 
-export default function App() {
+function CanvasScreenWrapper({ route }: any) {
+  const folderId = route.params?.folderId ?? null;
+  return <CanvasScreen folderId={folderId} />;
+}
+
+function CanvasScreen({ folderId }: any) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const headerScale = Math.min(windowWidth / 390, 1.2); // Base on iPhone 12 Pro, max 1.2x
   const [notes, setNotes] = useState<Note[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [activeFolder, setActiveFolder] = useState<number | null>(null);
+  const [activeFolder, setActiveFolder] = useState<number | null>(folderId || null);
   const [stickers, setStickers] = useState<any[]>([]);
   const [noteStickers, setNoteStickers] = useState<any[]>([]);
   const [images, setImages] = useState<any[]>([]);
@@ -2636,10 +2645,10 @@ const styles = StyleSheet.create({
   // Sticky Note - using notesticker.png image
   stickyNoteContainer: {
     position: 'absolute',
-    width: 170,
-    height: 170,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 165,
+    height: 165,
+    //alignItems: 'center',
+    //justifyContent: 'center',
   },
   stickyNoteImage: {
     width: 170,
@@ -3899,3 +3908,40 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+export default function App() {
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  return (
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <NavigationContainer>
+          <Stack.Navigator
+            screenOptions={{
+              headerShown: false,
+              cardStyle: { backgroundColor: '#0c1222' },
+            }}
+          >
+            <Stack.Screen 
+              name="Home"
+              options={{ animationEnabled: false }}
+            >
+              {(props) => (
+                <HomeScreen 
+                  {...props}
+                  isDarkMode={isDarkMode}
+                  setIsDarkMode={setIsDarkMode}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen 
+              name="Canvas"
+              component={CanvasScreenWrapper}
+              options={{ animationEnabled: true }}
+            />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
+  );
+}
